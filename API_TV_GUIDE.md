@@ -123,17 +123,110 @@ Content-Type: application/json
 
 ---
 
-## 3️⃣ Fluxo de Funcionamento do App de TV
+## 3️⃣ Verificar Horário de Exibição
+
+### Endpoint: GET /api/tv/check-schedule/{identificador_unico}/
+
+**NOVO!** Verifica se o dispositivo deve estar exibindo conteúdo no momento atual baseado nos agendamentos configurados.
+
+**Request:**
+```http
+GET /api/tv/check-schedule/TV-ABC-123-XYZ/
+```
+
+**Response - Dentro do Horário (200):**
+```json
+{
+  "should_display": true,
+  "current_time": "2026-02-06T14:30:00-03:00",
+  "dispositivo_nome": "TV Shopping Center - Entrada Principal",
+  "has_playlist": true,
+  "playlist_id": 5,
+  "playlist_nome": "Playlist Manhã - Shopping",
+  "agendamentos": [
+    {
+      "nome": "Horário Comercial",
+      "dias_semana": [0, 1, 2, 3, 4],
+      "hora_inicio": "08:00",
+      "hora_fim": "18:00"
+    }
+  ]
+}
+```
+
+**Response - Fora do Horário (200):**
+```json
+{
+  "should_display": false,
+  "current_time": "2026-02-06T22:30:00-03:00",
+  "dispositivo_nome": "TV Shopping Center - Entrada Principal",
+  "has_playlist": true,
+  "agendamentos": [
+    {
+      "nome": "Horário Comercial",
+      "dias_semana": [0, 1, 2, 3, 4],
+      "hora_inicio": "08:00",
+      "hora_fim": "18:00"
+    }
+  ]
+}
+```
+
+**Response - Sem Agendamentos (200):**
+```json
+{
+  "should_display": true,
+  "current_time": "2026-02-06T14:30:00-03:00",
+  "dispositivo_nome": "TV Shopping Center",
+  "has_playlist": true,
+  "playlist_id": 5,
+  "playlist_nome": "Playlist Manhã - Shopping",
+  "agendamentos": [],
+  "message": "Sem agendamentos: exibição 24/7"
+}
+```
+
+**Response Error (404):**
+```json
+{
+  "error": "Dispositivo não encontrado ou inativo"
+}
+```
+
+**Campos:**
+- `should_display`: `true` se deve exibir conteúdo, `false` se deve mostrar tela preta
+- `current_time`: Data/hora atual do servidor (ISO 8601)
+- `dias_semana`: Array com dias (0=Segunda, 1=Terça, ..., 6=Domingo)
+- `hora_inicio` / `hora_fim`: Horários no formato HH:MM
+
+**Como usar:**
+1. Faça esta requisição a cada 1-5 minutos
+2. Se `should_display: false`, exiba tela preta
+3. Se `should_display: true`, exiba a playlist normalmente
+4. Sem agendamentos = sempre exibe (24/7)
+
+---
+
+## 4️⃣ Fluxo de Funcionamento do App de TV
 
 ### Inicialização
 1. App inicia na TV
 2. Faz POST em `/api/tv/auth/` com seu identificador único
 3. Recebe a playlist atual com lista de vídeos
 4. Baixa/cacheia os vídeos (opcional, recomendado)
+5. Verifica horário: GET `/api/tv/check-schedule/{uuid}/`
 
-### Loop de Reprodução
+### Loop de Reprodução (com Verificação de Horário)
 ```
-Para cada vídeo na playlist:
+A cada X minutos (ex: 1-5 minutos):
+  1. Verificar horário: GET /api/tv/check-schedule/{uuid}/
+  2. Se should_display = false:
+     - Exibir tela preta
+     - Pausar reprodução
+  3. Se should_display = true:
+     - Retomar/iniciar reprodução da playlist
+
+Para cada vídeo na playlist (quando should_display = true):
   1. Reproduzir vídeo
   2. Ao iniciar reprodução:
      - Armazenar data_hora_inicio
@@ -159,7 +252,7 @@ A cada X minutos (ex: 5 minutos):
 
 ---
 
-## 4️⃣ Exemplo de Implementação (Pseudocódigo)
+## 5️⃣ Exemplo de Implementação (Pseudocódigo)
 
 ```python
 import requests
@@ -203,6 +296,22 @@ class TVApp:
         
         requests.post(url, json=payload)
     
+    def check_schedule(self):
+        """Verifica se deve exibir conteúdo agora"""
+        url = f"{self.api_base_url}/api/tv/check-schedule/{self.device_uuid}/"
+        
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('should_display', True)
+        except Exception as e:
+            print(f"Erro ao verificar horário: {e}")
+            # Em caso de erro, continua exibindo
+            return True
+        
+        return True
+    
     def play_video(self, video):
         """Reproduz um vídeo e registra log"""
         start_time = datetime.now()
@@ -223,6 +332,8 @@ class TVApp:
     
     def run(self):
         """Loop principal do app"""
+        import time
+        
         # Autentica
         if not self.authenticate():
             print("Falha na autenticação")
@@ -232,9 +343,35 @@ class TVApp:
             print("Nenhuma playlist configurada")
             return
         
+        last_schedule_check = time.time()
+        is_displaying = True
+        
         # Loop infinito de reprodução
         while True:
+            # Verifica horário a cada 5 minutos
+            if time.time() - last_schedule_check > 300:  # 5 minutos
+                should_display = self.check_schedule()
+                last_schedule_check = time.time()
+                
+                if should_display != is_displaying:
+                    is_displaying = should_display
+                    if not is_displaying:
+                        print("Fora do horário de exibição - Tela preta")
+                        # Mostrar tela preta
+                        continue
+            
+            # Se não deve exibir, aguarda e verifica novamente
+            if not is_displaying:
+                time.sleep(60)  # Aguarda 1 minuto
+                continue
+            
+            # Exibe playlist normalmente
             for video in self.playlist['videos']:
+                # Verifica horário antes de cada vídeo
+                if not self.check_schedule():
+                    is_displaying = False
+                    break
+                    
                 self.play_video(video)
                 
             # Re-autentica a cada ciclo completo
