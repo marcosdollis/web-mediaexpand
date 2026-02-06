@@ -1,0 +1,302 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}{{ dispositivo.nome }} - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'dispositivo_list' %}">Dispositivos</a></li>
+                    <li class="breadcrumb-item active">{{ dispositivo.nome }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Device Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h1 class="h3 mb-2">
+                                <i class="fas fa-tv me-2 text-primary"></i>{{ dispositivo.nome }}
+                            </h1>
+                            <div class="d-flex gap-3 flex-wrap">
+                                <span class="badge bg-info">
+                                    <i class="fas fa-map-marker-alt me-1"></i>{{ dispositivo.localizacao }}
+                                </span>
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-building me-1"></i>{{ dispositivo.municipio.nome }}/{{ dispositivo.municipio.estado }}
+                                </span>
+                                {% if dispositivo.ativo %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle me-1"></i>Ativo
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-pause-circle me-1"></i>Inativo
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'dispositivo_update' dispositivo.pk %}" class="btn btn-warning">
+                                <i class="fas fa-edit me-1"></i>Editar
+                            </a>
+                            <a href="{% url 'dispositivo_delete' dispositivo.pk %}" class="btn btn-danger">
+                                <i class="fas fa-trash me-1"></i>Deletar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column -->
+        <div class="col-lg-8">
+            <!-- Current Playlist -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Playlist Atual</h5>
+                </div>
+                <div class="card-body">
+                    {% if dispositivo.playlist_atual %}
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-1">{{ dispositivo.playlist_atual.nome }}</h5>
+                            {% if dispositivo.playlist_atual.descricao %}
+                            <p class="text-muted mb-0">{{ dispositivo.playlist_atual.descricao }}</p>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'playlist_detail' dispositivo.playlist_atual.pk %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye me-1"></i>Ver Playlist
+                        </a>
+                    </div>
+                    
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border rounded p-3">
+                                <h4 class="mb-0">{{ dispositivo.playlist_atual.items.count }}</h4>
+                                <small class="text-muted">Vídeos</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-3">
+                                <h4 class="mb-0">{{ dispositivo.playlist_atual.duracao_total_segundos|floatformat:0 }}s</h4>
+                                <small class="text-muted">Duração Total</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-list fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Nenhuma playlist associada a este dispositivo.</p>
+                        <a href="{% url 'dispositivo_update' dispositivo.pk %}" class="btn btn-primary mt-2">
+                            <i class="fas fa-plus-circle me-1"></i>Associar Playlist
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Agendamentos de Exibição -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Agendamentos de Exibição</h5>
+                    <a href="{% url 'agendamento_create' dispositivo.pk %}" class="btn btn-sm btn-dark">
+                        <i class="fas fa-plus me-1"></i>Novo Agendamento
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if dispositivo.agendamentos.all %}
+                    <div class="list-group">
+                        {% for agendamento in dispositivo.agendamentos.all %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <h6 class="mb-0 me-2">{{ agendamento.nome }}</h6>
+                                        {% if agendamento.ativo %}
+                                        <span class="badge bg-success">Ativo</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inativo</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="small text-muted mb-1">
+                                        <i class="fas fa-calendar-week me-1"></i>
+                                        {{ agendamento.get_dias_display }}
+                                    </div>
+                                    <div class="small">
+                                        <i class="fas fa-clock me-1"></i>
+                                        {{ agendamento.hora_inicio|time:"H:i" }} até {{ agendamento.hora_fim|time:"H:i" }}
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <a href="{% url 'agendamento_update' dispositivo.pk agendamento.pk %}" class="btn btn-sm btn-outline-warning">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'agendamento_delete' dispositivo.pk agendamento.pk %}" class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <small>
+                            Fora dos horários agendados, a TV exibirá uma tela preta.
+                            {% if dispositivo.agendamentos.filter(ativo=True).count == 0 %}
+                            <strong>Sem agendamentos ativos: TV exibirá conteúdo 24/7.</strong>
+                            {% endif %}
+                        </small>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Nenhum agendamento configurado.</p>
+                        <p class="small text-muted mb-3">Sem agendamentos, a TV exibirá o conteúdo 24 horas por dia.</p>
+                        <a href="{% url 'agendamento_create' dispositivo.pk %}" class="btn btn-warning">
+                            <i class="fas fa-plus-circle me-1"></i>Criar Primeiro Agendamento
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card shadow">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Atividade Recente</h5>
+                </div>
+                <div class="card-body">
+                    {% if dispositivo.logs_exibicao.all %}
+                    <div class="list-group">
+                        {% for log in dispositivo.logs_exibicao.all|slice:":10" %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ log.video.titulo }}</h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock me-1"></i>{{ log.data_exibicao|date:"d/m/Y H:i" }}
+                                    </small>
+                                </div>
+                                <span class="badge bg-success">Exibido</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">Nenhuma atividade registrada ainda.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-4">
+            <!-- QR Code -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-qr-code me-2"></i>Código QR</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="p-3 bg-light rounded mb-3">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={{ request.scheme }}://{{ request.get_host }}/api/dispositivos/{{ dispositivo.identificador_unico }}/" 
+                             alt="QR Code do Dispositivo"
+                             class="img-fluid">
+                    </div>
+                    <p class="text-muted small mb-0">Escaneie para acessar o dispositivo</p>
+                </div>
+            </div>
+
+            <!-- Access Info -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-key me-2"></i>Informações de Acesso</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted mb-1">Código de Acesso</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control" value="{{ dispositivo.identificador_unico }}" readonly>
+                            <button type="button" class="btn btn-outline-secondary" onclick="copyToClipboard('{{ dispositivo.identificador_unico }}')">
+                                <i class="fas fa-clipboard"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-0">
+                        <label class="form-label small text-muted mb-1">URL de Acesso</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control" value="{{ request.scheme }}://{{ request.get_host }}/api/dispositivos/{{ dispositivo.identificador_unico }}/" readonly style="font-size: 0.7rem;">
+                            <button type="button" class="btn btn-outline-secondary" onclick="copyToClipboard('{{ request.scheme }}://{{ request.get_host }}/api/dispositivos/{{ dispositivo.identificador_unico }}/')">
+                                <i class="fas fa-clipboard"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Device Stats -->
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Estatísticas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3 pb-3 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Total de Exibições</span>
+                            <strong>{{ dispositivo.logs_exibicao.count }}</strong>
+                        </div>
+                    </div>
+                    <div class="mb-3 pb-3 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Última Atualização</span>
+                            <strong>{{ dispositivo.updated_at|date:"d/m/Y H:i" }}</strong>
+                        </div>
+                    </div>
+                    <div class="mb-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Cadastrado em</span>
+                            <strong>{{ dispositivo.created_at|date:"d/m/Y" }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() {
+            showToast('Copiado para a área de transferência!', 'success');
+        }).catch(function(err) {
+            console.error('Erro ao copiar:', err);
+        });
+    } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('Copiado para a área de transferência!', 'success');
+    }
+}
+</script>
+{% endblock %}

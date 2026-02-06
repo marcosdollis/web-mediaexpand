@@ -1,0 +1,107 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Deletar Município - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'municipio_list' %}">Municípios</a></li>
+                <li class="breadcrumb-item active">Deletar</li>
+            </ol>
+        </nav>
+        <h1 class="h3">
+            <i class="bi bi-trash me-2"></i>Deletar Município
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6 mx-auto">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Confirmação Necessária</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-octagon me-2"></i>
+                    <strong>Atenção!</strong> Esta ação não pode ser desfeita.
+                </div>
+                
+                <p class="mb-4">Tem certeza que deseja deletar o município abaixo?</p>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>Município:</strong><br>
+                                <span class="text-muted">{{ municipio.nome }}</span>
+                            </div>
+                            <div class="col-6">
+                                <strong>Estado:</strong><br>
+                                <span class="badge bg-primary">{{ municipio.estado }}</span>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-12">
+                                <strong>Franqueado:</strong><br>
+                                {% if municipio.franqueado %}
+                                <span class="text-muted">{{ municipio.franqueado.get_full_name|default:municipio.franqueado.username }}</span>
+                                {% else %}
+                                <span class="text-muted">Não atribuído</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-12">
+                                <strong>Data de Cadastro:</strong><br>
+                                <span class="text-muted">{{ municipio.created_at|date:"d/m/Y H:i" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if total_clientes > 0 or total_dispositivos > 0 %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Impacto da Exclusão:</strong>
+                    <ul class="mb-0 mt-2">
+                        {% if total_clientes > 0 %}
+                        <li><strong>{{ total_clientes }}</strong> cliente{{ total_clientes|pluralize }} será{{ total_clientes|pluralize:"á,ão" }} afetado{{ total_clientes|pluralize }}</li>
+                        {% endif %}
+                        {% if total_dispositivos > 0 %}
+                        <li><strong>{{ total_dispositivos }}</strong> dispositivo{{ total_dispositivos|pluralize }} será{{ total_dispositivos|pluralize:"á,ão" }} afetado{{ total_dispositivos|pluralize }}</li>
+                        {% endif %}
+                    </ul>
+                    <p class="mb-0 mt-2">
+                        <small>Os clientes e dispositivos terão o município removido mas não serão deletados.</small>
+                    </p>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Este município não possui clientes ou dispositivos vinculados. É seguro deletá-lo.
+                </div>
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'municipio_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i>Sim, Deletar Município
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

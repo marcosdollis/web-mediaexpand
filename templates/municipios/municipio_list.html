@@ -1,0 +1,175 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Municípios - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0"><i class="bi bi-geo-alt me-2"></i>Gerenciar Municípios</h1>
+                <p class="text-muted mb-0">
+                    {% if user.is_owner %}
+                    Lista de todos os municípios e seus franqueados
+                    {% else %}
+                    Meus municípios atribuídos
+                    {% endif %}
+                </p>
+            </div>
+            {% if user.is_owner %}
+            <div>
+                <a href="{% url 'municipio_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>Novo Município
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-6">
+                        <input type="text" name="search" class="form-control" 
+                               placeholder="Buscar por nome ou estado..." 
+                               value="{{ search }}">
+                    </div>
+                    {% if user.is_owner %}
+                    <div class="col-md-4">
+                        <select name="franqueado" class="form-select">
+                            <option value="">Todos os franqueados</option>
+                            <option value="null" {% if franqueado_filter == 'null' %}selected{% endif %}>Sem franqueado</option>
+                            {% for f in franqueados %}
+                            <option value="{{ f.id }}" {% if franqueado_filter == f.id|stringformat:"s" %}selected{% endif %}>
+                                {{ f.get_full_name|default:f.username }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search me-1"></i>Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estatísticas -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0">{{ municipios.count }}</h3>
+                <p class="text-muted mb-0">
+                    {% if user.is_owner %}Total de Municípios{% else %}Meus Municípios{% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% if user.is_owner %}
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0">{{ municipios|length|add:"-1" }}</h3>
+                <p class="text-muted mb-0">Municípios Atribuídos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0">{{ franqueados.count }}</h3>
+                <p class="text-muted mb-0">Franqueados Ativos</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Lista de Municípios -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                {% if municipios %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Município</th>
+                                <th>Estado</th>
+                                <th>Franqueado</th>
+                                <th class="text-center">Clientes</th>
+                                <th class="text-center">Dispositivos</th>
+                                <th>Data Cadastro</th>
+                                {% if user.is_owner %}
+                                <th class="text-end">Ações</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for municipio in municipios %}
+                            <tr>
+                                <td><strong>{{ municipio.nome }}</strong></td>
+                                <td><span class="badge bg-primary">{{ municipio.estado }}</span></td>
+                                <td>
+                                    {% if municipio.franqueado %}
+                                    <i class="bi bi-person-check text-success me-1"></i>
+                                    {{ municipio.franqueado.get_full_name|default:municipio.franqueado.username }}
+                                    {% else %}
+                                    <span class="text-muted">
+                                        <i class="bi bi-dash-circle me-1"></i>Não atribuído
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-info">{{ municipio.clientes.count }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-success">{{ municipio.dispositivos.count }}</span>
+                                </td>
+                                <td>{{ municipio.created_at|date:"d/m/Y" }}</td>
+                                {% if user.is_owner %}
+                                <td class="text-end">
+                                    <a href="{% url 'municipio_update' municipio.pk %}" 
+                                       class="btn btn-sm btn-outline-primary" 
+                                       title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'municipio_delete' municipio.pk %}" 
+                                       class="btn btn-sm btn-outline-danger" 
+                                       title="Deletar">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-geo-alt display-1 text-muted"></i>
+                    <p class="text-muted mt-3">Nenhum município encontrado</p>
+                    {% if user.is_owner %}
+                    <a href="{% url 'municipio_create' %}" class="btn btn-primary mt-2">
+                        <i class="bi bi-plus-circle me-1"></i>Criar Primeiro Município
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

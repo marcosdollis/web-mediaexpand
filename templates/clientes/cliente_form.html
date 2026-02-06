@@ -1,0 +1,344 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}{% if cliente %}Editar{% else %}Novo{% endif %} Cliente - MediaExpand{% endblock %}
+
+{% block extra_head %}
+<style>
+    .municipio-checkbox {
+        padding: 10px;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .municipio-checkbox:hover {
+        background-color: #f8f9fa;
+        border-color: #0d6efd;
+    }
+    .municipio-checkbox input[type="checkbox"]:checked ~ label {
+        font-weight: bold;
+        color: #0d6efd;
+    }
+    .municipio-group {
+        margin-bottom: 20px;
+    }
+    .municipio-group-header {
+        background-color: #e9ecef;
+        padding: 8px 12px;
+        border-radius: 5px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'cliente_list' %}">Clientes</a></li>
+                <li class="breadcrumb-item active">{% if cliente %}Editar{% else %}Novo{% endif %}</li>
+            </ol>
+        </nav>
+        <h1 class="h3">
+            <i class="bi bi-person-badge{% if not cliente %}-fill{% endif %} me-2"></i>
+            {% if cliente %}Editar Cliente: {{ cliente.empresa }}{% else %}Novo Cliente{% endif %}
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+                    
+                    <h5 class="mb-3">
+                        <i class="bi bi-building me-2"></i>Dados da Empresa
+                    </h5>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Nome da Empresa <span class="text-danger">*</span></label>
+                            <input type="text" name="empresa" class="form-control" required 
+                                   value="{{ cliente.empresa }}"
+                                   placeholder="Ex: Supermercado Silva, Restaurante Bom Sabor...">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Observações</label>
+                            <textarea name="observacoes" class="form-control" rows="3" 
+                                      placeholder="Informações adicionais sobre o cliente...">{{ cliente.observacoes }}</textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Contrato</label>
+                            {% if cliente.contrato %}
+                            <div class="alert alert-success d-flex align-items-center justify-content-between mb-2">
+                                <div>
+                                    <i class="bi bi-file-earmark-pdf me-2"></i>
+                                    <strong>Contrato atual:</strong> 
+                                    <a href="{{ cliente.contrato.url }}" target="_blank" class="alert-link">
+                                        {{ cliente.contrato.name|slice:"10:" }}
+                                    </a>
+                                    <small class="text-muted">({{ cliente.contrato.size|filesizeformat }})</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" name="remover_contrato" class="form-check-input" id="remover_contrato">
+                                    <label class="form-check-label" for="remover_contrato">Remover</label>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <input type="file" name="contrato" class="form-control" accept=".pdf,.doc,.docx">
+                            <small class="text-muted">
+                                Formatos aceitos: PDF, DOC, DOCX. 
+                                {% if not cliente %}Upload opcional.{% else %}Deixe em branco para manter o atual.{% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <h5 class="mb-3">
+                        <i class="bi bi-person me-2"></i>Dados de Acesso
+                    </h5>
+                    
+                    {% if cliente %}
+                    <!-- Modo Edição -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" value="{{ cliente.user.username }}" disabled>
+                            <small class="text-muted">O username não pode ser alterado</small>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- Modo Criação -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Username <span class="text-danger">*</span></label>
+                            <input type="text" name="username" class="form-control" required 
+                                   placeholder="Digite o username único para login">
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nome</label>
+                            <input type="text" name="first_name" class="form-control" 
+                                   value="{{ cliente.user.first_name }}" placeholder="Primeiro nome">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Sobrenome</label>
+                            <input type="text" name="last_name" class="form-control" 
+                                   value="{{ cliente.user.last_name }}" placeholder="Sobrenome">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-control" 
+                                   value="{{ cliente.user.email }}" placeholder="email@exemplo.com">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">
+                                {% if cliente %}Nova Senha (opcional){% else %}Senha{% endif %}
+                                {% if not cliente %}<span class="text-danger">*</span>{% endif %}
+                            </label>
+                            <input type="password" name="password" class="form-control" 
+                                   {% if not cliente %}required{% endif %}
+                                   placeholder="{% if cliente %}Deixe em branco para manter{% else %}Digite a senha{% endif %}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">
+                                Confirmar Senha
+                                {% if not cliente %}<span class="text-danger">*</span>{% endif %}
+                            </label>
+                            <input type="password" name="password_confirm" class="form-control" 
+                                   {% if not cliente %}required{% endif %}
+                                   placeholder="Digite novamente">
+                        </div>
+                    </div>
+                    
+                    {% if cliente %}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" name="is_active" class="form-check-input" 
+                                       id="is_active" {% if cliente.ativo %}checked{% endif %}>
+                                <label class="form-check-label" for="is_active">
+                                    Cliente ativo
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <hr class="my-4">
+                    
+                    <h5 class="mb-3">
+                        <i class="bi bi-geo-alt me-2"></i>Municípios de Atuação <span class="text-danger">*</span>
+                    </h5>
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Importante:</strong> Selecione os municípios onde este cliente poderá exibir seus vídeos.
+                    </div>
+                    
+                    {% if user.is_owner %}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Franqueado Responsável</label>
+                            <select name="franqueado" class="form-select" {% if not cliente %}required{% endif %}>
+                                {% if not cliente %}<option value="">Selecione o franqueado...</option>{% endif %}
+                                {% for f in franqueados %}
+                                <option value="{{ f.id }}" {% if cliente.franqueado_id == f.id %}selected{% endif %}>
+                                    {{ f.get_full_name|default:f.username }} (@{{ f.username }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            {% if municipios %}
+                            <div id="municipios-selection">
+                                {% regroup municipios by estado as municipios_by_estado %}
+                                {% for estado_group in municipios_by_estado %}
+                                <div class="municipio-group">
+                                    <div class="municipio-group-header">
+                                        <i class="bi bi-geo-alt-fill me-2"></i>{{ estado_group.grouper }}
+                                        <button type="button" class="btn btn-sm btn-outline-primary float-end select-all-estado" 
+                                                data-estado="{{ estado_group.grouper }}">
+                                            Selecionar Todos
+                                        </button>
+                                    </div>
+                                    <div class="row">
+                                        {% for municipio in estado_group.list %}
+                                        <div class="col-md-6">
+                                            <div class="municipio-checkbox">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           name="municipios" value="{{ municipio.id }}" 
+                                                           id="mun_{{ municipio.id }}"
+                                                           data-estado="{{ municipio.estado }}"
+                                                           {% if cliente and municipio in cliente.municipios.all %}checked{% endif %}>
+                                                    <label class="form-check-label w-100" for="mun_{{ municipio.id }}">
+                                                        {{ municipio.nome }}
+                                                        {% if municipio.franqueado %}
+                                                        <small class="text-muted">
+                                                            ({{ municipio.franqueado.get_full_name|default:municipio.franqueado.username }})
+                                                        </small>
+                                                        {% endif %}
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-sm btn-outline-success" id="select-all">
+                                    <i class="bi bi-check-all me-1"></i>Selecionar Todos
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="deselect-all">
+                                    <i class="bi bi-x-circle me-1"></i>Desmarcar Todos
+                                </button>
+                                <span class="ms-3 text-muted">
+                                    <strong id="selected-count">0</strong> município(s) selecionado(s)
+                                </span>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>Atenção:</strong> Não há municípios disponíveis.
+                                {% if user.is_owner %}
+                                <a href="{% url 'municipio_create' %}" class="alert-link">Criar um município agora</a>
+                                {% else %}
+                                Entre em contato com o administrador.
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'cliente_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary" {% if not municipios %}disabled{% endif %}>
+                            <i class="bi bi-check-circle me-1"></i>
+                            {% if cliente %}Atualizar{% else %}Criar{% endif %} Cliente
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Contar municípios selecionados
+    function updateCount() {
+        const count = document.querySelectorAll('input[name="municipios"]:checked').length;
+        document.getElementById('selected-count').textContent = count;
+    }
+    
+    // Selecionar todos
+    document.getElementById('select-all')?.addEventListener('click', function() {
+        document.querySelectorAll('input[name="municipios"]').forEach(cb => cb.checked = true);
+        updateCount();
+    });
+    
+    // Desmarcar todos
+    document.getElementById('deselect-all')?.addEventListener('click', function() {
+        document.querySelectorAll('input[name="municipios"]').forEach(cb => cb.checked = false);
+        updateCount();
+    });
+    
+    // Selecionar todos de um estado
+    document.querySelectorAll('.select-all-estado').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const estado = this.dataset.estado;
+            const allChecked = Array.from(document.querySelectorAll(`input[name="municipios"][data-estado="${estado}"]`))
+                .every(cb => cb.checked);
+            
+            document.querySelectorAll(`input[name="municipios"][data-estado="${estado}"]`).forEach(cb => {
+                cb.checked = !allChecked;
+            });
+            
+            this.textContent = allChecked ? 'Selecionar Todos' : 'Desmarcar Todos';
+            updateCount();
+        });
+    });
+    
+    // Atualizar contador ao clicar
+    document.querySelectorAll('input[name="municipios"]').forEach(cb => {
+        cb.addEventListener('change', updateCount);
+    });
+    
+    // Inicializar contador
+    updateCount();
+});
+</script>
+{% endblock %}

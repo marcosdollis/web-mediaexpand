@@ -1,0 +1,411 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Enviar Vídeo - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Page Header -->
+            <div class="text-center mb-4">
+                <h1 class="h3 mb-2">Enviar Novo Vídeo</h1>
+                <p class="text-muted">Envie seu vídeo para aprovação e exibição nas TVs</p>
+            </div>
+
+            <!-- Upload Form -->
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Video File -->
+                        <div class="mb-4">
+                            <label for="{{ form.video_file.id_for_label }}" class="form-label fw-bold">
+                                <i class="fas fa-video text-primary me-2"></i>Arquivo de Vídeo
+                            </label>
+                            <div class="upload-area" id="uploadArea">
+                                <div class="upload-content">
+                                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                    <h5 class="text-muted">Arraste seu vídeo aqui</h5>
+                                    <p class="text-muted small mb-3">ou clique para selecionar</p>
+                                    <div class="file-input-wrapper">
+                                        {{ form.video_file }}
+                                        <button type="button" class="btn btn-outline-primary">
+                                            <i class="fas fa-folder-open me-2"></i>Selecionar Arquivo
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="upload-progress d-none">
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <small class="text-muted">Enviando vídeo...</small>
+                                </div>
+                            </div>
+                            {% if form.video_file.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.video_file.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                <small class="text-muted">
+                                    Formatos aceitos: MP4, AVI, MOV, WMV. Tamanho máximo: 100MB
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Video Title -->
+                        <div class="mb-3">
+                            <label for="{{ form.titulo.id_for_label }}" class="form-label">
+                                <i class="fas fa-heading text-primary me-2"></i>Título do Vídeo
+                            </label>
+                            {{ form.titulo }}
+                            {% if form.titulo.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.titulo.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                <small class="text-muted">Dê um nome descritivo para seu vídeo</small>
+                            </div>
+                        </div>
+
+                        <!-- Video Description -->
+                        <div class="mb-3">
+                            <label for="{{ form.descricao.id_for_label }}" class="form-label">
+                                <i class="fas fa-align-left text-primary me-2"></i>Descrição
+                            </label>
+                            {{ form.descricao }}
+                            {% if form.descricao.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.descricao.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                <small class="text-muted">Descreva o conteúdo do vídeo (opcional)</small>
+                            </div>
+                        </div>
+
+                        <!-- Hidden Fields -->
+                        {{ form.cliente }}
+                        {{ form.status }}
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <a href="{% url 'video_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                <i class="fas fa-upload me-2"></i>Enviar Vídeo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Upload Guidelines -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Orientações para Upload</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-success"><i class="fas fa-check-circle me-2"></i>Recomendações</h6>
+                            <ul class="list-unstyled small">
+                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Formato MP4 para melhor compatibilidade</li>
+                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Resolução HD (1920x1080) ou Full HD (3840x2160)</li>
+                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Duração entre 10 segundos e 5 minutos</li>
+                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Conteúdo adequado e profissional</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-warning"><i class="fas fa-exclamation-triangle me-2"></i>Evite</h6>
+                            <ul class="list-unstyled small">
+                                <li class="mb-2"><i class="fas fa-times text-danger me-2"></i>Arquivos muito grandes (>100MB)</li>
+                                <li class="mb-2"><i class="fas fa-times text-danger me-2"></i>Conteúdo impróprio ou ofensivo</li>
+                                <li class="mb-2"><i class="fas fa-times text-danger me-2"></i>Vídeos com direitos autorais</li>
+                                <li class="mb-2"><i class="fas fa-times text-danger me-2"></i>Formato não suportado</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        padding: 3rem 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        background-color: #f8f9fa;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .upload-area:hover {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+
+    .upload-area.dragover {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.1);
+        transform: scale(1.02);
+    }
+
+    .file-input-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+
+    #id_video_file {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+
+    .upload-content {
+        transition: all 0.3s ease;
+    }
+
+    .upload-progress {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+    }
+
+    .form-control, .form-select {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+        transform: translateY(-1px);
+    }
+
+    .btn {
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #0d6efd, #6610f2);
+        border: none;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #0b5ed7, #5a0fc8);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(13, 110, 253, 0.4);
+    }
+
+    .invalid-feedback {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-bottom: none;
+        border-radius: 15px 15px 0 0 !important;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('id_video_file');
+    const uploadContent = uploadArea.querySelector('.upload-content');
+    const uploadProgress = uploadArea.querySelector('.upload-progress');
+    const progressBar = uploadProgress.querySelector('.progress-bar');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // Drag and drop functionality
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        uploadArea.classList.add('dragover');
+    }
+
+    function unhighlight(e) {
+        uploadArea.classList.remove('dragover');
+    }
+
+    uploadArea.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length > 0) {
+            fileInput.files = files;
+            updateFileDisplay(files[0]);
+        }
+    }
+
+    // File input change
+    fileInput.addEventListener('change', function(e) {
+        if (this.files.length > 0) {
+            updateFileDisplay(this.files[0]);
+        }
+    });
+
+    function updateFileDisplay(file) {
+        const fileName = file.name;
+        const fileSize = formatFileSize(file.size);
+
+        uploadContent.innerHTML = `
+            <i class="fas fa-file-video fa-3x text-success mb-3"></i>
+            <h5 class="text-success">${fileName}</h5>
+            <p class="text-muted">Tamanho: ${fileSize}</p>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearFile()">
+                <i class="fas fa-times me-1"></i>Remover
+            </button>
+        `;
+
+        // Validate file
+        validateVideoFile(file);
+    }
+
+    window.clearFile = function() {
+        fileInput.value = '';
+        uploadContent.innerHTML = `
+            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">Arraste seu vídeo aqui</h5>
+            <p class="text-muted small mb-3">ou clique para selecionar</p>
+            <div class="file-input-wrapper">
+                <input type="file" name="video_file" accept="video/*" id="id_video_file" required>
+                <button type="button" class="btn btn-outline-primary">
+                    <i class="fas fa-folder-open me-2"></i>Selecionar Arquivo
+                </button>
+            </div>
+        `;
+    };
+
+    function validateVideoFile(file) {
+        const maxSize = 100 * 1024 * 1024; // 100MB
+        const allowedTypes = ['video/mp4', 'video/avi', 'video/mov', 'video/wmv'];
+
+        let isValid = true;
+        let errorMessage = '';
+
+        if (file.size > maxSize) {
+            isValid = false;
+            errorMessage = 'Arquivo muito grande. Máximo: 100MB';
+        } else if (!allowedTypes.includes(file.type)) {
+            isValid = false;
+            errorMessage = 'Tipo de arquivo não suportado. Use MP4, AVI, MOV ou WMV';
+        }
+
+        if (!isValid) {
+            showAlert(errorMessage, 'danger');
+            clearFile();
+        }
+    }
+
+    // Form submission
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        if (!fileInput.files.length) {
+            e.preventDefault();
+            showAlert('Por favor, selecione um arquivo de vídeo', 'warning');
+            return;
+        }
+
+        // Show progress
+        uploadContent.classList.add('d-none');
+        uploadProgress.classList.remove('d-none');
+
+        // Disable submit button
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
+
+        // Simulate progress (in real implementation, this would be handled by the server)
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90;
+            progressBar.style.width = progress + '%';
+
+            if (progress >= 90) {
+                clearInterval(progressInterval);
+            }
+        }, 200);
+    });
+
+    // Form validation
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    });
+});
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function showAlert(message, type = 'info') {
+    const alertContainer = document.querySelector('.card-body') || document.body;
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show mt-3" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+}
+</script>
+{% endblock %}

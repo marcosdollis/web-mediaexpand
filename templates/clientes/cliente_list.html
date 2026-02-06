@@ -1,0 +1,201 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Clientes - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0"><i class="bi bi-person-badge me-2"></i>Gerenciar Clientes</h1>
+                <p class="text-muted mb-0">
+                    {% if user.is_owner %}
+                    Lista de todos os clientes anunciantes
+                    {% else %}
+                    Meus clientes cadastrados
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <a href="{% url 'cliente_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>Novo Cliente
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-4">
+                        <input type="text" name="search" class="form-control" 
+                               placeholder="Buscar por empresa, nome ou email..." 
+                               value="{{ search }}">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="municipio" class="form-select">
+                            <option value="">Todos os municípios</option>
+                            {% for m in municipios_filter %}
+                            <option value="{{ m.id }}" {% if municipio_filter == m.id|stringformat:"s" %}selected{% endif %}>
+                                {{ m.nome }}/{{ m.estado }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% if user.is_owner %}
+                    <div class="col-md-3">
+                        <select name="franqueado" class="form-select">
+                            <option value="">Todos os franqueados</option>
+                            {% for f in franqueados %}
+                            <option value="{{ f.id }}" {% if franqueado_filter == f.id|stringformat:"s" %}selected{% endif %}>
+                                {{ f.get_full_name|default:f.username }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search me-1"></i>Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estatísticas -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0">{{ clientes.count }}</h3>
+                <p class="text-muted mb-0">
+                    {% if user.is_owner %}Total de Clientes{% else %}Meus Clientes{% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0">{{ clientes|length }}</h3>
+                <p class="text-muted mb-0">Clientes Ativos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0">{{ municipios_filter.count }}</h3>
+                <p class="text-muted mb-0">Municípios Disponíveis</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lista de Clientes -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                {% if clientes %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Empresa</th>
+                                <th>Responsável</th>
+                                <th>Municípios</th>
+                                <th>Franqueado</th>
+                                <th class="text-center">Contrato</th>
+                                <th class="text-center">Vídeos</th>
+                                <th>Status</th>
+                                <th class="text-end">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cliente in clientes %}
+                            <tr>
+                                <td>
+                                    <strong>{{ cliente.empresa }}</strong><br>
+                                    <small class="text-muted">@{{ cliente.user.username }}</small>
+                                </td>
+                                <td>{% firstof cliente.user.get_full_name "-" %}</td>
+                                <td>
+                                    {% if cliente.municipios.count > 0 %}
+                                        {% for municipio in cliente.municipios.all|slice:":3" %}
+                                        <span class="badge bg-info me-1">{{ municipio.nome }}/{{ municipio.estado }}</span>
+                                        {% endfor %}
+                                        {% if cliente.municipios.count > 3 %}
+                                        <span class="badge bg-secondary">+{{ cliente.municipios.count|add:"-3" }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                    <span class="text-muted">Nenhum</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if cliente.franqueado %}
+                                    <i class="bi bi-person-check text-success me-1"></i>
+                                    {{ cliente.franqueado.get_full_name|default:cliente.franqueado.username }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if cliente.contrato %}
+                                    <a href="{{ cliente.contrato.url }}" target="_blank" 
+                                       class="btn btn-sm btn-outline-success" title="Ver contrato">
+                                        <i class="bi bi-file-earmark-pdf"></i>
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-primary">{{ cliente.videos.count }}</span>
+                                </td>
+                                <td>
+                                    {% if cliente.ativo %}
+                                    <span class="badge bg-success">Ativo</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'cliente_update' cliente.pk %}" 
+                                       class="btn btn-sm btn-outline-primary" 
+                                       title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'cliente_delete' cliente.pk %}" 
+                                       class="btn btn-sm btn-outline-danger" 
+                                       title="Deletar">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-person-badge display-1 text-muted"></i>
+                    <p class="text-muted mt-3">Nenhum cliente encontrado</p>
+                    <a href="{% url 'cliente_create' %}" class="btn btn-primary mt-2">
+                        <i class="bi bi-plus-circle me-1"></i>Criar Primeiro Cliente
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

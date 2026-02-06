@@ -1,0 +1,155 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}{% if municipio %}Editar{% else %}Novo{% endif %} Município - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'municipio_list' %}">Municípios</a></li>
+                <li class="breadcrumb-item active">{% if municipio %}Editar{% else %}Novo{% endif %}</li>
+            </ol>
+        </nav>
+        <h1 class="h3">
+            <i class="bi bi-geo-alt{% if not municipio %}-fill{% endif %} me-2"></i>
+            {% if municipio %}Editar Município: {{ municipio.nome }}/{{ municipio.estado }}{% else %}Novo Município{% endif %}
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Nome do Município <span class="text-danger">*</span></label>
+                            <input type="text" name="nome" class="form-control" required 
+                                   value="{{ municipio.nome }}"
+                                   placeholder="Ex: São Paulo, Rio de Janeiro, Belo Horizonte...">
+                            <small class="text-muted">Digite o nome completo do município</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Estado <span class="text-danger">*</span></label>
+                            <select name="estado" class="form-select" required>
+                                <option value="">Selecione...</option>
+                                {% for uf in ufs %}
+                                <option value="{{ uf }}" {% if municipio.estado == uf %}selected{% endif %}>
+                                    {{ uf }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <h5 class="mb-3">
+                        <i class="bi bi-person-badge me-2"></i>Atribuição de Franqueado
+                    </h5>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Franqueado Responsável <span class="text-danger">*</span></label>
+                            <select name="franqueado" class="form-select" required>
+                                <option value="">Selecione o franqueado...</option>
+                                {% for f in franqueados %}
+                                <option value="{{ f.id }}" {% if municipio.franqueado_id == f.id %}selected{% endif %}>
+                                    {{ f.get_full_name|default:f.username }} (@{{ f.username }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">
+                                O franqueado terá direito de explorar este município e cadastrar clientes/dispositivos
+                            </small>
+                        </div>
+                    </div>
+                    
+                    {% if not franqueados %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> Não há franqueados cadastrados no sistema. 
+                        <a href="{% url 'user_create' %}" class="alert-link">Criar um franqueado agora</a>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Importante:</strong> Todo município deve ser atribuído a um franqueado.
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'municipio_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i>
+                            {% if municipio %}Atualizar{% else %}Criar{% endif %} Município
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if municipio %}
+<!-- Informações Adicionais -->
+<div class="row mt-4">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Estatísticas do Município</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-4 mb-3">
+                        <div class="border rounded p-3">
+                            <h3 class="text-primary mb-0">{{ municipio.clientes.count }}</h3>
+                            <small class="text-muted">Clientes</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="border rounded p-3">
+                            <h3 class="text-success mb-0">{{ municipio.dispositivos.count }}</h3>
+                            <small class="text-muted">Dispositivos TV</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="border rounded p-3">
+                            <h3 class="text-info mb-0">{{ municipio.created_at|date:"d/m/Y" }}</h3>
+                            <small class="text-muted">Data Cadastro</small>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if municipio.franqueado %}
+                <hr>
+                <div class="row">
+                    <div class="col-12">
+                        <h6 class="mb-3">Franqueado Atual</h6>
+                        <div class="d-flex align-items-center">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" 
+                                 style="width: 48px; height: 48px;">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            <div>
+                                <strong>{{ municipio.franqueado.get_full_name|default:municipio.franqueado.username }}</strong><br>
+                                <small class="text-muted">@{{ municipio.franqueado.username }} • {{ municipio.franqueado.email }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

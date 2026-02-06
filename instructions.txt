@@ -1,0 +1,56 @@
+MEDIAEXPAND - SISTEMA DE GERENCIAMENTO DE MÍDIA INDOOR
+=======================================================
+
+✅ PROJETO COMPLETO E FUNCIONAL
+
+Estrutura do Projeto:
+- Django 4.2.9 + Django REST Framework
+- SQLite local / PostgreSQL no Railway
+- JWT Authentication + Session Auth
+- Sistema de permissões robusto
+- API completa para integração com TV App
+
+Hierarquia de Usuários:
+1. OWNER (Dono) - Acesso total
+2. FRANCHISEE (Franqueado) - Gerencia municípios e clientes
+3. CLIENT (Cliente) - Upload de vídeos
+
+Funcionalidades Implementadas:
+✓ Sistema de autenticação seguro
+✓ Gestão de franqueados e municípios
+✓ Gestão de clientes
+✓ Upload e aprovação de vídeos
+✓ Criação de playlists
+✓ Vinculação de vídeos às playlists
+✓ Gerenciamento de dispositivos TV
+✓ Logs de exibição
+✓ API REST completa
+✓ Admin Django customizado
+✓ Pronto para deploy no Railway
+
+INÍCIO RÁPIDO (Windows):
+1. Execute: setup.bat
+2. Siga as instruções para criar o usuário OWNER
+3. Execute: python manage.py runserver
+4. Acesse: http://127.0.0.1:8000/admin/
+
+INÍCIO RÁPIDO (Linux/Mac):
+1. Execute: chmod +x setup.sh && ./setup.sh
+2. Siga as instruções para criar o usuário OWNER
+3. Execute: python manage.py runserver
+4. Acesse: http://127.0.0.1:8000/admin/
+
+API Endpoints:
+- /api/token/ - Autenticação JWT
+- /api/users/ - Gerenciamento de usuários
+- /api/municipios/ - Municípios
+- /api/clientes/ - Clientes
+- /api/videos/ - Vídeos
+- /api/playlists/ - Playlists
+- /api/dispositivos/ - Dispositivos TV
+- /api/tv/auth/ - API para TV App
+- /api/dashboard/stats/ - Estatísticas
+
+Documentação Completa: README.md
+
+Website: mediaexpand.com.br

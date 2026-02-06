@@ -1,0 +1,422 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Playlists - MediaExpand{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Gerenciamento de Playlists</h1>
+                <p class="text-muted mb-0">Crie e organize playlists para exibição nas TVs</p>
+            </div>
+            <a href="{% url 'playlist_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Criar Playlist
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Playlists Grid -->
+<div class="row">
+    {% for playlist in playlists %}
+    <div class="col-xl-4 col-lg-6 mb-4">
+        <div class="card playlist-card h-100">
+            <div class="card-body d-flex flex-column">
+                <!-- Playlist Header -->
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title mb-1">{{ playlist.nome }}</h5>
+                        <p class="card-subtitle text-muted small mb-2">{{ playlist.descricao|truncatechars:80 }}</p>
+                    </div>
+                    {% if playlist.ativa %}
+                    <span class="badge bg-success">Ativa</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Inativa</span>
+                    {% endif %}
+                </div>
+
+                <!-- Playlist Stats -->
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="stat-number">{{ playlist.playlistitem_set.count }}</div>
+                        <small class="text-muted">Vídeos</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="stat-number">{{ playlist.duracao_total|default:"0:00" }}</div>
+                        <small class="text-muted">Duração</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="stat-number">{{ playlist.dispositivotv_set.count }}</div>
+                        <small class="text-muted">TVs</small>
+                    </div>
+                </div>
+
+                <!-- Associated TVs -->
+                {% if playlist.dispositivotv_set.all %}
+                <div class="mb-3">
+                    <small class="text-muted d-block mb-1">Associada às TVs:</small>
+                    <div class="tv-badges">
+                        {% for tv in playlist.dispositivotv_set.all|slice:":3" %}
+                        <span class="badge bg-info me-1 mb-1">{{ tv.nome }}</span>
+                        {% endfor %}
+                        {% if playlist.dispositivotv_set.count > 3 %}
+                        <span class="badge bg-light text-dark">+{{ playlist.dispositivotv_set.count|add:"-3" }} mais</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Playlist Items Preview -->
+                {% if playlist.playlistitem_set.all %}
+                <div class="playlist-preview mb-3">
+                    <small class="text-muted d-block mb-2">Vídeos na playlist:</small>
+                    <div class="playlist-items">
+                        {% for item in playlist.playlistitem_set.all|slice:":3" %}
+                        <div class="playlist-item-small">
+                            <i class="fas fa-play-circle text-primary me-2"></i>
+                            <span class="item-title">{{ item.video.titulo|truncatechars:25 }}</span>
+                            <small class="text-muted ms-auto">{{ item.ordem }}</small>
+                        </div>
+                        {% endfor %}
+                        {% if playlist.playlistitem_set.count > 3 %}
+                        <div class="playlist-item-small text-muted">
+                            <i class="fas fa-ellipsis-h me-2"></i>
+                            +{{ playlist.playlistitem_set.count|add:"-3" }} vídeos
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Action Buttons -->
+                <div class="mt-auto">
+                    <div class="d-flex gap-1">
+                        <a href="{% url 'playlist_detail' playlist.pk %}" class="btn btn-sm btn-outline-primary flex-fill">
+                            <i class="fas fa-eye me-1"></i>Ver
+                        </a>
+                        <a href="{% url 'playlist_update' playlist.pk %}" class="btn btn-sm btn-outline-warning flex-fill">
+                            <i class="fas fa-edit me-1"></i>Editar
+                        </a>
+                        <a href="{% url 'playlist_delete' playlist.pk %}" class="btn btn-sm btn-outline-danger flex-fill">
+                            <i class="fas fa-trash me-1"></i>Excluir
+                        </a>
+                    </div>
+
+                    <!-- Additional Actions -->
+                    <div class="d-flex gap-1 mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-info flex-fill"
+                                onclick="duplicatePlaylist({{ playlist.pk }})">
+                            <i class="fas fa-copy me-1"></i>Duplicar
+                        </button>
+                        {% if playlist.ativa %}
+                        <button type="button" class="btn btn-sm btn-outline-secondary flex-fill"
+                                onclick="togglePlaylistStatus({{ playlist.pk }}, false)">
+                            <i class="fas fa-pause me-1"></i>Desativar
+                        </button>
+                        {% else %}
+                        <button type="button" class="btn btn-sm btn-outline-success flex-fill"
+                                onclick="togglePlaylistStatus({{ playlist.pk }}, true)">
+                            <i class="fas fa-play me-1"></i>Ativar
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Footer with Creation Date -->
+            <div class="card-footer bg-light">
+                <small class="text-muted">
+                    <i class="fas fa-calendar me-1"></i>Criada em {{ playlist.created_at|date:"d/m/Y" }}
+                    {% if playlist.updated_at and playlist.updated_at != playlist.created_at %}
+                    <br><i class="fas fa-edit me-1"></i>Atualizada em {{ playlist.updated_at|date:"d/m/Y" }}
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-list fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhuma playlist encontrada</h5>
+                <p class="text-muted mb-4">
+                    Você ainda não criou nenhuma playlist. Clique em "Criar Playlist" para começar.
+                </p>
+                <a href="{% url 'playlist_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Criar Primeira Playlist
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if playlists.has_other_pages %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="Navegação de páginas">
+            <ul class="pagination justify-content-center">
+                {% if playlists.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ playlists.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-chevron-left"></i></span>
+                </li>
+                {% endif %}
+
+                {% for num in playlists.paginator.page_range %}
+                {% if playlists.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > playlists.number|add:'-3' and num < playlists.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                </li>
+                {% endif %}
+                {% endfor %}
+
+                {% if playlists.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ playlists.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-chevron-right"></i></span>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+{% endif %}
+
+<!-- Delete Playlist Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Excluir Playlist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir a playlist "<span id="deletePlaylistTitle"></span>"?</p>
+                <p class="text-danger small">Esta ação não pode ser desfeita e removerá todas as associações com TVs.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Excluir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Duplicate Playlist Modal -->
+<div class="modal fade" id="duplicateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Duplicar Playlist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="duplicateForm">
+                <div class="modal-body">
+                    <p>Digite o nome da nova playlist:</p>
+                    <div class="mb-3">
+                        <label for="newPlaylistName" class="form-label">Nome da Playlist</label>
+                        <input type="text" class="form-control" id="newPlaylistName" required>
+                    </div>
+                    <input type="hidden" id="originalPlaylistId">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Duplicar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .playlist-card {
+        transition: all 0.3s ease;
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .playlist-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0d6efd;
+        margin-bottom: 0.25rem;
+    }
+
+    .tv-badges {
+        max-height: 60px;
+        overflow-y: auto;
+    }
+
+    .playlist-preview {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 0.75rem;
+    }
+
+    .playlist-items {
+        max-height: 120px;
+        overflow-y: auto;
+    }
+
+    .playlist-item-small {
+        display: flex;
+        align-items: center;
+        padding: 0.25rem 0;
+        font-size: 0.875rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .playlist-item-small:last-child {
+        border-bottom: none;
+    }
+
+    .item-title {
+        flex-grow: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .card-footer {
+        border-top: 1px solid rgba(0,0,0,0.125);
+        border-radius: 0 0 15px 15px;
+    }
+
+    .btn-outline-primary:hover, .btn-outline-warning:hover, .btn-outline-danger:hover,
+    .btn-outline-info:hover, .btn-outline-secondary:hover, .btn-outline-success:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let deletePlaylistId = null;
+let duplicatePlaylistId = null;
+
+function deletePlaylist(playlistId, playlistTitle) {
+    document.getElementById('deletePlaylistTitle').textContent = playlistTitle;
+    deletePlaylistId = playlistId;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function duplicatePlaylist(playlistId) {
+    duplicatePlaylistId = playlistId;
+    document.getElementById('originalPlaylistId').value = playlistId;
+    document.getElementById('newPlaylistName').value = '';
+    new bootstrap.Modal(document.getElementById('duplicateModal')).show();
+}
+
+function togglePlaylistStatus(playlistId, activate) {
+    const action = activate ? 'ativar' : 'desativar';
+    const confirmMessage = `Tem certeza que deseja ${action} esta playlist?`;
+
+    if (confirm(confirmMessage)) {
+        fetch(`/api/playlists/${playlistId}/toggle-status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({ active: activate })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erro ao alterar status da playlist: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Erro ao alterar status da playlist');
+        });
+    }
+}
+
+// Handle delete confirmation
+document.getElementById('confirmDelete').addEventListener('click', function() {
+    if (!deletePlaylistId) return;
+
+    fetch(`/api/playlists/${deletePlaylistId}/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            location.reload();
+        } else {
+            alert('Erro ao excluir playlist');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Erro ao excluir playlist');
+    });
+});
+
+// Handle duplicate form submission
+document.getElementById('duplicateForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const newName = document.getElementById('newPlaylistName').value.trim();
+
+    if (!newName) {
+        alert('Por favor, digite um nome para a nova playlist');
+        return;
+    }
+
+    fetch(`/api/playlists/${duplicatePlaylistId}/duplicate/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({ name: newName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erro ao duplicar playlist: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Erro ao duplicar playlist');
+    });
+});
+</script>
+{% endblock %}

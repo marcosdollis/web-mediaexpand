@@ -1,0 +1,494 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}{% if playlist %}Editar{% else %}Criar{% endif %} Playlist - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Page Header -->
+            <div class="text-center mb-4">
+                <h1 class="h3 mb-2">{% if playlist %}Editar Playlist: {{ playlist.nome }}{% else %}Criar Nova Playlist{% endif %}</h1>
+                <p class="text-muted">Organize vídeos em sequências para exibição nas TVs</p>
+            </div>
+
+            <!-- Create Form -->
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+
+                        <div class="row">
+                            <!-- Basic Information -->
+                            <div class="col-lg-6">
+                                <h5 class="mb-3"><i class="fas fa-info-circle text-primary me-2"></i>Informações Básicas</h5>
+
+                                <!-- Playlist Name -->
+                                <div class="mb-3">
+                                    <label for="{{ form.nome.id_for_label }}" class="form-label">
+                                        <i class="fas fa-heading text-primary me-2"></i>Nome da Playlist
+                                    </label>
+                                    {{ form.nome }}
+                                    {% if form.nome.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.nome.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Description -->
+                                <div class="mb-3">
+                                    <label for="{{ form.descricao.id_for_label }}" class="form-label">
+                                        <i class="fas fa-align-left text-primary me-2"></i>Descrição
+                                    </label>
+                                    {{ form.descricao }}
+                                    {% if form.descricao.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.descricao.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Município -->
+                                <div class="mb-3">
+                                    <label for="{{ form.municipio.id_for_label }}" class="form-label">
+                                        <i class="fas fa-map-marker-alt text-primary me-2"></i>Município <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.municipio }}
+                                    {% if form.municipio.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.municipio.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Selecione o município onde esta playlist será exibida
+                                    </small>
+                                </div>
+
+                                <!-- Active Status -->
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        {{ form.ativa }}
+                                        <label class="form-check-label" for="{{ form.ativa.id_for_label }}">
+                                            <i class="fas fa-toggle-on text-success me-2"></i>Playlist Ativa
+                                        </label>
+                                        {% if form.ativa.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.ativa.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="form-text">
+                                        <small class="text-muted">Playlists ativas podem ser associadas às TVs</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Video Selection -->
+                            <div class="col-lg-6">
+                                <h5 class="mb-3"><i class="fas fa-video text-primary me-2"></i>Selecionar Vídeos</h5>
+
+                                <!-- Video Search -->
+                                <div class="mb-3">
+                                    <label for="videoSearch" class="form-label">Buscar Vídeos</label>
+                                    <input type="text" class="form-control" id="videoSearch"
+                                           placeholder="Digite para buscar vídeos...">
+                                </div>
+
+                                <!-- Available Videos -->
+                                <div class="mb-3">
+                                    <label class="form-label">Vídeos Disponíveis</label>
+                                    <div class="video-list border rounded p-3" style="height: 300px; overflow-y: auto;">
+                                        {% for video in available_videos %}
+                                        <div class="video-item d-flex align-items-center p-2 border-bottom"
+                                             data-video-id="{{ video.id }}"
+                                             data-video-title="{{ video.titulo }}">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-bold small">{{ video.titulo }}</div>
+                                                <small class="text-muted">{{ video.cliente.nome }} • {{ video.duracao|time:"i:s" }}</small>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-success add-video-btn">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Selected Videos -->
+                        <div class="mt-4">
+                            <h5 class="mb-3"><i class="fas fa-list text-primary me-2"></i>Vídeos Selecionados</h5>
+                            <div id="selectedVideos" class="playlist-items">
+                                <!-- Videos will be added here dynamically -->
+                                <div class="text-center text-muted py-4">
+                                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                                    <p>Nenhum vídeo selecionado</p>
+                                    <small>Você pode criar uma playlist vazia e adicionar vídeos depois, ou adicionar agora clicando em "Adicionar"</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden Fields for Selected Videos (dynamically added by JS) -->
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <a href="{% if playlist %}{% url 'playlist_detail' playlist.pk %}{% else %}{% url 'playlist_list' %}{% endif %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                <i class="fas fa-save me-2"></i>{% if playlist %}Atualizar{% else %}Criar{% endif %} Playlist
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .video-item {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .video-item:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+        border-radius: 8px;
+    }
+
+    .video-item.selected {
+        background-color: rgba(25, 135, 84, 0.1);
+        border: 1px solid #198754;
+        border-radius: 8px;
+    }
+
+    .playlist-items {
+        min-height: 200px;
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        padding: 1rem;
+        background-color: #f8f9fa;
+    }
+
+    .playlist-item {
+        background-color: white;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        transition: all 0.3s ease;
+        cursor: move;
+    }
+
+    .playlist-item:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        transform: translateY(-1px);
+    }
+
+    .playlist-item.dragging {
+        opacity: 0.5;
+        transform: rotate(5deg);
+    }
+
+    .item-order {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background-color: #0d6efd;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 1rem;
+        flex-shrink: 0;
+    }
+
+    .item-content {
+        flex-grow: 1;
+    }
+
+    .item-title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .item-meta {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+
+    .item-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .form-control, .form-select {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+        transform: translateY(-1px);
+    }
+
+    .btn {
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #0d6efd, #6610f2);
+        border: none;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #0b5ed7, #5a0fc8);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(13, 110, 253, 0.4);
+    }
+
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+    }
+
+    .invalid-feedback {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let selectedVideos = [];
+    const selectedVideosContainer = document.getElementById('selectedVideos');
+    const videoSearchInput = document.getElementById('videoSearch');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // Pre-populate selected videos if editing
+    {% if current_items %}
+    {% for item in current_items %}
+    selectedVideos.push({
+        id: {{ item.video.id }},
+        title: "{{ item.video.titulo|escapejs }}",
+        order: {{ item.ordem }}
+    });
+    {% endfor %}
+    updateSelectedVideosDisplay();
+    updateSelectedVideosInput();
+    {% endif %}
+
+    // Video search functionality
+    videoSearchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const videoItems = document.querySelectorAll('.video-item');
+
+        videoItems.forEach(item => {
+            const title = item.dataset.videoTitle.toLowerCase();
+            if (title.includes(searchTerm)) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+
+    // Add video to playlist
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('add-video-btn') || e.target.closest('.add-video-btn')) {
+            const videoItem = e.target.closest('.video-item');
+            const videoId = parseInt(videoItem.dataset.videoId);
+            const videoTitle = videoItem.dataset.videoTitle;
+
+            // Check if video is already selected
+            if (selectedVideos.some(v => v.id === videoId)) {
+                showAlert('Este vídeo já foi adicionado à playlist', 'warning');
+                return;
+            }
+
+            // Add to selected videos
+            selectedVideos.push({
+                id: videoId,
+                title: videoTitle,
+                order: selectedVideos.length + 1
+            });
+
+            updateSelectedVideosDisplay();
+            updateSelectedVideosInput();
+        }
+    });
+
+    // Remove video from playlist
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-video-btn') || e.target.closest('.remove-video-btn')) {
+            const playlistItem = e.target.closest('.playlist-item');
+            const videoId = parseInt(playlistItem.dataset.videoId);
+
+            selectedVideos = selectedVideos.filter(v => v.id !== videoId);
+            updateSelectedVideosDisplay();
+            updateSelectedVideosInput();
+        }
+    });
+
+    // Drag and drop for reordering
+    let draggedElement = null;
+
+    document.addEventListener('dragstart', function(e) {
+        if (e.target.classList.contains('playlist-item')) {
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+        }
+    });
+
+    document.addEventListener('dragend', function(e) {
+        if (draggedElement) {
+            draggedElement.classList.remove('dragging');
+            draggedElement = null;
+        }
+    });
+
+    document.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        if (e.target.classList.contains('playlist-item') && e.target !== draggedElement) {
+            const rect = e.target.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+
+            if (e.clientY < midpoint) {
+                e.target.parentNode.insertBefore(draggedElement, e.target);
+            } else {
+                e.target.parentNode.insertBefore(draggedElement, e.target.nextSibling);
+            }
+        }
+    });
+
+    document.addEventListener('drop', function(e) {
+        e.preventDefault();
+        updateVideoOrder();
+    });
+
+    function updateVideoOrder() {
+        const playlistItems = document.querySelectorAll('.playlist-item');
+        playlistItems.forEach((item, index) => {
+            const videoId = parseInt(item.dataset.videoId);
+            const video = selectedVideos.find(v => v.id === videoId);
+            if (video) {
+                video.order = index + 1;
+                item.querySelector('.item-order').textContent = video.order;
+            }
+        });
+        updateSelectedVideosInput();
+    }
+
+    function updateSelectedVideosDisplay() {
+        if (selectedVideos.length === 0) {
+            selectedVideosContainer.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                    <p>Nenhum vídeo selecionado</p>
+                    <small>Você pode criar uma playlist vazia e adicionar vídeos depois, ou adicionar agora clicando em "Adicionar"</small>
+                </div>
+            `;
+            return;
+        }
+
+        selectedVideos.sort((a, b) => a.order - b.order);
+
+        const html = selectedVideos.map(video => `
+            <div class="playlist-item" data-video-id="${video.id}" draggable="true">
+                <div class="item-order">${video.order}</div>
+                <div class="item-content">
+                    <div class="item-title">${video.title}</div>
+                    <div class="item-meta">
+                        <i class="fas fa-grip-vertical me-2"></i>Arraste para reordenar
+                    </div>
+                </div>
+                <div class="item-actions">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-video-btn">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        selectedVideosContainer.innerHTML = html;
+    }
+
+    function updateSelectedVideosInput() {
+        // Remove all existing hidden inputs for selected videos
+        document.querySelectorAll('input[name="selected_videos"]').forEach(input => {
+            input.remove();
+        });
+
+        // Add a hidden input for each selected video (only if there are videos)
+        if (selectedVideos.length > 0) {
+            const form = document.querySelector('form');
+            selectedVideos.forEach(video => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'selected_videos';
+                input.value = video.id;
+                form.appendChild(input);
+            });
+        }
+    }
+
+    function showAlert(message, type = 'info') {
+        const alertContainer = document.querySelector('.card-body') || document.body;
+        const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show mt-3" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+
+        setTimeout(() => {
+            const alert = alertContainer.querySelector('.alert');
+            if (alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
+        }, 3000);
+    }
+
+    // Form validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        form.classList.add('was-validated');
+
+        // Show loading state
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Criando...';
+    });
+});
+</script>
+{% endblock %}

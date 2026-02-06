@@ -1,0 +1,194 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}{% if edit_user %}Editar{% else %}Novo{% endif %} Usuário - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'user_list' %}">Usuários</a></li>
+                <li class="breadcrumb-item active">{% if edit_user %}Editar{% else %}Novo{% endif %}</li>
+            </ol>
+        </nav>
+        <h1 class="h3">
+            <i class="bi bi-person{% if not edit_user %}-plus{% endif %} me-2"></i>
+            {% if edit_user %}Editar Usuário: {{ edit_user.username }}{% else %}Novo Usuário{% endif %}
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    {% if edit_user %}
+                    <!-- Modo Edição -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" value="{{ edit_user.username }}" disabled>
+                            <small class="text-muted">O username não pode ser alterado</small>
+                        </div>
+                    </div>
+                    
+                    {% else %}
+                    <!-- Modo Criação -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Username <span class="text-danger">*</span></label>
+                            <input type="text" name="username" class="form-control" required 
+                                   placeholder="Digite o username único">
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nome</label>
+                            <input type="text" name="first_name" class="form-control" 
+                                   value="{{ edit_user.first_name }}" placeholder="Primeiro nome">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Sobrenome</label>
+                            <input type="text" name="last_name" class="form-control" 
+                                   value="{{ edit_user.last_name }}" placeholder="Sobrenome">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-control" 
+                                   value="{{ edit_user.email }}" placeholder="email@exemplo.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Perfil <span class="text-danger">*</span></label>
+                            <select name="role" class="form-select" required>
+                                <option value="">Selecione o perfil...</option>
+                                {% for role_code, role_name in roles %}
+                                <option value="{{ role_code }}" 
+                                        {% if edit_user.role == role_code %}selected{% endif %}>
+                                    {{ role_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    {% if edit_user %}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" name="is_active" class="form-check-input" 
+                                       id="is_active" {% if edit_user.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="is_active">
+                                    Conta ativa
+                                </label>
+                            </div>
+                            <small class="text-muted">Desmarque para desativar o acesso do usuário</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <hr class="my-4">
+                    
+                    <h5 class="mb-3">
+                        {% if edit_user %}
+                        <i class="bi bi-key me-2"></i>Alterar Senha (opcional)
+                        {% else %}
+                        <i class="bi bi-key me-2"></i>Senha <span class="text-danger">*</span>
+                        {% endif %}
+                    </h5>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">
+                                {% if edit_user %}Nova Senha{% else %}Senha{% endif %}
+                                {% if not edit_user %}<span class="text-danger">*</span>{% endif %}
+                            </label>
+                            <input type="password" name="password" class="form-control" 
+                                   {% if not edit_user %}required{% endif %}
+                                   placeholder="{% if edit_user %}Deixe em branco para manter a senha atual{% else %}Digite a senha{% endif %}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">
+                                Confirmar Senha
+                                {% if not edit_user %}<span class="text-danger">*</span>{% endif %}
+                            </label>
+                            <input type="password" name="password_confirm" class="form-control" 
+                                   {% if not edit_user %}required{% endif %}
+                                   placeholder="Digite novamente a senha">
+                        </div>
+                    </div>
+                    
+                    {% if edit_user %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Dica:</strong> Deixe os campos de senha em branco se não quiser alterar a senha atual.
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'user_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i>
+                            {% if edit_user %}Atualizar{% else %}Criar{% endif %} Usuário
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if edit_user %}
+<!-- Informações Adicionais -->
+<div class="row mt-4">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Informações do Sistema</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <strong>Data de Cadastro:</strong><br>
+                        <span class="text-muted">{{ edit_user.created_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Última Atualização:</strong><br>
+                        <span class="text-muted">{{ edit_user.updated_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Último Login:</strong><br>
+                        <span class="text-muted">
+                            {% if edit_user.last_login %}
+                            {{ edit_user.last_login|date:"d/m/Y H:i" }}
+                            {% else %}
+                            Nunca
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Status da Conta:</strong><br>
+                        {% if edit_user.is_active %}
+                        <span class="badge bg-success">Ativa</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inativa</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

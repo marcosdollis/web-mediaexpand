@@ -1,0 +1,697 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Dashboard - MediaExpand{% endblock %}
+
+{% block content %}
+<!-- Welcome Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Bem-vindo, {% firstof user.get_full_name user.username %}!</h1>
+                <p class="text-muted mb-0">Visão geral do seu sistema de mídia indoor</p>
+            </div>
+            <div class="text-end">
+                <small class="text-muted d-block">{{ now|date:"l, d \d\e F \d\e Y" }}</small>
+                <small class="text-muted">{{ now|time:"H:i" }}</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    {% if user.role == 'OWNER' %}
+    <!-- Owner Statistics -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="dashboard-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ total_franchisees|default:0 }}</h5>
+                        <p class="card-subtitle">Franqueados</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-users fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="dashboard-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ total_municipios|default:0 }}</h5>
+                        <p class="card-subtitle">Municípios</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-map-marker-alt fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="dashboard-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ total_clients|default:0 }}</h5>
+                        <p class="card-subtitle">Clientes</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-building fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="dashboard-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ total_devices|default:0 }}</h5>
+                        <p class="card-subtitle">Dispositivos TV</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-tv fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% elif user.role == 'FRANCHISEE' %}
+    <!-- Franchisee Statistics -->
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="dashboard-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ total_municipios|default:0 }}</h5>
+                        <p class="card-subtitle">Meus Municípios</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-map-marker-alt fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="dashboard-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ total_clients|default:0 }}</h5>
+                        <p class="card-subtitle">Meus Clientes</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-building fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="dashboard-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ total_devices|default:0 }}</h5>
+                        <p class="card-subtitle">Dispositivos Ativos</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-tv fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Client Statistics -->
+    <div class="col-xl-6 col-md-6 mb-4">
+        <div class="dashboard-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ total_videos|default:0 }}</h5>
+                        <p class="card-subtitle">Meus Vídeos</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-video fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-6 col-md-6 mb-4">
+        <div class="dashboard-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">{{ approved_videos|default:0 }}</h5>
+                        <p class="card-subtitle">Vídeos Aprovados</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Ações Rápidas</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    {% if user.role == 'OWNER' %}
+                    <div class="col-md-3 col-sm-6">
+                        <a href="{% url 'user_create' %}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-user-plus fa-2x mb-2"></i>
+                            <span>Novo Usuário</span>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <a href="{% url 'municipio_create' %}" class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-map-marker-alt fa-2x mb-2"></i>
+                            <span>Novo Município</span>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <a href="{% url 'cliente_list' %}" class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-building fa-2x mb-2"></i>
+                            <span>Gerenciar Clientes</span>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <a href="{% url 'video_list' %}" class="btn btn-outline-warning w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-video fa-2x mb-2"></i>
+                            <span>Gerenciar Vídeos</span>
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    {% if user.role == 'FRANCHISEE' %}
+                    <div class="col-md-4 col-sm-6">
+                        <a href="{% url 'cliente_create' %}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-building fa-2x mb-2"></i>
+                            <span>Novo Cliente</span>
+                        </a>
+                    </div>
+                    <div class="col-md-4 col-sm-6">
+                        <a href="{% url 'dispositivo_create' %}" class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-tv fa-2x mb-2"></i>
+                            <span>Novo Dispositivo</span>
+                        </a>
+                    </div>
+                    <div class="col-md-4 col-sm-6">
+                        <a href="{% url 'video_list' %}" class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-video fa-2x mb-2"></i>
+                            <span>Gerenciar Vídeos</span>
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    {% if user.role == 'CLIENT' %}
+                    <div class="col-md-6 col-sm-6">
+                        <a href="{% url 'video_create' %}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-video fa-2x mb-2"></i>
+                            <span>Enviar Vídeo</span>
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <div class="col-md-3 col-sm-6">
+                        <a href="{% url 'playlist_list' %}" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <span>Ver Playlists</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Franchisee Overview (Owner Only) -->
+{% if user.role == 'OWNER' and franqueados_data %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-sitemap me-2"></i>Visão Geral dos Franqueados</h5>
+                <span class="badge bg-light text-primary">{{ franqueados_data|length }} franqueado(s)</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="accordion" id="franchiseesAccordion">
+                    {% for item in franqueados_data %}
+                    <div class="accordion-item border-0">
+                        <h2 class="accordion-header" id="heading{{ item.franqueado.id }}">
+                            <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#collapse{{ item.franqueado.id }}" 
+                                    aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" 
+                                    aria-controls="collapse{{ item.franqueado.id }}">
+                                <div class="d-flex w-100 align-items-center justify-content-between me-3">
+                                    <div>
+                                        <i class="fas fa-user-tie me-2 text-primary"></i>
+                                        <strong>{{ item.franqueado.get_full_name|default:item.franqueado.username }}</strong>
+                                        <small class="text-muted ms-2">({{ item.franqueado.email }})</small>
+                                    </div>
+                                    <div class="d-flex gap-3">
+                                        <span class="badge bg-info" title="Municípios">
+                                            <i class="fas fa-map-marker-alt me-1"></i>{{ item.stats.total_municipios }}
+                                        </span>
+                                        <span class="badge bg-success" title="Clientes">
+                                            <i class="fas fa-building me-1"></i>{{ item.stats.total_clientes }}
+                                        </span>
+                                        <span class="badge bg-warning text-dark" title="Playlists">
+                                            <i class="fas fa-list me-1"></i>{{ item.stats.total_playlists }}
+                                        </span>
+                                        <span class="badge bg-secondary" title="Dispositivos">
+                                            <i class="fas fa-tv me-1"></i>{{ item.stats.total_dispositivos }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="collapse{{ item.franqueado.id }}" 
+                             class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" 
+                             aria-labelledby="heading{{ item.franqueado.id }}" 
+                             data-bs-parent="#franchiseesAccordion">
+                            <div class="accordion-body bg-light">
+                                <div class="row">
+                                    <!-- Municípios -->
+                                    <div class="col-lg-4 mb-3">
+                                        <div class="card h-100 shadow-sm">
+                                            <div class="card-header bg-info text-white">
+                                                <h6 class="mb-0">
+                                                    <i class="fas fa-map-marker-alt me-2"></i>Municípios 
+                                                    <span class="badge bg-light text-info">{{ item.municipios.count }}</span>
+                                                </h6>
+                                            </div>
+                                            <div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">
+                                                {% if item.municipios %}
+                                                <div class="list-group list-group-flush">
+                                                    {% for municipio in item.municipios %}
+                                                    <a href="{% url 'municipio_update' municipio.pk %}" 
+                                                       class="list-group-item list-group-item-action py-2 border-0">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <span>
+                                                                <i class="fas fa-city text-info me-2"></i>
+                                                                {{ municipio.nome }}/{{ municipio.estado }}
+                                                            </span>
+                                                            <span class="badge bg-info">
+                                                                {{ municipio.dispositivos.count }} TV(s)
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                    {% endfor %}
+                                                </div>
+                                                {% else %}
+                                                <p class="text-muted text-center py-3 mb-0">
+                                                    <i class="fas fa-inbox"></i> Nenhum município
+                                                </p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Clientes -->
+                                    <div class="col-lg-4 mb-3">
+                                        <div class="card h-100 shadow-sm">
+                                            <div class="card-header bg-success text-white">
+                                                <h6 class="mb-0">
+                                                    <i class="fas fa-building me-2"></i>Clientes 
+                                                    <span class="badge bg-light text-success">{{ item.clientes.count }}</span>
+                                                </h6>
+                                            </div>
+                                            <div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">
+                                                {% if item.clientes %}
+                                                <div class="list-group list-group-flush">
+                                                    {% for cliente in item.clientes %}
+                                                    <a href="{% url 'cliente_update' cliente.pk %}" 
+                                                       class="list-group-item list-group-item-action py-2 border-0">
+                                                        <div class="d-flex flex-column">
+                                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                                <strong class="text-success">
+                                                                    <i class="fas fa-store text-success me-1"></i>
+                                                                    {{ cliente.empresa }}
+                                                                </strong>
+                                                                <span class="badge bg-success">
+                                                                    {{ cliente.municipios.count }} local(is)
+                                                                </span>
+                                                            </div>
+                                                            <small class="text-muted">
+                                                                <i class="fas fa-user me-1"></i>
+                                                                {{ cliente.user.get_full_name|default:cliente.user.username }}
+                                                            </small>
+                                                        </div>
+                                                    </a>
+                                                    {% endfor %}
+                                                </div>
+                                                {% else %}
+                                                <p class="text-muted text-center py-3 mb-0">
+                                                    <i class="fas fa-inbox"></i> Nenhum cliente
+                                                </p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Playlists -->
+                                    <div class="col-lg-4 mb-3">
+                                        <div class="card h-100 shadow-sm">
+                                            <div class="card-header bg-warning">
+                                                <h6 class="mb-0">
+                                                    <i class="fas fa-list me-2"></i>Playlists 
+                                                    <span class="badge bg-light text-warning">{{ item.playlists.count }}</span>
+                                                </h6>
+                                            </div>
+                                            <div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">
+                                                {% if item.playlists %}
+                                                <div class="list-group list-group-flush">
+                                                    {% for playlist in item.playlists %}
+                                                    <a href="{% url 'playlist_detail' playlist.pk %}" 
+                                                       class="list-group-item list-group-item-action py-2 border-0">
+                                                        <div class="d-flex flex-column">
+                                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                                <strong class="text-warning">
+                                                                    <i class="fas fa-play-circle text-warning me-1"></i>
+                                                                    {{ playlist.nome }}
+                                                                </strong>
+                                                                {% if playlist.ativa %}
+                                                                <span class="badge bg-success">Ativa</span>
+                                                                {% else %}
+                                                                <span class="badge bg-secondary">Inativa</span>
+                                                                {% endif %}
+                                                            </div>
+                                                            <small class="text-muted">
+                                                                <i class="fas fa-map-marker-alt me-1"></i>
+                                                                {{ playlist.municipio.nome }}/{{ playlist.municipio.estado }}
+                                                                <span class="mx-1">•</span>
+                                                                <i class="fas fa-video me-1"></i>
+                                                                {{ playlist.items.count }} vídeo(s)
+                                                            </small>
+                                                        </div>
+                                                    </a>
+                                                    {% endfor %}
+                                                </div>
+                                                {% else %}
+                                                <p class="text-muted text-center py-3 mb-0">
+                                                    <i class="fas fa-inbox"></i> Nenhuma playlist
+                                                </p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Quick Links -->
+                                <div class="border-top pt-3 mt-2">
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <a href="{% url 'user_update' item.franqueado.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-edit me-1"></i>Editar Franqueado
+                                        </a>
+                                        <a href="{% url 'municipio_create' %}?franqueado={{ item.franqueado.id }}" class="btn btn-sm btn-outline-info">
+                                            <i class="fas fa-plus me-1"></i>Novo Município
+                                        </a>
+                                        <a href="{% url 'cliente_create' %}?franqueado={{ item.franqueado.id }}" class="btn btn-sm btn-outline-success">
+                                            <i class="fas fa-plus me-1"></i>Novo Cliente
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Atividade Recente</h5>
+                <a href="#" class="btn btn-sm btn-outline-primary">Ver Tudo</a>
+            </div>
+            <div class="card-body">
+                {% if recent_activities %}
+                <div class="timeline">
+                    {% for activity in recent_activities %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-primary"></div>
+                        <div class="timeline-content">
+                            <p class="mb-1">{{ activity.description }}</p>
+                            <small class="text-muted">{{ activity.timestamp|timesince }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">Nenhuma atividade recente</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Status dos Vídeos</h5>
+            </div>
+            <div class="card-body">
+                {% if video_stats %}
+                <canvas id="videoStatusChart" width="100" height="100"></canvas>
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-success">Aprovados</span>
+                        <span class="fw-bold">{{ video_stats.approved|default:0 }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-warning">Pendentes</span>
+                        <span class="fw-bold">{{ video_stats.pending|default:0 }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge bg-danger">Rejeitados</span>
+                        <span class="fw-bold">{{ video_stats.rejected|default:0 }}</span>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">Nenhum vídeo encontrado</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        transition: all 0.3s ease;
+    }
+
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -22px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid white;
+    }
+
+    .timeline-content {
+        background: #f8f9fa;
+        padding: 10px 15px;
+        border-radius: 8px;
+        border-left: 3px solid #0d6efd;
+    }
+
+    .btn-outline-primary:hover, .btn-outline-success:hover, .btn-outline-info:hover, .btn-outline-secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    /* Franchisee Accordion Styles */
+    .accordion-button {
+        background-color: #f8f9fa;
+        font-weight: 500;
+    }
+
+    .accordion-button:not(.collapsed) {
+        background-color: #e7f1ff;
+        color: #0d6efd;
+        box-shadow: none;
+    }
+
+    .accordion-button:focus {
+        box-shadow: none;
+        border-color: rgba(0,0,0,.125);
+    }
+
+    .list-group-item-action:hover {
+        background-color: #f8f9fa;
+        transform: translateX(5px);
+        transition: all 0.2s ease;
+    }
+
+    /* Scrollbar Styling */
+    .card-body::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .card-body::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .card-body::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+    }
+
+    .card-body::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    /* Badge Hover Effects */
+    .badge {
+        transition: all 0.2s ease;
+    }
+
+    .accordion-button .badge:hover {
+        transform: scale(1.1);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize video status chart
+    const ctx = document.getElementById('videoStatusChart');
+    if (ctx) {
+        const videoStats = {{ video_stats|safe }};
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Aprovados', 'Pendentes', 'Rejeitados'],
+                datasets: [{
+                    data: [
+                        videoStats.approved || 0,
+                        videoStats.pending || 0,
+                        videoStats.rejected || 0
+                    ],
+                    backgroundColor: [
+                        '#198754',
+                        '#ffc107',
+                        '#dc3545'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+
+    // Animate counters
+    document.querySelectorAll('.dashboard-card .card-title').forEach(counter => {
+        const target = parseInt(counter.textContent.replace(/\D/g, ''));
+        if (target > 0) {
+            animateCounter(counter, target);
+        }
+    });
+
+    // Add smooth scroll to accordion items
+    document.querySelectorAll('.accordion-button').forEach(button => {
+        button.addEventListener('click', function() {
+            setTimeout(() => {
+                const target = document.querySelector(this.getAttribute('data-bs-target'));
+                if (target && this.getAttribute('aria-expanded') === 'true') {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }, 350);
+        });
+    });
+});
+
+function animateCounter(element, target) {
+    let current = 0;
+    const increment = target / 50;
+    const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+            current = target;
+            clearInterval(timer);
+        }
+        element.textContent = Math.floor(current).toLocaleString();
+    }, 30);
+}
+</script>
+{% endblock %}

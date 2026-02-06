@@ -1,0 +1,96 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Deletar Usuário - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'user_list' %}">Usuários</a></li>
+                <li class="breadcrumb-item active">Deletar</li>
+            </ol>
+        </nav>
+        <h1 class="h3">
+            <i class="bi bi-trash me-2"></i>Deletar Usuário
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6 mx-auto">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Confirmação Necessária</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-octagon me-2"></i>
+                    <strong>Atenção!</strong> Esta ação não pode ser desfeita.
+                </div>
+                
+                <p class="mb-4">Tem certeza que deseja deletar o usuário abaixo?</p>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>Username:</strong><br>
+                                <span class="text-muted">{{ delete_user.username }}</span>
+                            </div>
+                            <div class="col-6">
+                                <strong>Nome:</strong><br>
+                                <span class="text-muted">{% firstof delete_user.get_full_name "-" %}</span>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>Email:</strong><br>
+                                <span class="text-muted">{{ delete_user.email|default:"-" }}</span>
+                            </div>
+                            <div class="col-6">
+                                <strong>Perfil:</strong><br>
+                                {% if delete_user.role == 'OWNER' %}
+                                <span class="badge bg-danger">{{ delete_user.get_role_display }}</span>
+                                {% elif delete_user.role == 'FRANCHISEE' %}
+                                <span class="badge bg-primary">{{ delete_user.get_role_display }}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ delete_user.get_role_display }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-12">
+                                <strong>Data de Cadastro:</strong><br>
+                                <span class="text-muted">{{ delete_user.created_at|date:"d/m/Y H:i" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Importante:</strong> Todos os dados relacionados a este usuário serão afetados. 
+                    Considere desativar a conta ao invés de deletá-la.
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'user_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i>Sim, Deletar Usuário
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

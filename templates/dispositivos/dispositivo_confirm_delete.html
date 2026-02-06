@@ -1,0 +1,83 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Deletar Dispositivo - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow mt-5">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-tv fa-4x text-danger mb-3"></i>
+                        <h4>Deletar Dispositivo TV</h4>
+                        <p class="text-muted">Esta ação não pode ser desfeita.</p>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Você está prestes a deletar:</strong>
+                    </div>
+
+                    <div class="border rounded p-3 mb-4 bg-light">
+                        <div class="mb-2">
+                            <strong>Nome:</strong> {{ dispositivo.nome }}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Localização:</strong> {{ dispositivo.localizacao }}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Município:</strong> {{ dispositivo.municipio.nome }}/{{ dispositivo.municipio.estado }}
+                        </div>
+                        {% if dispositivo.playlist_atual %}
+                        <div class="mb-2">
+                            <strong>Playlist Atual:</strong> {{ dispositivo.playlist_atual.nome }}
+                        </div>
+                        {% endif %}
+                        <div class="mb-2">
+                            <strong>Código de Acesso:</strong> {{ dispositivo.identificador_unico }}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Status:</strong> 
+                            {% if dispositivo.ativo %}
+                            <span class="badge bg-success">Ativo</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inativo</span>
+                            {% endif %}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Exibições Registradas:</strong> {{ dispositivo.logs_exibicao.count }}
+                        </div>
+                    </div>
+
+                    {% if dispositivo.logs_exibicao.count > 0 %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>Atenção!</strong> Este dispositivo possui {{ dispositivo.logs_exibicao.count }} registro(s) de exibição. 
+                        Ao deletá-lo, todo o histórico será perdido.
+                    </div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between gap-3">
+                            <a href="{% url 'dispositivo_detail' dispositivo.pk %}" class="btn btn-secondary flex-fill">
+                                <i class="fas fa-arrow-left me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-danger flex-fill">
+                                <i class="fas fa-trash me-1"></i>Sim, Deletar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

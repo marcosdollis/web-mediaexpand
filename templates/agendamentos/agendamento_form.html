@@ -1,0 +1,173 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'dispositivo_list' %}">Dispositivos</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'dispositivo_detail' dispositivo.pk %}">{{ dispositivo.nome }}</a></li>
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>{{ title }}
+                    </h4>
+                    <small class="text-muted">Dispositivo: {{ dispositivo.nome }}</small>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Nome do Agendamento -->
+                        <div class="mb-3">
+                            <label for="{{ form.nome.id_for_label }}" class="form-label">Nome do Agendamento*</label>
+                            {{ form.nome }}
+                            {% if form.nome.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.nome.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Ex: "Horário Comercial", "Final de Semana", etc.</div>
+                        </div>
+
+                        <!-- Dias da Semana -->
+                        <div class="mb-4">
+                            <label class="form-label">Dias da Semana*</label>
+                            <div class="row">
+                                <div class="col-md-6 col-lg-4 mb-2">
+                                    <div class="form-check">
+                                        {{ form.segunda }}
+                                        <label class="form-check-label" for="{{ form.segunda.id_for_label }}">
+                                            Segunda-feira
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 col-lg-4 mb-2">
+                                    <div class="form-check">
+                                        {{ form.terca }}
+                                        <label class="form-check-label" for="{{ form.terca.id_for_label }}">
+                                            Terça-feira
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 col-lg-4 mb-2">
+                                    <div class="form-check">
+                                        {{ form.quarta }}
+                                        <label class="form-check-label" for="{{ form.quarta.id_for_label }}">
+                                            Quarta-feira
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 col-lg-4 mb-2">
+                                    <div class="form-check">
+                                        {{ form.quinta }}
+                                        <label class="form-check-label" for="{{ form.quinta.id_for_label }}">
+                                            Quinta-feira
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 col-lg-4 mb-2">
+                                    <div class="form-check">
+                                        {{ form.sexta }}
+                                        <label class="form-check-label" for="{{ form.sexta.id_for_label }}">
+                                            Sexta-feira
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 col-lg-4 mb-2">
+                                    <div class="form-check">
+                                        {{ form.sabado }}
+                                        <label class="form-check-label" for="{{ form.sabado.id_for_label }}">
+                                            Sábado
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 col-lg-4 mb-2">
+                                    <div class="form-check">
+                                        {{ form.domingo }}
+                                        <label class="form-check-label" for="{{ form.domingo.id_for_label }}">
+                                            Domingo
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-text">Selecione os dias em que este agendamento estará ativo</div>
+                        </div>
+
+                        <!-- Horários -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.hora_inicio.id_for_label }}" class="form-label">Hora de Início*</label>
+                                {{ form.hora_inicio }}
+                                {% if form.hora_inicio.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.hora_inicio.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.hora_fim.id_for_label }}" class="form-label">Hora de Término*</label>
+                                {{ form.hora_fim }}
+                                {% if form.hora_fim.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.hora_fim.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Ativo -->
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                {{ form.ativo }}
+                                <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                                    Agendamento Ativo
+                                </label>
+                            </div>
+                            <div class="form-text">Desative temporariamente sem deletar o agendamento</div>
+                        </div>
+
+                        <!-- Non-field errors -->
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <!-- Info Alert -->
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Importante:</strong> Fora dos horários agendados, a TV exibirá uma tela preta (como se estivesse desligada).
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{% url 'dispositivo_detail' dispositivo.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-save me-1"></i>{{ button_text }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Deletar Playlist - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow mt-5">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-list fa-4x text-danger mb-3"></i>
+                        <h4>Deletar Playlist</h4>
+                        <p class="text-muted">Esta ação não pode ser desfeita.</p>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Você está prestes a deletar:</strong>
+                    </div>
+
+                    <div class="border rounded p-3 mb-4 bg-light">
+                        <div class="mb-2">
+                            <strong>Nome:</strong> {{ playlist.nome }}
+                        </div>
+                        {% if playlist.descricao %}
+                        <div class="mb-2">
+                            <strong>Descrição:</strong> {{ playlist.descricao }}
+                        </div>
+                        {% endif %}
+                        <div class="mb-2">
+                            <strong>Município:</strong> {{ playlist.municipio.nome }}/{{ playlist.municipio.estado }}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Vídeos:</strong> {{ playlist.items.count }} vídeo(s)
+                        </div>
+                        {% if playlist.dispositivos.count > 0 %}
+                        <div class="mb-2">
+                            <strong>Dispositivos:</strong> {{ playlist.dispositivos.count }} dispositivo(s) usando
+                        </div>
+                        {% endif %}
+                        <div class="mb-2">
+                            <strong>Status:</strong> 
+                            {% if playlist.ativa %}
+                            <span class="badge bg-success">Ativa</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inativa</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if playlist.dispositivos.count > 0 %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>Atenção!</strong> Esta playlist está sendo usada por {{ playlist.dispositivos.count }} dispositivo(s). 
+                        Ao deletá-la, esses dispositivos ficarão sem playlist associada.
+                    </div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between gap-3">
+                            <a href="{% url 'playlist_detail' playlist.pk %}" class="btn btn-secondary flex-fill">
+                                <i class="fas fa-arrow-left me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-danger flex-fill">
+                                <i class="fas fa-trash me-1"></i>Sim, Deletar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

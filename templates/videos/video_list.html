@@ -1,0 +1,416 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Vídeos - MediaExpand{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Gerenciamento de Vídeos</h1>
+                <p class="text-muted mb-0">Envie, gerencie e aprove seus vídeos</p>
+            </div>
+            {% if user.role == 'CLIENT' %}
+            <a href="{% url 'video_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Enviar Novo Vídeo
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Filters and Search -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="search" class="form-label">Buscar</label>
+                        <input type="text" class="form-control" id="search" name="search"
+                               value="{{ request.GET.search }}" placeholder="Título, descrição...">
+                    </div>
+                    {% if user.role != 'CLIENT' %}
+                    <div class="col-md-3">
+                        <label for="cliente" class="form-label">Cliente</label>
+                        <select class="form-select" id="cliente" name="cliente">
+                            <option value="">Todos os clientes</option>
+                            {% for cliente in clientes %}
+                            <option value="{{ cliente.id }}" {% if request.GET.cliente == cliente.id|stringformat:"s" %}selected{% endif %}>
+                                {{ cliente.nome }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="col-md-2">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">Todos</option>
+                            <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pendente</option>
+                            <option value="approved" {% if request.GET.status == 'approved' %}selected{% endif %}>Aprovado</option>
+                            <option value="rejected" {% if request.GET.status == 'rejected' %}selected{% endif %}>Rejeitado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'video_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Videos Grid -->
+<div class="row">
+    {% for video in videos %}
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="card video-card h-100">
+            <!-- Video Thumbnail -->
+            <div class="position-relative">
+                {% if video.thumbnail %}
+                <img src="{{ video.thumbnail.url }}" class="card-img-top video-thumbnail" alt="{{ video.titulo }}">
+                {% else %}
+                <div class="video-thumbnail bg-secondary d-flex align-items-center justify-content-center">
+                    <i class="fas fa-video fa-3x text-white"></i>
+                </div>
+                {% endif %}
+
+                <!-- Status Badge -->
+                <div class="position-absolute top-0 end-0 m-2">
+                    {% if video.status == 'approved' %}
+                        <span class="badge bg-success status-badge">Aprovado</span>
+                    {% elif video.status == 'pending' %}
+                        <span class="badge bg-warning status-badge">Pendente</span>
+                    {% else %}
+                        <span class="badge bg-danger status-badge">Rejeitado</span>
+                    {% endif %}
+                </div>
+
+                <!-- Duration -->
+                {% if video.duracao %}
+                <div class="position-absolute bottom-0 end-0 m-2">
+                    <span class="badge bg-dark">{{ video.duracao|time:"i:s" }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="card-body d-flex flex-column">
+                <h6 class="card-title mb-2">{{ video.titulo }}</h6>
+                <p class="card-text text-muted small mb-2">{{ video.descricao|truncatechars:100 }}</p>
+
+                <div class="mt-auto">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small class="text-muted">
+                            <i class="fas fa-user me-1"></i>{{ video.cliente.nome }}
+                        </small>
+                        <small class="text-muted">
+                            <i class="fas fa-calendar me-1"></i>{{ video.created_at|date:"d/m/Y" }}
+                        </small>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <small class="text-muted">
+                            <i class="fas fa-file-video me-1"></i>{{ video.file_size|filesizeformat }}
+                        </small>
+                        <small class="text-muted">
+                            <i class="fas fa-eye me-1"></i>{{ video.visualizacoes }}
+                        </small>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-1">
+                        {% if user.role != 'CLIENT' or video.cliente.user == user %}
+                        <a href="{% url 'video_detail' video.pk %}" class="btn btn-sm btn-outline-primary flex-fill">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {% endif %}
+
+                        {% if user.role != 'CLIENT' %}
+                        {% if video.status == 'pending' %}
+                        <button type="button" class="btn btn-sm btn-success flex-fill"
+                                onclick="approveVideo({{ video.pk }})">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger flex-fill"
+                                onclick="rejectVideo({{ video.pk }})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        {% endif %}
+                        {% endif %}
+
+                        {% if user.role == 'CLIENT' and video.cliente.user == user %}
+                        <a href="{% url 'video_update' video.pk %}" class="btn btn-sm btn-outline-warning flex-fill">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger flex-fill"
+                                onclick="deleteVideo({{ video.pk }}, '{{ video.titulo }}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-video fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhum vídeo encontrado</h5>
+                <p class="text-muted mb-4">
+                    {% if user.role == 'CLIENT' %}
+                    Você ainda não enviou nenhum vídeo. Clique em "Enviar Novo Vídeo" para começar.
+                    {% else %}
+                    Nenhum vídeo foi enviado ainda.
+                    {% endif %}
+                </p>
+                {% if user.role == 'CLIENT' %}
+                <a href="{% url 'video_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Enviar Primeiro Vídeo
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if videos.has_other_pages %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="Navegação de páginas">
+            <ul class="pagination justify-content-center">
+                {% if videos.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ videos.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-chevron-left"></i></span>
+                </li>
+                {% endif %}
+
+                {% for num in videos.paginator.page_range %}
+                {% if videos.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > videos.number|add:'-3' and num < videos.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                </li>
+                {% endif %}
+                {% endfor %}
+
+                {% if videos.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ videos.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-chevron-right"></i></span>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+{% endif %}
+
+<!-- Video Approval Modal -->
+<div class="modal fade" id="approvalModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Aprovar Vídeo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="approvalForm">
+                <div class="modal-body">
+                    <p>Tem certeza que deseja aprovar o vídeo "<span id="videoTitle"></span>"?</p>
+                    <input type="hidden" id="videoId" name="video_id">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Aprovar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Video Rejection Modal -->
+<div class="modal fade" id="rejectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Rejeitar Vídeo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="rejectionForm">
+                <div class="modal-body">
+                    <p>Tem certeza que deseja rejeitar o vídeo "<span id="rejectVideoTitle"></span>"?</p>
+                    <div class="mb-3">
+                        <label for="rejectionReason" class="form-label">Motivo da rejeição (opcional)</label>
+                        <textarea class="form-control" id="rejectionReason" name="reason" rows="3"
+                                  placeholder="Explique o motivo da rejeição..."></textarea>
+                    </div>
+                    <input type="hidden" id="rejectVideoId" name="video_id">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Rejeitar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Video Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Excluir Vídeo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir o vídeo "<span id="deleteVideoTitle"></span>"?</p>
+                <p class="text-danger small">Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Excluir</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let deleteVideoId = null;
+
+function approveVideo(videoId) {
+    // Get video title
+    fetch(`/api/videos/${videoId}/`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('videoTitle').textContent = data.titulo;
+            document.getElementById('videoId').value = videoId;
+            new bootstrap.Modal(document.getElementById('approvalModal')).show();
+        });
+}
+
+function rejectVideo(videoId) {
+    // Get video title
+    fetch(`/api/videos/${videoId}/`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('rejectVideoTitle').textContent = data.titulo;
+            document.getElementById('rejectVideoId').value = videoId;
+            new bootstrap.Modal(document.getElementById('rejectionModal')).show();
+        });
+}
+
+function deleteVideo(videoId, videoTitle) {
+    document.getElementById('deleteVideoTitle').textContent = videoTitle;
+    deleteVideoId = videoId;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+// Handle approval form submission
+document.getElementById('approvalForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const videoId = document.getElementById('videoId').value;
+
+    fetch(`/api/videos/${videoId}/approve/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erro ao aprovar vídeo: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Erro ao aprovar vídeo');
+    });
+});
+
+// Handle rejection form submission
+document.getElementById('rejectionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const videoId = document.getElementById('rejectVideoId').value;
+    const reason = document.getElementById('rejectionReason').value;
+
+    fetch(`/api/videos/${videoId}/reject/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({ reason: reason })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erro ao rejeitar vídeo: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Erro ao rejeitar vídeo');
+    });
+});
+
+// Handle delete confirmation
+document.getElementById('confirmDelete').addEventListener('click', function() {
+    if (!deleteVideoId) return;
+
+    fetch(`/api/videos/${deleteVideoId}/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            location.reload();
+        } else {
+            alert('Erro ao excluir vídeo');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Erro ao excluir vídeo');
+    });
+});
+</script>
+{% endblock %}
