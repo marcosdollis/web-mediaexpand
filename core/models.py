@@ -73,10 +73,29 @@ class Municipio(models.Model):
         return f"{self.nome}/{self.estado}"
 
 
+class Segmento(models.Model):
+    """Segmento de negócio do cliente"""
+    nome = models.CharField(max_length=100, unique=True, verbose_name='Nome do Segmento')
+    descricao = models.TextField(blank=True, null=True, verbose_name='Descrição')
+    ativo = models.BooleanField(default=True, verbose_name='Ativo')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Segmento'
+        verbose_name_plural = 'Segmentos'
+        ordering = ['nome']
+    
+    def __str__(self):
+        return self.nome
+
+
 class Cliente(models.Model):
     """Cliente que terá vídeos exibidos"""
+    
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cliente_profile')
     empresa = models.CharField(max_length=200)
+    segmento = models.ForeignKey(Segmento, on_delete=models.PROTECT, related_name='clientes', verbose_name='Segmento')
     municipios = models.ManyToManyField(Municipio, related_name='clientes')
     franqueado = models.ForeignKey(
         User,
@@ -96,9 +115,11 @@ class Cliente(models.Model):
         verbose_name = 'Cliente'
         verbose_name_plural = 'Clientes'
         ordering = ['-created_at']
+        # Garante que só pode haver uma empresa por segmento por município
+        # Esta constraint será adicionada via código na view
     
     def __str__(self):
-        return f"{self.empresa} - {self.user.get_full_name()}"
+        return f"{self.empresa} - {self.segmento.nome}"
 
 
 def video_upload_path(instance, filename):
@@ -171,10 +192,29 @@ class Playlist(models.Model):
     
     def calcular_duracao_total(self):
         """Calcula a duração total da playlist"""
-        total = sum([item.video.duracao_segundos for item in self.items.all()])
+        total = sum([item.video.duracao_segundos for item in self.items.all() if item.video.duracao_segundos])
         self.duracao_total_segundos = total
         self.save()
         return total
+    
+    @property
+    def duracao_total_formatada(self):
+        """Retorna a duração total formatada em MM:SS"""
+        if not self.duracao_total_segundos:
+            return "0:00"
+        minutos = int(self.duracao_total_segundos // 60)
+        segundos = int(self.duracao_total_segundos % 60)
+        return f"{minutos}:{segundos:02d}"
+    
+    @property
+    def total_videos(self):
+        """Retorna o total de vídeos na playlist"""
+        return self.items.count()
+    
+    @property
+    def total_dispositivos(self):
+        """Retorna o total de dispositivos usando esta playlist"""
+        return self.dispositivos.count()
 
 
 class PlaylistItem(models.Model):
@@ -209,6 +249,10 @@ class DispositivoTV(models.Model):
         related_name='dispositivos'
     )
     localizacao = models.CharField(max_length=300, blank=True, null=True, help_text='Endereço ou local da TV')
+    publico_estimado_mes = models.IntegerField(
+        default=0,
+        help_text='Estimativa de pessoas que visualizarão os anúncios por mês'
+    )
     ativo = models.BooleanField(default=True)
     ultima_sincronizacao = models.DateTimeField(null=True, blank=True)
     versao_app = models.CharField(max_length=20, blank=True, null=True)
@@ -304,3 +348,42 @@ class LogExibicao(models.Model):
     
     def __str__(self):
         return f"{self.video.titulo} - {self.dispositivo.nome} - {self.data_hora_inicio}"
+
+
+class AppVersion(models.Model):
+    """Versões do aplicativo Android para download"""
+    versao = models.CharField(max_length=20, unique=True, help_text='Ex: 1.0.0, 1.2.5')
+    arquivo_apk = models.FileField(
+        upload_to='app_versions/',
+        validators=[FileExtensionValidator(allowed_extensions=['apk'])],
+        help_text='Arquivo APK do aplicativo'
+    )
+    tamanho = models.BigIntegerField(help_text='Tamanho do arquivo em bytes', editable=False)
+    notas_versao = models.TextField(blank=True, help_text='Descrição das mudanças nesta versão')
+    ativo = models.BooleanField(default=True, help_text='Versão disponível para download')
+    downloads = models.IntegerField(default=0, editable=False, help_text='Número de downloads')
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='app_versions')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Versão do App'
+        verbose_name_plural = 'Versões do App'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"MediaExpand TV v{self.versao}"
+    
+    def save(self, *args, **kwargs):
+        if self.arquivo_apk:
+            self.tamanho = self.arquivo_apk.size
+        super().save(*args, **kwargs)
+    
+    def get_tamanho_formatado(self):
+        """Retorna o tamanho formatado em MB"""
+        return f"{self.tamanho / (1024 * 1024):.2f} MB"
+    
+    @classmethod
+    def get_versao_ativa(cls):
+        """Retorna a versão ativa mais recente"""
+        return cls.objects.filter(ativo=True).first()

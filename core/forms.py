@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
-from .models import User, Municipio, Cliente, Video, Playlist, DispositivoTV, AgendamentoExibicao
+from .models import User, Municipio, Cliente, Video, Playlist, DispositivoTV, AgendamentoExibicao, Segmento, AppVersion
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -42,16 +42,30 @@ class MunicipioForm(forms.ModelForm):
         }
 
 
+class SegmentoForm(forms.ModelForm):
+    """Formulário para segmentos"""
+
+    class Meta:
+        model = Segmento
+        fields = ['nome', 'descricao', 'ativo']
+        widgets = {
+            'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome do segmento'}),
+            'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descrição do segmento'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
 class ClienteForm(forms.ModelForm):
     """Formulário para clientes"""
 
     class Meta:
         model = Cliente
-        fields = ['user', 'empresa', 'municipios', 'franqueado', 'ativo', 'observacoes']
+        fields = ['user', 'empresa', 'segmento', 'municipios', 'franqueado', 'ativo', 'observacoes']
         widgets = {
             'user': forms.Select(attrs={'class': 'form-select'}),
             'empresa': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome da empresa'}),
-            'municipios': forms.SelectMultiple(attrs={'class': 'form-select'}),
+            'segmento': forms.Select(attrs={'class': 'form-select'}),
+            'municipios': forms.SelectMultiple(attrs={'class': 'form-select', 'size': '5'}),
             'franqueado': forms.Select(attrs={'class': 'form-select'}),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'observacoes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Observações sobre o cliente'}),
@@ -77,6 +91,33 @@ class ClienteForm(forms.ModelForm):
                 role='CLIENT',
                 is_active=True
             ).exclude(id__in=existing_clients)
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        segmento = cleaned_data.get('segmento')
+        municipios = cleaned_data.get('municipios')
+        
+        if segmento and municipios:
+            # Verificar se já existe cliente no mesmo segmento em algum dos municípios
+            for municipio in municipios:
+                existe = Cliente.objects.filter(
+                    segmento=segmento,
+                    municipios=municipio
+                )
+                
+                # Se estiver editando, excluir o próprio cliente da verificação
+                if self.instance.pk:
+                    existe = existe.exclude(pk=self.instance.pk)
+                
+                if existe.exists():
+                    cliente_existente = existe.first()
+                    raise forms.ValidationError(
+                        f'Já existe um cliente no segmento "{cliente_existente.get_segmento_display()}" '
+                        f'no município {municipio.nome}/{municipio.estado}: {cliente_existente.empresa}. '
+                        f'Regra: apenas uma marca por segmento por cidade.'
+                    )
+        
+        return cleaned_data
 
 
 class VideoForm(forms.ModelForm):
@@ -126,13 +167,18 @@ class DispositivoTVForm(forms.ModelForm):
 
     class Meta:
         model = DispositivoTV
-        fields = ['nome', 'localizacao', 'municipio', 'playlist_atual', 'ativo']
+        fields = ['nome', 'localizacao', 'municipio', 'playlist_atual', 'publico_estimado_mes', 'ativo']
         # identificador_unico é gerado automaticamente na view
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome do dispositivo'}),
             'localizacao': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Localização (ex: Praça Central)'}),
             'municipio': forms.Select(attrs={'class': 'form-select'}),
             'playlist_atual': forms.Select(attrs={'class': 'form-select'}),
+            'publico_estimado_mes': forms.NumberInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Ex: 5000',
+                'min': '0'
+            }),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -219,3 +265,50 @@ class AgendamentoExibicaoForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+
+class AppVersionForm(forms.ModelForm):
+    """Formulário para upload de versões do aplicativo"""
+    
+    class Meta:
+        model = AppVersion
+        fields = ['versao', 'arquivo_apk', 'notas_versao', 'ativo']
+        widgets = {
+            'versao': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Ex: 1.0.0, 1.2.5'
+            }),
+            'arquivo_apk': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': '.apk'
+            }),
+            'notas_versao': forms.Textarea(attrs={
+                'class': 'form-control', 
+                'rows': 4, 
+                'placeholder': 'Descreva as novidades e correções desta versão...'
+            }),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+    
+    def clean_arquivo_apk(self):
+        arquivo = self.cleaned_data.get('arquivo_apk')
+        if arquivo:
+            # Verificar extensão
+            if not arquivo.name.endswith('.apk'):
+                raise forms.ValidationError('O arquivo deve ter a extensão .apk')
+            
+            # Verificar tamanho (máximo 100MB)
+            if arquivo.size > 100 * 1024 * 1024:
+                raise forms.ValidationError('O arquivo não pode ter mais de 100 MB')
+        
+        return arquivo
+    
+    def clean_versao(self):
+        versao = self.cleaned_data.get('versao')
+        if versao:
+            # Validar formato da versão (apenas números e pontos)
+            import re
+            if not re.match(r'^\d+(\.\d+){0,2}$', versao):
+                raise forms.ValidationError('Formato inválido. Use: X.Y.Z (ex: 1.0.0, 1.2.5)')
+        
+        return versao

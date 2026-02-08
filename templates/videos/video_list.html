@@ -4,6 +4,7 @@
 {% block title %}Vídeos - MediaExpand{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <!-- Page Header -->
 <div class="row mb-4">
     <div class="col-12">
@@ -12,11 +13,9 @@
                 <h1 class="h3 mb-0">Gerenciamento de Vídeos</h1>
                 <p class="text-muted mb-0">Envie, gerencie e aprove seus vídeos</p>
             </div>
-            {% if user.role == 'CLIENT' %}
             <a href="{% url 'video_create' %}" class="btn btn-primary">
                 <i class="fas fa-plus me-2"></i>Enviar Novo Vídeo
             </a>
-            {% endif %}
         </div>
     </div>
 </div>
@@ -88,9 +87,9 @@
 
                 <!-- Status Badge -->
                 <div class="position-absolute top-0 end-0 m-2">
-                    {% if video.status == 'approved' %}
+                    {% if video.status == 'APPROVED' %}
                         <span class="badge bg-success status-badge">Aprovado</span>
-                    {% elif video.status == 'pending' %}
+                    {% elif video.status == 'PENDING' %}
                         <span class="badge bg-warning status-badge">Pendente</span>
                     {% else %}
                         <span class="badge bg-danger status-badge">Rejeitado</span>
@@ -112,7 +111,7 @@
                 <div class="mt-auto">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <small class="text-muted">
-                            <i class="fas fa-user me-1"></i>{{ video.cliente.nome }}
+                            <i class="fas fa-user me-1"></i>{{ video.cliente.empresa }}
                         </small>
                         <small class="text-muted">
                             <i class="fas fa-calendar me-1"></i>{{ video.created_at|date:"d/m/Y" }}
@@ -121,42 +120,57 @@
 
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <small class="text-muted">
-                            <i class="fas fa-file-video me-1"></i>{{ video.file_size|filesizeformat }}
+                            {% if video.arquivo %}
+                            <i class="fas fa-file-video me-1"></i>{{ video.arquivo.size|filesizeformat }}
+                            {% else %}
+                            <i class="fas fa-file-video me-1"></i>0 bytes
+                            {% endif %}
                         </small>
                         <small class="text-muted">
-                            <i class="fas fa-eye me-1"></i>{{ video.visualizacoes }}
+                            <i class="fas fa-clock me-1"></i>
+                            {% if video.duracao_segundos %}
+                                {{ video.duracao_segundos }}s
+                            {% else %}
+                                0s
+                            {% endif %}
                         </small>
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="d-flex gap-1">
-                        {% if user.role != 'CLIENT' or video.cliente.user == user %}
-                        <a href="{% url 'video_detail' video.pk %}" class="btn btn-sm btn-outline-primary flex-fill">
-                            <i class="fas fa-eye"></i>
-                        </a>
+                    <div class="d-flex flex-column gap-2">
+                        {% if video.arquivo %}
+                        <button type="button" class="btn btn-primary btn-sm" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#videoModal{{ video.pk }}">
+                            <i class="fas fa-play me-1"></i>Assistir
+                        </button>
                         {% endif %}
-
+                        
                         {% if user.role != 'CLIENT' %}
-                        {% if video.status == 'pending' %}
-                        <button type="button" class="btn btn-sm btn-success flex-fill"
-                                onclick="approveVideo({{ video.pk }})">
-                            <i class="fas fa-check"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-danger flex-fill"
-                                onclick="rejectVideo({{ video.pk }})">
-                            <i class="fas fa-times"></i>
-                        </button>
+                        {% if video.status == 'PENDING' %}
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-success btn-sm flex-fill"
+                                    onclick="approveVideo({{ video.pk }})">
+                                <i class="fas fa-check me-1"></i>Aprovar
+                            </button>
+                            <button type="button" class="btn btn-danger btn-sm flex-fill"
+                                    onclick="rejectVideo({{ video.pk }})">
+                                <i class="fas fa-times me-1"></i>Rejeitar
+                            </button>
+                        </div>
                         {% endif %}
                         {% endif %}
 
                         {% if user.role == 'CLIENT' and video.cliente.user == user %}
-                        <a href="{% url 'video_update' video.pk %}" class="btn btn-sm btn-outline-warning flex-fill">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <button type="button" class="btn btn-sm btn-outline-danger flex-fill"
-                                onclick="deleteVideo({{ video.pk }}, '{{ video.titulo }}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'video_update' video.pk %}" class="btn btn-warning btn-sm flex-fill">
+                                <i class="fas fa-edit me-1"></i>Editar
+                            </a>
+                            <button type="button" class="btn btn-danger btn-sm flex-fill"
+                                    onclick="deleteVideo({{ video.pk }}, '{{ video.titulo }}')">
+                                <i class="fas fa-trash me-1"></i>Excluir
+                            </button>
+                        </div>
                         {% endif %}
                     </div>
                 </div>
@@ -186,6 +200,41 @@
     </div>
     {% endfor %}
 </div>
+
+<!-- Video Modals -->
+{% for video in videos %}
+{% if video.arquivo %}
+<div class="modal fade" id="videoModal{{ video.pk }}" tabindex="-1" aria-labelledby="videoModalLabel{{ video.pk }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="videoModalLabel{{ video.pk }}">
+                    <i class="fas fa-video me-2"></i>{{ video.titulo }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body p-0">
+                <video id="videoPlayer{{ video.pk }}" class="w-100" controls>
+                    <source src="{{ video.arquivo.url }}" type="video/mp4">
+                    Seu navegador não suporta a reprodução de vídeos.
+                </video>
+            </div>
+            <div class="modal-footer">
+                <div class="me-auto">
+                    <small class="text-muted">
+                        <i class="fas fa-building me-1"></i>{{ video.cliente.empresa }}
+                    </small>
+                    <small class="text-muted ms-3">
+                        <i class="fas fa-file-video me-1"></i>{{ video.arquivo.size|filesizeformat }}
+                    </small>
+                </div>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
 
 <!-- Pagination -->
 {% if videos.has_other_pages %}
@@ -309,107 +358,102 @@
 let deleteVideoId = null;
 
 function approveVideo(videoId) {
-    // Get video title
-    fetch(`/api/videos/${videoId}/`)
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('videoTitle').textContent = data.titulo;
-            document.getElementById('videoId').value = videoId;
-            new bootstrap.Modal(document.getElementById('approvalModal')).show();
-        });
-}
-
-function rejectVideo(videoId) {
-    // Get video title
-    fetch(`/api/videos/${videoId}/`)
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('rejectVideoTitle').textContent = data.titulo;
-            document.getElementById('rejectVideoId').value = videoId;
-            new bootstrap.Modal(document.getElementById('rejectionModal')).show();
-        });
-}
-
-function deleteVideo(videoId, videoTitle) {
-    document.getElementById('deleteVideoTitle').textContent = videoTitle;
-    deleteVideoId = videoId;
-    new bootstrap.Modal(document.getElementById('deleteModal')).show();
-}
-
-// Handle approval form submission
-document.getElementById('approvalForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const videoId = document.getElementById('videoId').value;
-
-    fetch(`/api/videos/${videoId}/approve/`, {
+    console.log('approveVideo called with ID:', videoId);
+    
+    if (!confirm('Deseja realmente aprovar este vídeo?')) {
+        console.log('User cancelled approval');
+        return;
+    }
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    console.log('CSRF Token:', csrfToken);
+    console.log('Fetch URL:', `/videos/${videoId}/approve/`);
+    
+    fetch(`/videos/${videoId}/approve/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            'X-CSRFToken': csrfToken
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('Response data:', data);
         if (data.success) {
-            location.reload();
+            alert('Vídeo aprovado com sucesso!');
+            window.location.reload(true);
         } else {
-            alert('Erro ao aprovar vídeo: ' + data.error);
+            alert('Erro ao aprovar vídeo: ' + (data.error || 'Erro desconhecido'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Erro ao aprovar vídeo');
+        alert('Erro ao aprovar vídeo: ' + error.message);
     });
-});
+}
 
-// Handle rejection form submission
-document.getElementById('rejectionForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const videoId = document.getElementById('rejectVideoId').value;
-    const reason = document.getElementById('rejectionReason').value;
-
-    fetch(`/api/videos/${videoId}/reject/`, {
+function rejectVideo(videoId) {
+    if (!confirm('Deseja realmente rejeitar este vídeo?')) return;
+    
+    fetch(`/videos/${videoId}/reject/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        },
-        body: JSON.stringify({ reason: reason })
+        }
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            location.reload();
+            alert('Vídeo rejeitado!');
+            window.location.reload(true); // Force reload
         } else {
-            alert('Erro ao rejeitar vídeo: ' + data.error);
+            alert('Erro ao rejeitar vídeo: ' + (data.error || 'Erro desconhecido'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
         alert('Erro ao rejeitar vídeo');
     });
-});
+}
 
-// Handle delete confirmation
-document.getElementById('confirmDelete').addEventListener('click', function() {
-    if (!deleteVideoId) return;
-
-    fetch(`/api/videos/${deleteVideoId}/`, {
-        method: 'DELETE',
+function deleteVideo(videoId, videoTitle) {
+    if (!confirm(`Deseja realmente excluir o vídeo "${videoTitle}"?`)) return;
+    
+    fetch(`/videos/${videoId}/delete/`, {
+        method: 'POST',
         headers: {
+            'Content-Type': 'application/json',
             'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         }
     })
-    .then(response => {
-        if (response.ok) {
-            location.reload();
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Vídeo excluído com sucesso!');
+            window.location.reload(true); // Force reload
         } else {
-            alert('Erro ao excluir vídeo');
+            alert('Erro ao excluir vídeo: ' + (data.error || 'Erro desconhecido'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
         alert('Erro ao excluir vídeo');
+    });
+}
+
+// Pausar vídeo ao fechar modal
+document.querySelectorAll('[id^="videoModal"]').forEach(modal => {
+    modal.addEventListener('hidden.bs.modal', function() {
+        const videoId = this.id.replace('videoModal', '');
+        const videoPlayer = document.getElementById('videoPlayer' + videoId);
+        if (videoPlayer) {
+            videoPlayer.pause();
+            videoPlayer.currentTime = 0;
+        }
     });
 });
 </script>

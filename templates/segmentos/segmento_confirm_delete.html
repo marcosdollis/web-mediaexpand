@@ -1,0 +1,89 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Deletar Segmento{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Confirmar Exclusão
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning" role="alert">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Atenção!</strong> Esta ação não pode ser desfeita.
+                    </div>
+
+                    <p class="mb-3">Você tem certeza que deseja deletar o segmento:</p>
+                    
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3">{{ segmento.nome }}</h5>
+                            
+                            {% if segmento.descricao %}
+                            <p class="card-text mb-3">
+                                <strong>Descrição:</strong><br>
+                                {{ segmento.descricao }}
+                            </p>
+                            {% endif %}
+
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="border rounded p-3">
+                                        <h6 class="text-muted mb-1">Status</h6>
+                                        {% if segmento.ativo %}
+                                            <span class="badge bg-success">Ativo</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inativo</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="border rounded p-3">
+                                        <h6 class="text-muted mb-1">Clientes</h6>
+                                        <span class="badge bg-info">{{ total_clientes }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if total_clientes > 0 %}
+                    <div class="alert alert-danger" role="alert">
+                        <i class="bi bi-x-circle me-2"></i>
+                        <strong>Não é possível deletar este segmento!</strong><br>
+                        Existem {{ total_clientes }} cliente{{ total_clientes|pluralize }} vinculado{{ total_clientes|pluralize }} a este segmento.
+                        Remova ou altere o segmento destes clientes antes de excluir.
+                    </div>
+                    {% endif %}
+
+                    <form method="post" class="d-flex justify-content-between mt-4">
+                        {% csrf_token %}
+                        <a href="{% url 'segmento_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>
+                            Cancelar
+                        </a>
+                        {% if total_clientes == 0 %}
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i>
+                            Sim, Deletar Segmento
+                        </button>
+                        {% else %}
+                        <button type="button" class="btn btn-danger" disabled>
+                            <i class="bi bi-trash me-1"></i>
+                            Não é possível deletar
+                        </button>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

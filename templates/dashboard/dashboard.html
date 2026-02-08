@@ -172,6 +172,77 @@
     {% endif %}
 </div>
 
+<!-- Franchisee Info for Client -->
+{% if user.role == 'CLIENT' and franqueado %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-user-tie me-2"></i>Informações do Franqueado</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-2">Franqueado Responsável</h6>
+                        <p class="mb-0">
+                            <i class="fas fa-user-circle text-primary me-2"></i>
+                            <strong>{{ franqueado.get_full_name|default:franqueado.username }}</strong>
+                        </p>
+                        <p class="text-muted small mb-0">
+                            <i class="fas fa-envelope me-1"></i>{{ franqueado.email }}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-2">Alcance Total</h6>
+                        <p class="mb-0">
+                            <i class="fas fa-users text-success me-2"></i>
+                            <strong>{{ publico_total_franqueado|floatformat:0 }}</strong> pessoas/mês
+                        </p>
+                        <p class="text-muted small mb-0">
+                            Público estimado em todos os municípios
+                        </p>
+                    </div>
+                </div>
+
+                <hr>
+
+                <h6 class="text-muted mb-3">Municípios de Exibição</h6>
+                {% if municipios_franqueado %}
+                <div class="row">
+                    {% for mun_data in municipios_franqueado %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100 border">
+                            <div class="card-body p-3">
+                                <h6 class="mb-2">
+                                    <i class="fas fa-map-marker-alt text-info me-2"></i>
+                                    {{ mun_data.municipio.nome }}/{{ mun_data.municipio.estado }}
+                                </h6>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        <i class="fas fa-tv me-1"></i>{{ mun_data.dispositivos_count }} TV(s)
+                                    </small>
+                                    {% if mun_data.publico_total > 0 %}
+                                    <span class="badge bg-primary">
+                                        <i class="fas fa-users me-1"></i>{{ mun_data.publico_total|floatformat:0 }}/mês
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">
+                    <i class="fas fa-info-circle me-2"></i>Nenhum município cadastrado ainda.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Quick Actions -->
 <div class="row mb-4">
     <div class="col-12">
@@ -206,6 +277,18 @@
                             <span>Gerenciar Vídeos</span>
                         </a>
                     </div>
+                    <div class="col-md-3 col-sm-6">
+                        <a href="{% url 'playlist_list' %}" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <span>Ver Playlists</span>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <a href="{% url 'app_upload' %}" class="btn btn-outline-purple w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-mobile-alt fa-2x mb-2"></i>
+                            <span>Gerenciar App</span>
+                        </a>
+                    </div>
                     {% endif %}
 
                     {% if user.role == 'FRANCHISEE' %}
@@ -227,6 +310,12 @@
                             <span>Gerenciar Vídeos</span>
                         </a>
                     </div>
+                    <div class="col-md-4 col-sm-6">
+                        <a href="{% url 'playlist_list' %}" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <span>Ver Playlists</span>
+                        </a>
+                    </div>
                     {% endif %}
 
                     {% if user.role == 'CLIENT' %}
@@ -236,14 +325,13 @@
                             <span>Enviar Vídeo</span>
                         </a>
                     </div>
-                    {% endif %}
-
-                    <div class="col-md-3 col-sm-6">
-                        <a href="{% url 'playlist_list' %}" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column align-items-center p-3">
+                    <div class="col-md-6 col-sm-6">
+                        <a href="{% url 'video_list' %}" class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center p-3">
                             <i class="fas fa-list fa-2x mb-2"></i>
-                            <span>Ver Playlists</span>
+                            <span>Meus Vídeos</span>
                         </a>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -287,6 +375,11 @@
                                         <span class="badge bg-secondary" title="Dispositivos">
                                             <i class="fas fa-tv me-1"></i>{{ item.stats.total_dispositivos }}
                                         </span>
+                                        {% if item.stats.publico_total > 0 %}
+                                        <span class="badge bg-primary" title="Público Estimado Mensal Total">
+                                            <i class="fas fa-users me-1"></i>{{ item.stats.publico_total|floatformat:0 }}/mês
+                                        </span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </button>
@@ -309,17 +402,24 @@
                                             <div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">
                                                 {% if item.municipios %}
                                                 <div class="list-group list-group-flush">
-                                                    {% for municipio in item.municipios %}
-                                                    <a href="{% url 'municipio_update' municipio.pk %}" 
+                                                    {% for mun_data in item.municipios %}
+                                                    <a href="{% url 'municipio_update' mun_data.municipio.pk %}" 
                                                        class="list-group-item list-group-item-action py-2 border-0">
                                                         <div class="d-flex justify-content-between align-items-center">
                                                             <span>
                                                                 <i class="fas fa-city text-info me-2"></i>
-                                                                {{ municipio.nome }}/{{ municipio.estado }}
+                                                                {{ mun_data.municipio.nome }}/{{ mun_data.municipio.estado }}
                                                             </span>
-                                                            <span class="badge bg-info">
-                                                                {{ municipio.dispositivos.count }} TV(s)
-                                                            </span>
+                                                            <div class="d-flex gap-2">
+                                                                {% if mun_data.publico_total > 0 %}
+                                                                <span class="badge bg-primary" title="Público Estimado Mensal">
+                                                                    <i class="fas fa-users me-1"></i>{{ mun_data.publico_total|floatformat:0 }}/mês
+                                                                </span>
+                                                                {% endif %}
+                                                                <span class="badge bg-info" title="Dispositivos">
+                                                                    <i class="fas fa-tv me-1"></i>{{ mun_data.dispositivos_count }}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </a>
                                                     {% endfor %}

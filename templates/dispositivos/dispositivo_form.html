@@ -104,6 +104,24 @@
                             </small>
                         </div>
 
+                        <!-- Público Estimado por Mês -->
+                        <div class="mb-3">
+                            <label for="{{ form.publico_estimado_mes.id_for_label }}" class="form-label">
+                                Público Estimado Mensal
+                            </label>
+                            {{ form.publico_estimado_mes }}
+                            {% if form.publico_estimado_mes.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.publico_estimado_mes.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                Estimativa de pessoas que visualizarão os anúncios neste dispositivo por mês
+                            </small>
+                        </div>
+
                         <!-- Ativo -->
                         <div class="mb-3">
                             <div class="form-check">

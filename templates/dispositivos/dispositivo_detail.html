@@ -34,6 +34,11 @@
                                 <span class="badge bg-secondary">
                                     <i class="fas fa-building me-1"></i>{{ dispositivo.municipio.nome }}/{{ dispositivo.municipio.estado }}
                                 </span>
+                                {% if dispositivo.publico_estimado_mes > 0 %}
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-users me-1"></i>{{ dispositivo.publico_estimado_mes|floatformat:0 }} pessoas/mês
+                                </span>
+                                {% endif %}
                                 {% if dispositivo.ativo %}
                                 <span class="badge bg-success">
                                     <i class="fas fa-check-circle me-1"></i>Ativo
@@ -155,7 +160,7 @@
                         <i class="fas fa-info-circle me-2"></i>
                         <small>
                             Fora dos horários agendados, a TV exibirá uma tela preta.
-                            {% if dispositivo.agendamentos.filter(ativo=True).count == 0 %}
+                            {% if agendamentos_ativos_count == 0 %}
                             <strong>Sem agendamentos ativos: TV exibirá conteúdo 24/7.</strong>
                             {% endif %}
                         </small>

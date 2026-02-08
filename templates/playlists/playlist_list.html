@@ -41,50 +41,50 @@
                 <!-- Playlist Stats -->
                 <div class="row text-center mb-3">
                     <div class="col-4">
-                        <div class="stat-number">{{ playlist.playlistitem_set.count }}</div>
+                        <div class="stat-number">{{ playlist.total_videos }}</div>
                         <small class="text-muted">Vídeos</small>
                     </div>
                     <div class="col-4">
-                        <div class="stat-number">{{ playlist.duracao_total|default:"0:00" }}</div>
+                        <div class="stat-number">{{ playlist.duracao_total_formatada }}</div>
                         <small class="text-muted">Duração</small>
                     </div>
                     <div class="col-4">
-                        <div class="stat-number">{{ playlist.dispositivotv_set.count }}</div>
+                        <div class="stat-number">{{ playlist.total_dispositivos }}</div>
                         <small class="text-muted">TVs</small>
                     </div>
                 </div>
 
                 <!-- Associated TVs -->
-                {% if playlist.dispositivotv_set.all %}
+                {% if playlist.dispositivos.all %}
                 <div class="mb-3">
                     <small class="text-muted d-block mb-1">Associada às TVs:</small>
                     <div class="tv-badges">
-                        {% for tv in playlist.dispositivotv_set.all|slice:":3" %}
+                        {% for tv in playlist.dispositivos.all|slice:":3" %}
                         <span class="badge bg-info me-1 mb-1">{{ tv.nome }}</span>
                         {% endfor %}
-                        {% if playlist.dispositivotv_set.count > 3 %}
-                        <span class="badge bg-light text-dark">+{{ playlist.dispositivotv_set.count|add:"-3" }} mais</span>
+                        {% if playlist.dispositivos.count > 3 %}
+                        <span class="badge bg-light text-dark">+{{ playlist.dispositivos.count|add:"-3" }} mais</span>
                         {% endif %}
                     </div>
                 </div>
                 {% endif %}
 
                 <!-- Playlist Items Preview -->
-                {% if playlist.playlistitem_set.all %}
+                {% if playlist.items.all %}
                 <div class="playlist-preview mb-3">
                     <small class="text-muted d-block mb-2">Vídeos na playlist:</small>
                     <div class="playlist-items">
-                        {% for item in playlist.playlistitem_set.all|slice:":3" %}
+                        {% for item in playlist.items.all|slice:":3" %}
                         <div class="playlist-item-small">
                             <i class="fas fa-play-circle text-primary me-2"></i>
                             <span class="item-title">{{ item.video.titulo|truncatechars:25 }}</span>
                             <small class="text-muted ms-auto">{{ item.ordem }}</small>
                         </div>
                         {% endfor %}
-                        {% if playlist.playlistitem_set.count > 3 %}
+                        {% if playlist.items.count > 3 %}
                         <div class="playlist-item-small text-muted">
                             <i class="fas fa-ellipsis-h me-2"></i>
-                            +{{ playlist.playlistitem_set.count|add:"-3" }} vídeos
+                            +{{ playlist.items.count|add:"-3" }} vídeos
                         </div>
                         {% endif %}
                     </div>

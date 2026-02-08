@@ -24,6 +24,12 @@ urlpatterns = [
     path('municipios/<int:pk>/update/', views.municipio_update_view, name='municipio_update'),
     path('municipios/<int:pk>/delete/', views.municipio_delete_view, name='municipio_delete'),
 
+    # Segmentos
+    path('segmentos/', views.segmento_list_view, name='segmento_list'),
+    path('segmentos/create/', views.segmento_create_view, name='segmento_create'),
+    path('segmentos/<int:pk>/update/', views.segmento_update_view, name='segmento_update'),
+    path('segmentos/<int:pk>/delete/', views.segmento_delete_view, name='segmento_delete'),
+
     # Clientes
     path('clientes/', views.cliente_list_view, name='cliente_list'),
     path('clientes/create/', views.cliente_create_view, name='cliente_create'),
@@ -34,6 +40,9 @@ urlpatterns = [
     path('videos/', views.video_list_view, name='video_list'),
     path('videos/create/', views.video_create_view, name='video_create'),
     path('videos/<int:pk>/update/', views.video_update_view, name='video_update'),
+    path('videos/<int:pk>/approve/', views.video_approve_view, name='video_approve'),
+    path('videos/<int:pk>/reject/', views.video_reject_view, name='video_reject'),
+    path('videos/<int:pk>/delete/', views.video_delete_view, name='video_delete'),
 
     # Playlists
     path('playlists/', views.playlist_list_view, name='playlist_list'),
@@ -53,4 +62,10 @@ urlpatterns = [
     path('dispositivos/<int:dispositivo_pk>/agendamentos/create/', views.agendamento_create_view, name='agendamento_create'),
     path('dispositivos/<int:dispositivo_pk>/agendamentos/<int:pk>/update/', views.agendamento_update_view, name='agendamento_update'),
     path('dispositivos/<int:dispositivo_pk>/agendamentos/<int:pk>/delete/', views.agendamento_delete_view, name='agendamento_delete'),
+    
+    # App Management (OWNER ONLY)
+    path('app/upload/', views.app_upload_view, name='app_upload'),
+    path('app/version/<int:pk>/toggle/', views.app_version_toggle_view, name='app_version_toggle'),
+    path('app/version/<int:pk>/delete/', views.app_version_delete_view, name='app_version_delete'),
+    path('app/download/', views.app_download_view, name='app_download'),
 ]

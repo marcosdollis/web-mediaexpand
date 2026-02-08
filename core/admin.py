@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
 from .models import (
     User, Municipio, Cliente, Video, 
-    Playlist, PlaylistItem, DispositivoTV, AgendamentoExibicao, LogExibicao
+    Playlist, PlaylistItem, DispositivoTV, AgendamentoExibicao, LogExibicao, AppVersion
 )
 
 
@@ -121,3 +121,16 @@ class LogExibicaoAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at',)
     ordering = ('-data_hora_inicio',)
     date_hierarchy = 'data_hora_inicio'
+
+
+@admin.register(AppVersion)
+class AppVersionAdmin(admin.ModelAdmin):
+    list_display = ('versao', 'ativo', 'tamanho_formatado', 'downloads', 'uploaded_by', 'created_at')
+    list_filter = ('ativo', 'created_at')
+    search_fields = ('versao', 'notas_versao')
+    readonly_fields = ('tamanho', 'downloads', 'uploaded_by', 'created_at', 'updated_at')
+    ordering = ('-created_at',)
+    
+    def tamanho_formatado(self, obj):
+        return obj.get_tamanho_formatado()
+    tamanho_formatado.short_description = 'Tamanho'

@@ -64,6 +64,7 @@ git push -u origin main
 DEBUG=False
 SECRET_KEY=cole-aqui-uma-chave-segura-gerada
 ALLOWED_HOSTS=*.railway.app
+CSRF_TRUSTED_ORIGINS=https://*.railway.app
 ```
 
 **Para gerar SECRET_KEY segura:**
@@ -71,6 +72,29 @@ ALLOWED_HOSTS=*.railway.app
 ```bash
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
+
+**⚠️ IMPORTANTE - Arquivos de Mídia:**
+
+O Railway usa sistema de arquivos efêmero (arquivos podem ser perdidos). Para produção com upload de vídeos e APKs, você precisa de armazenamento persistente:
+
+**Opção 1: Railway Volumes (Recomendado para início)**
+```env
+# Railway cria volumes automaticamente para /data
+# Configure no settings.py para usar /data/media
+```
+
+**Opção 2: AWS S3 / Cloudinary (Recomendado para produção)**
+```env
+AWS_ACCESS_KEY_ID=sua_key
+AWS_SECRET_ACCESS_KEY=seu_secret
+AWS_STORAGE_BUCKET_NAME=mediaexpand-uploads
+AWS_S3_REGION_NAME=us-east-1
+USE_S3=True
+```
+
+**Opção 3: Railway Volume + Backup externo**
+- Use volumes do Railway para armazenamento local
+- Configure backup automático para S3/Google Cloud Storage
 
 ### Passo 5: Configurar Domínio (Opcional)
 

@@ -144,14 +144,21 @@
 
                 <!-- Device Info -->
                 <div class="row text-center mb-3">
-                    <div class="col-6">
+                    <div class="col-4">
+                        <div class="device-stat">
+                            <i class="fas fa-users text-primary mb-1"></i>
+                            <div class="stat-number">{{ dispositivo.publico_estimado_mes|default:0 }}</div>
+                            <small class="text-muted">Público/mês</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
                         <div class="device-stat">
                             <i class="fas fa-eye text-info mb-1"></i>
                             <div class="stat-number">{{ dispositivo.total_exibicoes|default:0 }}</div>
                             <small class="text-muted">Exibições</small>
                         </div>
                     </div>
-                    <div class="col-6">
+                    <div class="col-4">
                         <div class="device-stat">
                             <i class="fas fa-clock text-warning mb-1"></i>
                             <div class="stat-number">{{ dispositivo.tempo_exibicao|default:"0h" }}</div>

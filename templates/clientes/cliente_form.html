@@ -73,6 +73,31 @@
                     
                     <div class="row mb-3">
                         <div class="col-12">
+                            <label class="form-label">Segmento <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <select name="segmento" id="segmentoSelect" class="form-select" required>
+                                    <option value="">Selecione o segmento</option>
+                                    {% for seg in segmentos %}
+                                    <option value="{{ seg.id }}" {% if cliente.segmento_id == seg.id %}selected{% endif %}>
+                                        {{ seg.nome }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% if user.is_owner or user.is_franchisee %}
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#novoSegmentoModal">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                Apenas uma marca por segmento por cidade
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
                             <label class="form-label">Observações</label>
                             <textarea name="observacoes" class="form-control" rows="3" 
                                       placeholder="Informações adicionais sobre o cliente...">{{ cliente.observacoes }}</textarea>
@@ -339,6 +364,166 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Inicializar contador
     updateCount();
+});
+</script>
+
+<!-- Modal Novo Segmento -->
+<div class="modal fade" id="novoSegmentoModal" tabindex="-1" aria-labelledby="novoSegmentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="novoSegmentoModalLabel">
+                    <i class="bi bi-tag me-2"></i>
+                    Novo Segmento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formNovoSegmento">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="nomeSegmento" class="form-label">Nome do Segmento <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="nomeSegmento" name="nome" required
+                               placeholder="Ex: Alimentação, Saúde, Educação...">
+                        <div class="invalid-feedback" id="nomeSegmentoError"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descricaoSegmento" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="descricaoSegmento" name="descricao" rows="3"
+                                  placeholder="Descrição opcional do segmento..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="ativoSegmento" name="ativo" checked>
+                            <label class="form-check-label" for="ativoSegmento">
+                                Segmento Ativo
+                            </label>
+                        </div>
+                    </div>
+                    <div class="alert alert-danger d-none" id="segmentoModalError"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSalvarSegmento">
+                    <i class="bi bi-check-lg me-1"></i>
+                    Salvar Segmento
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Script para salvar segmento via AJAX
+document.getElementById('btnSalvarSegmento').addEventListener('click', function() {
+    console.log('Botão clicado - iniciando salvamento de segmento');
+    
+    const form = document.getElementById('formNovoSegmento');
+    const formData = new FormData(form);
+    const btn = this;
+    const btnOriginal = btn.innerHTML;
+    
+    // Log dos dados do formulário
+    console.log('Dados do formulário:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+    }
+    
+    // Resetar erros (verificar se elementos existem)
+    const nomeInput = document.getElementById('nomeSegmento');
+    const nomeError = document.getElementById('nomeSegmentoError');
+    const modalError = document.getElementById('segmentoModalError');
+    
+    if (nomeInput) nomeInput.classList.remove('is-invalid');
+    if (modalError) modalError.classList.add('d-none');
+    
+    // Mostrar loading
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Salvando...';
+    
+    console.log('Enviando requisição para:', '{% url "segmento_create" %}');
+    
+    fetch('{% url "segmento_create" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        console.log('Resposta recebida. Status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Dados da resposta:', data);
+        
+        if (data.success) {
+            console.log('Segmento criado com sucesso:', data.segmento);
+            
+            // Adicionar novo segmento ao select
+            const select = document.getElementById('segmentoSelect');
+            const option = new Option(data.segmento.nome, data.segmento.id, true, true);
+            select.add(option);
+            console.log('Segmento adicionado ao select');
+            
+            // Fechar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('novoSegmentoModal'));
+            modal.hide();
+            console.log('Modal fechado');
+            
+            // Limpar formulário
+            form.reset();
+            
+            // Mostrar mensagem de sucesso
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show';
+            alert.innerHTML = `
+                <i class="bi bi-check-circle me-2"></i>
+                <strong>Sucesso!</strong> Segmento "${data.segmento.nome}" criado com sucesso!
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.card-body form').prepend(alert);
+            
+            // Remover alerta após 5 segundos
+            setTimeout(() => alert.remove(), 5000);
+        } else {
+            console.log('Erro ao criar segmento:', data.errors);
+            
+            // Mostrar erros
+            if (data.errors.nome && nomeInput && nomeError) {
+                nomeInput.classList.add('is-invalid');
+                nomeError.textContent = data.errors.nome[0];
+            }
+            if (data.errors.__all__ && modalError) {
+                modalError.textContent = data.errors.__all__[0];
+                modalError.classList.remove('d-none');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Erro na requisição:', error);
+        if (modalError) {
+            modalError.textContent = 'Erro ao criar segmento. Tente novamente.';
+            modalError.classList.remove('d-none');
+        }
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = btnOriginal;
+        console.log('Processo finalizado');
+    });
+});
+
+// Limpar modal ao fechar
+document.getElementById('novoSegmentoModal').addEventListener('hidden.bs.modal', function() {
+    const form = document.getElementById('formNovoSegmento');
+    const nomeInput = document.getElementById('nomeSegmento');
+    const modalError = document.getElementById('segmentoModalError');
+    
+    form.reset();
+    if (nomeInput) nomeInput.classList.remove('is-invalid');
+    if (modalError) modalError.classList.add('d-none');
 });
 </script>
 {% endblock %}

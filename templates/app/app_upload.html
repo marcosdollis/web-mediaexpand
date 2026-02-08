@@ -1,0 +1,305 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Gerenciar Aplicativo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="bi bi-phone-fill text-primary me-2"></i>
+                Gerenciar Aplicativo
+            </h2>
+            <p class="text-muted mb-0">Upload e controle de versões do MediaExpand TV App</p>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Voltar ao Dashboard
+        </a>
+    </div>
+
+    <!-- Link de Download Público -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-success">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title mb-1">
+                                <i class="bi bi-download text-success"></i>
+                                Link de Download Público
+                            </h5>
+                            <p class="text-muted mb-2">Compartilhe este link para download da versão ativa do aplicativo:</p>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="downloadLink" 
+                                       value="{{ request.scheme }}://{{ request.get_host }}{% url 'app_download' %}" readonly>
+                                <button class="btn btn-outline-success" type="button" onclick="copyDownloadLink()">
+                                    <i class="bi bi-clipboard"></i> Copiar Link
+                                </button>
+                            </div>
+                            <small class="text-muted">
+                                Este link sempre retorna a versão mais recente marcada como "Ativa"
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Nova Versão -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-cloud-upload"></i>
+                        Enviar Nova Versão
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label for="{{ form.versao.id_for_label }}" class="form-label">
+                                    Versão *
+                                </label>
+                                {{ form.versao }}
+                                {% if form.versao.errors %}
+                                    <div class="text-danger small">{{ form.versao.errors }}</div>
+                                {% endif %}
+                                <small class="text-muted">Ex: 1.0.0, 1.2.5</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.arquivo_apk.id_for_label }}" class="form-label">
+                                    Arquivo APK *
+                                </label>
+                                {{ form.arquivo_apk }}
+                                {% if form.arquivo_apk.errors %}
+                                    <div class="text-danger small">{{ form.arquivo_apk.errors }}</div>
+                                {% endif %}
+                                <small class="text-muted">Máximo 100 MB</small>
+                            </div>
+                            
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Status</label>
+                                <div class="form-check form-switch">
+                                    {{ form.ativo }}
+                                    <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                                        Versão Ativa
+                                    </label>
+                                </div>
+                                <small class="text-muted">Se marcado, esta versão estará disponível para download</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.notas_versao.id_for_label }}" class="form-label">
+                                Notas da Versão
+                            </label>
+                            {{ form.notas_versao }}
+                            {% if form.notas_versao.errors %}
+                                <div class="text-danger small">{{ form.notas_versao.errors }}</div>
+                            {% endif %}
+                            <small class="text-muted">Descreva as novidades e correções desta versão</small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-cloud-upload"></i> Enviar Versão
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Versões -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list-ul"></i>
+                        Versões Disponíveis ({{ versions.count }})
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if versions %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Versão</th>
+                                        <th>Tamanho</th>
+                                        <th>Status</th>
+                                        <th>Downloads</th>
+                                        <th>Upload</th>
+                                        <th>Por</th>
+                                        <th>Notas</th>
+                                        <th class="text-end">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for version in versions %}
+                                    <tr>
+                                        <td>
+                                            <strong>v{{ version.versao }}</strong>
+                                            {% if version.ativo %}
+                                                <span class="badge bg-success ms-2">Ativa</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <i class="bi bi-file-earmark-zip text-muted"></i>
+                                            {{ version.get_tamanho_formatado }}
+                                        </td>
+                                        <td>
+                                            {% if version.ativo %}
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle"></i> Disponível
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">
+                                                    <i class="bi bi-x-circle"></i> Desativada
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <i class="bi bi-download text-primary"></i>
+                                            {{ version.downloads }}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ version.created_at|date:"d/m/Y H:i" }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ version.uploaded_by.username }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if version.notas_versao %}
+                                                <button class="btn btn-sm btn-outline-info" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#notasModal{{ version.id }}">
+                                                    <i class="bi bi-info-circle"></i> Ver
+                                                </button>
+                                            {% else %}
+                                                <small class="text-muted">-</small>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                <form method="post" action="{% url 'app_version_toggle' version.id %}" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-outline-secondary" 
+                                                            title="{% if version.ativo %}Desativar{% else %}Ativar{% endif %}">
+                                                        <i class="bi bi-toggle-{% if version.ativo %}on{% else %}off{% endif %}"></i>
+                                                    </button>
+                                                </form>
+                                                <a href="{{ version.arquivo_apk.url }}" 
+                                                   class="btn btn-outline-primary" 
+                                                   download
+                                                   title="Baixar APK">
+                                                    <i class="bi bi-download"></i>
+                                                </a>
+                                                <button class="btn btn-outline-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#deleteModal{{ version.id }}"
+                                                        title="Deletar">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Modal Notas da Versão -->
+                                    {% if version.notas_versao %}
+                                    <div class="modal fade" id="notasModal{{ version.id }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Notas da Versão {{ version.versao }}</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <pre class="mb-0">{{ version.notas_versao }}</pre>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Modal Confirmar Deleção -->
+                                    <div class="modal fade" id="deleteModal{{ version.id }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header bg-danger text-white">
+                                                    <h5 class="modal-title">Confirmar Deleção</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <p>Tem certeza que deseja deletar a versão <strong>{{ version.versao }}</strong>?</p>
+                                                    <p class="text-danger mb-0">
+                                                        <i class="bi bi-exclamation-triangle"></i>
+                                                        Esta ação não pode ser desfeita e o arquivo APK será permanentemente removido.
+                                                    </p>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                    <form method="post" action="{% url 'app_version_delete' version.id %}" class="d-inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-danger">
+                                                            <i class="bi bi-trash"></i> Deletar
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-inbox display-1 text-muted"></i>
+                            <p class="text-muted mt-3">Nenhuma versão enviada ainda.</p>
+                            <p class="text-muted">Faça o upload da primeira versão do aplicativo acima.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyDownloadLink() {
+    const input = document.getElementById('downloadLink');
+    input.select();
+    input.setSelectionRange(0, 99999); // Para mobile
+    
+    navigator.clipboard.writeText(input.value).then(() => {
+        // Mostrar feedback
+        const button = event.target.closest('button');
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-check"></i> Copiado!';
+        button.classList.remove('btn-outline-success');
+        button.classList.add('btn-success');
+        
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-success');
+        }, 2000);
+    }).catch(err => {
+        alert('Erro ao copiar: ' + err);
+    });
+}
+</script>
+{% endblock %}

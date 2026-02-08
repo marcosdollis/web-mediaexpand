@@ -3,10 +3,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Sum
+from django.db import models
 from .models import (
     User, Municipio, Cliente, Video,
-    Playlist, PlaylistItem, DispositivoTV, LogExibicao
+    Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -547,8 +548,9 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.urls import reverse
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
+from django.http import JsonResponse
 from datetime import timedelta
-from .forms import VideoForm, PlaylistForm, DispositivoTVForm
+from .forms import VideoForm, PlaylistForm, DispositivoTVForm, SegmentoForm, AppVersionForm
 
 
 def home_view(request):
@@ -616,15 +618,37 @@ def dashboard_view(request):
             # Municípios do franqueado
             municipios = Municipio.objects.filter(franqueado=franqueado).order_by('nome')
             
+            # Para cada município, calcular o público total
+            municipios_com_publico = []
+            for municipio in municipios:
+                publico_total = DispositivoTV.objects.filter(
+                    municipio=municipio
+                ).aggregate(
+                    total=models.Sum('publico_estimado_mes')
+                )['total'] or 0
+                
+                municipios_com_publico.append({
+                    'municipio': municipio,
+                    'publico_total': publico_total,
+                    'dispositivos_count': DispositivoTV.objects.filter(municipio=municipio).count()
+                })
+            
             # Clientes do franqueado
             clientes = Cliente.objects.filter(franqueado=franqueado).select_related('user').order_by('empresa')
             
             # Playlists do franqueado com municípios
             playlists = Playlist.objects.filter(franqueado=franqueado).select_related('municipio').order_by('nome')
             
+            # Calcular público total do franqueado
+            publico_total_franqueado = DispositivoTV.objects.filter(
+                municipio__franqueado=franqueado
+            ).aggregate(
+                total=models.Sum('publico_estimado_mes')
+            )['total'] or 0
+            
             franqueados_data.append({
                 'franqueado': franqueado,
-                'municipios': municipios,
+                'municipios': municipios_com_publico,
                 'clientes': clientes,
                 'playlists': playlists,
                 'stats': {
@@ -632,6 +656,7 @@ def dashboard_view(request):
                     'total_clientes': clientes.count(),
                     'total_playlists': playlists.count(),
                     'total_dispositivos': DispositivoTV.objects.filter(municipio__franqueado=franqueado).count(),
+                    'publico_total': publico_total_franqueado,
                 }
             })
         
@@ -653,9 +678,40 @@ def dashboard_view(request):
         try:
             cliente = user.cliente_profile
             videos = Video.objects.filter(cliente=cliente)
+            
+            # Informações do franqueado
+            franqueado = cliente.franqueado
+            
+            # Municípios do franqueado com público
+            municipios = Municipio.objects.filter(franqueado=franqueado).order_by('nome')
+            municipios_com_publico = []
+            for municipio in municipios:
+                publico_total = DispositivoTV.objects.filter(
+                    municipio=municipio
+                ).aggregate(
+                    total=models.Sum('publico_estimado_mes')
+                )['total'] or 0
+                
+                municipios_com_publico.append({
+                    'municipio': municipio,
+                    'publico_total': publico_total,
+                    'dispositivos_count': DispositivoTV.objects.filter(municipio=municipio).count()
+                })
+            
+            # Público total do franqueado
+            publico_total_franqueado = DispositivoTV.objects.filter(
+                municipio__franqueado=franqueado
+            ).aggregate(
+                total=models.Sum('publico_estimado_mes')
+            )['total'] or 0
+            
             context.update({
                 'total_videos': videos.count(),
                 'approved_videos': videos.filter(status='APPROVED').count(),
+                'cliente': cliente,
+                'franqueado': franqueado,
+                'municipios_franqueado': municipios_com_publico,
+                'publico_total_franqueado': publico_total_franqueado,
             })
         except Cliente.DoesNotExist:
             context.update({
@@ -672,7 +728,7 @@ def dashboard_view(request):
         recent_videos = Video.objects.filter(created_at__gte=cutoff_date).order_by('-created_at')[:5]
         for video in recent_videos:
             recent_activities.append({
-                'description': f'Novo vídeo "{video.titulo}" enviado por {video.cliente.nome}',
+                'description': f'Novo vídeo "{video.titulo}" enviado por {video.cliente.empresa}',
                 'timestamp': video.created_at
             })
     elif user.is_franchisee():
@@ -684,7 +740,7 @@ def dashboard_view(request):
         ).order_by('-created_at')[:5]
         for video in recent_videos:
             recent_activities.append({
-                'description': f'Novo vídeo "{video.titulo}" enviado por {video.cliente.nome}',
+                'description': f'Novo vídeo "{video.titulo}" enviado por {video.cliente.empresa}',
                 'timestamp': video.created_at
             })
     else:
@@ -781,30 +837,70 @@ def video_list_view(request):
 def video_create_view(request):
     """Criar novo vídeo"""
     user = request.user
-
-    # Verificar permissões
-    if not user.is_client():
-        messages.error(request, 'Apenas clientes podem enviar vídeos.')
-        return redirect('video_list')
-
-    try:
-        cliente = user.cliente_profile
-    except Cliente.DoesNotExist:
-        messages.error(request, 'Perfil de cliente não encontrado.')
-        return redirect('video_list')
-
-    if request.method == 'POST':
-        form = VideoForm(request.POST, request.FILES)
-        if form.is_valid():
-            video = form.save(commit=False)
-            video.cliente = cliente
-            video.save()
-            messages.success(request, 'Vídeo enviado com sucesso! Aguarde aprovação.')
+    
+    # Verificar se é cliente e buscar perfil
+    if user.is_client():
+        try:
+            cliente = user.cliente_profile
+        except Cliente.DoesNotExist:
+            messages.error(request, 'Perfil de cliente não encontrado.')
             return redirect('video_list')
+        
+        if request.method == 'POST':
+            form = VideoForm(request.POST, request.FILES)
+            if form.is_valid():
+                video = form.save(commit=False)
+                video.cliente = cliente
+                video.save()
+                messages.success(request, 'Vídeo enviado com sucesso! Aguarde aprovação.')
+                return redirect('video_list')
+        else:
+            form = VideoForm()
+        
+        return render(request, 'videos/video_form.html', {'form': form})
+    
+    # Owner e Franqueado podem fazer upload para qualquer cliente
+    elif user.is_owner() or user.is_franchisee():
+        # Filtrar clientes disponíveis
+        if user.is_owner():
+            clientes = Cliente.objects.filter(ativo=True).select_related('user').order_by('empresa')
+        else:
+            clientes = Cliente.objects.filter(franqueado=user, ativo=True).select_related('user').order_by('empresa')
+        
+        if request.method == 'POST':
+            cliente_id = request.POST.get('cliente')
+            titulo = request.POST.get('titulo')
+            descricao = request.POST.get('descricao')
+            arquivo = request.FILES.get('arquivo')
+            
+            if not cliente_id or not titulo or not arquivo:
+                messages.error(request, 'Cliente, título e arquivo de vídeo são obrigatórios.')
+            else:
+                try:
+                    cliente = Cliente.objects.get(id=cliente_id)
+                    
+                    # Verificar se franqueado tem permissão
+                    if user.is_franchisee() and cliente.franqueado != user:
+                        messages.error(request, 'Você não tem permissão para enviar vídeos para este cliente.')
+                        return redirect('video_list')
+                    
+                    video = Video.objects.create(
+                        cliente=cliente,
+                        titulo=titulo,
+                        descricao=descricao,
+                        arquivo=arquivo,
+                        status='PENDING'
+                    )
+                    messages.success(request, f'Vídeo enviado com sucesso para {cliente.empresa}!')
+                    return redirect('video_list')
+                except Cliente.DoesNotExist:
+                    messages.error(request, 'Cliente não encontrado.')
+        
+        return render(request, 'videos/video_form.html', {'clientes': clientes})
+    
     else:
-        form = VideoForm()
-
-    return render(request, 'videos/video_form.html', {'form': form})
+        messages.error(request, 'Você não tem permissão para enviar vídeos.')
+        return redirect('video_list')
 
 
 @login_required
@@ -835,12 +931,83 @@ def video_update_view(request, pk):
     return render(request, 'videos/video_form.html', {'form': form, 'video': video})
 
 
+@login_required
+def video_approve_view(request, pk):
+    """Aprovar vídeo"""
+    user = request.user
+    
+    print(f"DEBUG: Tentando aprovar vídeo {pk} por usuário {user.username}")
+    
+    # Apenas owners e franqueados podem aprovar
+    if not user.is_owner() and not user.is_franchisee():
+        print(f"DEBUG: Usuário {user.username} não tem permissão (role: {user.role})")
+        return JsonResponse({'success': False, 'error': 'Sem permissão'}, status=403)
+    
+    video = get_object_or_404(Video, pk=pk)
+    print(f"DEBUG: Video encontrado: {video.titulo}, Status atual: {video.status}")
+    
+    # Franqueados só podem aprovar vídeos de seus clientes
+    if user.is_franchisee() and video.cliente.franqueado != user:
+        print(f"DEBUG: Franqueado não gerencia este cliente")
+        return JsonResponse({'success': False, 'error': 'Sem permissão'}, status=403)
+    
+    video.status = 'APPROVED'
+    video.save()
+    print(f"DEBUG: Video {video.titulo} aprovado! Novo status: {video.status}")
+    
+    messages.success(request, f'Vídeo "{video.titulo}" aprovado com sucesso!')
+    return JsonResponse({'success': True})
+
+
+@login_required
+def video_reject_view(request, pk):
+    """Rejeitar vídeo"""
+    user = request.user
+    
+    # Apenas owners e franqueados podem rejeitar
+    if not user.is_owner() and not user.is_franchisee():
+        return JsonResponse({'success': False, 'error': 'Sem permissão'}, status=403)
+    
+    video = get_object_or_404(Video, pk=pk)
+    
+    # Franqueados só podem rejeitar vídeos de seus clientes
+    if user.is_franchisee() and video.cliente.franqueado != user:
+        return JsonResponse({'success': False, 'error': 'Sem permissão'}, status=403)
+    
+    video.status = 'REJECTED'
+    video.save()
+    
+    messages.success(request, f'Vídeo "{video.titulo}" rejeitado.')
+    return JsonResponse({'success': True})
+
+
+@login_required
+def video_delete_view(request, pk):
+    """Deletar vídeo"""
+    user = request.user
+    video = get_object_or_404(Video, pk=pk)
+    
+    # Verificar permissões
+    if not user.is_owner():
+        if user.is_franchisee():
+            if video.cliente.franqueado != user:
+                return JsonResponse({'success': False, 'error': 'Sem permissão'}, status=403)
+        elif not user.is_client() or video.cliente.user != user:
+            return JsonResponse({'success': False, 'error': 'Sem permissão'}, status=403)
+    
+    titulo = video.titulo
+    video.delete()
+    
+    messages.success(request, f'Vídeo "{titulo}" excluído com sucesso!')
+    return JsonResponse({'success': True})
+
+
 # Playlist Views
 @login_required
 def playlist_list_view(request):
     """Lista de playlists"""
     user = request.user
-    playlists = Playlist.objects.all()
+    playlists = Playlist.objects.all().prefetch_related('items', 'items__video', 'dispositivos')
 
     # Controle de permissões
     if user.is_franchisee():
@@ -1122,8 +1289,12 @@ def dispositivo_detail_view(request, pk):
         messages.error(request, 'Você não tem permissão para ver este dispositivo.')
         return redirect('dispositivo_list')
     
+    # Contar agendamentos ativos
+    agendamentos_ativos_count = dispositivo.agendamentos.filter(ativo=True).count()
+    
     context = {
         'dispositivo': dispositivo,
+        'agendamentos_ativos_count': agendamentos_ativos_count,
     }
     
     return render(request, 'dispositivos/dispositivo_detail.html', context)
@@ -1618,6 +1789,174 @@ def municipio_delete_view(request, pk):
     return render(request, 'municipios/municipio_confirm_delete.html', context)
 
 
+# Segmento Views
+@login_required
+def segmento_list_view(request):
+    """Lista de segmentos"""
+    user = request.user
+    
+    # Apenas proprietários e franqueados podem ver segmentos
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+    
+    segmentos = Segmento.objects.all().order_by('nome')
+    
+    # Filtro de busca
+    search = request.GET.get('search', '')
+    if search:
+        segmentos = segmentos.filter(nome__icontains=search)
+    
+    # Filtro ativo/inativo
+    status_filter = request.GET.get('status', '')
+    if status_filter == 'ativo':
+        segmentos = segmentos.filter(ativo=True)
+    elif status_filter == 'inativo':
+        segmentos = segmentos.filter(ativo=False)
+    
+    # Paginação
+    from django.core.paginator import Paginator
+    paginator = Paginator(segmentos, 15)
+    page_number = request.GET.get('page')
+    segmentos_page = paginator.get_page(page_number)
+    
+    context = {
+        'segmentos': segmentos_page,
+        'total_segmentos': segmentos.count(),
+        'search': search,
+        'status_filter': status_filter,
+    }
+    
+    return render(request, 'segmentos/segmento_list.html', context)
+
+
+@login_required
+def segmento_create_view(request):
+    """Criar novo segmento"""
+    user = request.user
+    
+    print(f"DEBUG: segmento_create_view chamada. Método: {request.method}, User: {user.username}")
+    
+    # Proprietários e franqueados podem criar segmentos
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        print(f"DEBUG: POST data: {request.POST}")
+        print(f"DEBUG: Is AJAX: {request.headers.get('X-Requested-With') == 'XMLHttpRequest'}")
+        
+        form = SegmentoForm(request.POST)
+        if form.is_valid():
+            segmento = form.save()
+            print(f"DEBUG: Segmento criado com sucesso: ID={segmento.id}, Nome={segmento.nome}")
+            messages.success(request, f'Segmento {segmento.nome} criado com sucesso!')
+            
+            # Se for AJAX, retornar JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                from django.http import JsonResponse
+                return JsonResponse({
+                    'success': True,
+                    'segmento': {
+                        'id': segmento.id,
+                        'nome': segmento.nome
+                    }
+                })
+            
+            return redirect('segmento_list')
+        else:
+            print(f"DEBUG: Formulário inválido. Erros: {form.errors}")
+            
+            # Se for AJAX, retornar erros
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                from django.http import JsonResponse
+                return JsonResponse({
+                    'success': False,
+                    'errors': form.errors
+                }, status=400)
+            
+            messages.error(request, 'Erro ao criar segmento. Verifique os dados.')
+    else:
+        form = SegmentoForm()
+    
+    context = {
+        'form': form,
+        'title': 'Novo Segmento',
+        'button_text': 'Criar Segmento'
+    }
+    
+    return render(request, 'segmentos/segmento_form.html', context)
+
+
+@login_required
+def segmento_update_view(request, pk):
+    """Editar segmento"""
+    user = request.user
+    
+    # Apenas proprietários podem editar segmentos
+    if not user.is_owner():
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+    
+    segmento = get_object_or_404(Segmento, pk=pk)
+    
+    if request.method == 'POST':
+        form = SegmentoForm(request.POST, instance=segmento)
+        if form.is_valid():
+            segmento = form.save()
+            messages.success(request, f'Segmento {segmento.nome} atualizado com sucesso!')
+            return redirect('segmento_list')
+        else:
+            messages.error(request, 'Erro ao atualizar segmento. Verifique os dados.')
+    else:
+        form = SegmentoForm(instance=segmento)
+    
+    context = {
+        'form': form,
+        'segmento': segmento,
+        'title': f'Editar Segmento: {segmento.nome}',
+        'button_text': 'Salvar Alterações'
+    }
+    
+    return render(request, 'segmentos/segmento_form.html', context)
+
+
+@login_required
+def segmento_delete_view(request, pk):
+    """Deletar segmento"""
+    user = request.user
+    
+    # Apenas proprietários podem deletar segmentos
+    if not user.is_owner():
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+    
+    segmento = get_object_or_404(Segmento, pk=pk)
+    
+    if request.method == 'POST':
+        nome = segmento.nome
+        
+        # Verificar se há clientes usando este segmento
+        total_clientes = segmento.clientes.count()
+        if total_clientes > 0:
+            messages.error(request, f'Não é possível deletar o segmento {nome} pois existem {total_clientes} cliente(s) vinculado(s).')
+            return redirect('segmento_list')
+        
+        segmento.delete()
+        messages.success(request, f'Segmento {nome} deletado com sucesso!')
+        return redirect('segmento_list')
+    
+    # Contar clientes relacionados
+    total_clientes = segmento.clientes.count()
+    
+    context = {
+        'segmento': segmento,
+        'total_clientes': total_clientes,
+    }
+    
+    return render(request, 'segmentos/segmento_confirm_delete.html', context)
+
+
 # Cliente Views
 @login_required
 def cliente_list_view(request):
@@ -1705,14 +2044,15 @@ def cliente_create_view(request):
         
         # Dados do cliente
         empresa = request.POST.get('empresa')
+        segmento_id = request.POST.get('segmento')
         franqueado_id = request.POST.get('franqueado') if user.is_owner() else user.id
         municipios_ids = request.POST.getlist('municipios')
         observacoes = request.POST.get('observacoes', '')
         contrato = request.FILES.get('contrato')
         
         # Validações
-        if not username or not password or not empresa:
-            messages.error(request, 'Username, senha e nome da empresa são obrigatórios.')
+        if not username or not password or not empresa or not segmento_id:
+            messages.error(request, 'Username, senha, nome da empresa e segmento são obrigatórios.')
         elif password != password_confirm:
             messages.error(request, 'As senhas não coincidem.')
         elif User.objects.filter(username=username).exists():
@@ -1722,6 +2062,37 @@ def cliente_create_view(request):
         elif not municipios_ids:
             messages.error(request, 'Selecione pelo menos um município.')
         else:
+            # Validar regra: uma marca por segmento por cidade
+            for municipio_id in municipios_ids:
+                existe = Cliente.objects.filter(
+                    segmento_id=segmento_id,
+                    municipios__id=municipio_id
+                )
+                if existe.exists():
+                    cliente_existente = existe.first()
+                    municipio = Municipio.objects.get(id=municipio_id)
+                    messages.error(request, 
+                        f'Já existe o cliente "{cliente_existente.empresa}" '
+                        f'no segmento "{cliente_existente.segmento.nome}" '
+                        f'no município {municipio.nome}/{municipio.estado}. '
+                        'Apenas uma marca por segmento por cidade é permitida.'
+                    )
+                    # Buscar segmentos para renderizar novamente
+                    segmentos = Segmento.objects.filter(ativo=True).order_by('nome')
+                    
+                    if user.is_owner():
+                        franqueados = User.objects.filter(role='FRANCHISEE').order_by('username')
+                        municipios = Municipio.objects.all().select_related('franqueado').order_by('estado', 'nome')
+                    else:
+                        franqueados = []
+                        municipios = Municipio.objects.filter(franqueado=user).order_by('estado', 'nome')
+                    
+                    return render(request, 'clientes/cliente_form.html', {
+                        'franqueados': franqueados,
+                        'municipios': municipios,
+                        'segmentos': segmentos,
+                    })
+            
             # Criar usuário
             new_user = User.objects.create_user(
                 username=username,
@@ -1736,6 +2107,7 @@ def cliente_create_view(request):
             cliente = Cliente.objects.create(
                 user=new_user,
                 empresa=empresa,
+                segmento_id=segmento_id,
                 franqueado_id=franqueado_id,
                 observacoes=observacoes,
                 contrato=contrato
@@ -1755,9 +2127,13 @@ def cliente_create_view(request):
         franqueados = []
         municipios = Municipio.objects.filter(franqueado=user).order_by('estado', 'nome')
     
+    # Buscar segmentos ativos
+    segmentos = Segmento.objects.filter(ativo=True).order_by('nome')
+    
     context = {
         'franqueados': franqueados,
         'municipios': municipios,
+        'segmentos': segmentos,
     }
     
     return render(request, 'clientes/cliente_form.html', context)
@@ -1790,6 +2166,7 @@ def cliente_update_view(request, pk):
         
         # Dados do cliente
         empresa = request.POST.get('empresa')
+        segmento_id = request.POST.get('segmento')
         franqueado_id = request.POST.get('franqueado') if user.is_owner() else cliente.franqueado_id
         municipios_ids = request.POST.getlist('municipios')
         observacoes = request.POST.get('observacoes', '')
@@ -1798,8 +2175,8 @@ def cliente_update_view(request, pk):
         remover_contrato = request.POST.get('remover_contrato') == 'on'
         
         # Validações
-        if not empresa:
-            messages.error(request, 'Nome da empresa é obrigatório.')
+        if not empresa or not segmento_id:
+            messages.error(request, 'Nome da empresa e segmento são obrigatórios.')
         elif email and User.objects.filter(email=email).exclude(pk=cliente.user.pk).exists():
             messages.error(request, 'Este email já está em uso.')
         elif password and password != password_confirm:
@@ -1807,6 +2184,39 @@ def cliente_update_view(request, pk):
         elif not municipios_ids:
             messages.error(request, 'Selecione pelo menos um município.')
         else:
+            # Validar regra: uma marca por segmento por cidade
+            for municipio_id in municipios_ids:
+                existe = Cliente.objects.filter(
+                    segmento_id=segmento_id,
+                    municipios__id=municipio_id
+                ).exclude(pk=cliente.pk)
+                
+                if existe.exists():
+                    cliente_existente = existe.first()
+                    municipio = Municipio.objects.get(id=municipio_id)
+                    messages.error(request, 
+                        f'Já existe o cliente "{cliente_existente.empresa}" '
+                        f'no segmento "{cliente_existente.segmento.nome}" '
+                        f'no município {municipio.nome}/{municipio.estado}. '
+                        'Apenas uma marca por segmento por cidade é permitida.'
+                    )
+                    # Buscar segmentos para renderizar novamente
+                    segmentos = Segmento.objects.filter(ativo=True).order_by('nome')
+                    
+                    if user.is_owner():
+                        franqueados = User.objects.filter(role='FRANCHISEE').order_by('username')
+                        municipios = Municipio.objects.all().select_related('franqueado').order_by('estado', 'nome')
+                    else:
+                        franqueados = []
+                        municipios = Municipio.objects.filter(franqueado=user).order_by('estado', 'nome')
+                    
+                    return render(request, 'clientes/cliente_form.html', {
+                        'cliente': cliente,
+                        'franqueados': franqueados,
+                        'municipios': municipios,
+                        'segmentos': segmentos,
+                    })
+            
             # Atualizar usuário
             cliente.user.email = email
             cliente.user.first_name = first_name
@@ -1820,6 +2230,7 @@ def cliente_update_view(request, pk):
             
             # Atualizar cliente
             cliente.empresa = empresa
+            cliente.segmento_id = segmento_id
             cliente.franqueado_id = franqueado_id
             cliente.observacoes = observacoes
             cliente.ativo = is_active
@@ -1851,10 +2262,14 @@ def cliente_update_view(request, pk):
         franqueados = []
         municipios = Municipio.objects.filter(franqueado=user).order_by('estado', 'nome')
     
+    # Buscar segmentos ativos
+    segmentos = Segmento.objects.filter(ativo=True).order_by('nome')
+    
     context = {
         'cliente': cliente,
         'franqueados': franqueados,
         'municipios': municipios,
+        'segmentos': segmentos,
     }
     
     return render(request, 'clientes/cliente_form.html', context)
@@ -1898,3 +2313,109 @@ def cliente_delete_view(request, pk):
     return render(request, 'clientes/cliente_confirm_delete.html', context)
 
 
+# =====================================
+# APP MANAGEMENT VIEWS (OWNER ONLY)
+# =====================================
+
+@login_required
+def app_upload_view(request):
+    """Upload e gerenciamento de versões do aplicativo (OWNER ONLY)"""
+    user = request.user
+    
+    # Apenas proprietários podem fazer upload
+    if not user.is_owner():
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        form = AppVersionForm(request.POST, request.FILES)
+        if form.is_valid():
+            app_version = form.save(commit=False)
+            app_version.uploaded_by = user
+            app_version.save()
+            messages.success(request, f'Versão {app_version.versao} enviada com sucesso!')
+            return redirect('app_upload')
+    else:
+        form = AppVersionForm()
+    
+    # Listar todas as versões
+    versions = AppVersion.objects.all()
+    
+    context = {
+        'form': form,
+        'versions': versions,
+    }
+    
+    return render(request, 'app/app_upload.html', context)
+
+
+@login_required
+def app_version_toggle_view(request, pk):
+    """Ativar/desativar uma versão do app (OWNER ONLY)"""
+    user = request.user
+    
+    if not user.is_owner():
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+    
+    app_version = get_object_or_404(AppVersion, pk=pk)
+    app_version.ativo = not app_version.ativo
+    app_version.save()
+    
+    status = 'ativada' if app_version.ativo else 'desativada'
+    messages.success(request, f'Versão {app_version.versao} {status} com sucesso!')
+    
+    return redirect('app_upload')
+
+
+@login_required
+def app_version_delete_view(request, pk):
+    """Deletar uma versão do app (OWNER ONLY)"""
+    user = request.user
+    
+    if not user.is_owner():
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+    
+    app_version = get_object_or_404(AppVersion, pk=pk)
+    
+    if request.method == 'POST':
+        versao = app_version.versao
+        # Deletar arquivo do storage
+        if app_version.arquivo_apk:
+            app_version.arquivo_apk.delete()
+        app_version.delete()
+        messages.success(request, f'Versão {versao} deletada com sucesso!')
+        return redirect('app_upload')
+    
+    return redirect('app_upload')
+
+
+def app_download_view(request):
+    """Download público da versão ativa do aplicativo"""
+    from django.http import FileResponse, Http404
+    import os
+    
+    # Buscar versão ativa mais recente
+    app_version = AppVersion.get_versao_ativa()
+    
+    if not app_version:
+        messages.error(request, 'Nenhuma versão disponível para download no momento.')
+        return redirect('login')
+    
+    # Incrementar contador de downloads
+    app_version.downloads += 1
+    app_version.save(update_fields=['downloads'])
+    
+    # Verificar se arquivo existe
+    if not app_version.arquivo_apk or not os.path.exists(app_version.arquivo_apk.path):
+        raise Http404("Arquivo não encontrado")
+    
+    # Retornar arquivo para download
+    response = FileResponse(
+        open(app_version.arquivo_apk.path, 'rb'),
+        content_type='application/vnd.android.package-archive'
+    )
+    response['Content-Disposition'] = f'attachment; filename="MediaExpandTV-v{app_version.versao}.apk"'
+    
+    return response
