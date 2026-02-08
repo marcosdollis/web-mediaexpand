@@ -1,2 +1,2 @@
-release: python manage.py migrate --noinput && python manage.py create_owner && python manage.py collectstatic --noinput
+release: python manage.py migrate --noinput && python manage.py create_owner --noinput
 web: gunicorn mediaexpand.wsgi --log-file -
