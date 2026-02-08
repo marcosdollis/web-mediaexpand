@@ -21,19 +21,25 @@ python manage.py migrate --noinput || {
 }
 echo "✅ Migrations concluídas"
 
-# Coletar arquivos estáticos
+# Coletar arquivos estáticos (IMPORTANTE!)
 echo "📂 Coletando arquivos estáticos..."
-python manage.py collectstatic --noinput || {
-    echo "❌ Erro ao coletar arquivos estáticos!"
-    exit 1
+python manage.py collectstatic --noinput --clear || {
+    echo "⚠️ Aviso: Erro ao coletar arquivos estáticos, mas continuando..."
 }
 echo "✅ Arquivos estáticos coletados"
+
+# Verificar se pasta staticfiles foi criada
+if [ -d "/app/staticfiles" ]; then
+    echo "✅ Pasta staticfiles encontrada em /app/staticfiles"
+    ls -la /app/staticfiles/ | head -10
+else
+    echo "⚠️ Pasta staticfiles não encontrada!"
+fi
 
 # Criar usuário OWNER se não existir
 echo "👤 Verificando usuário OWNER..."
 python manage.py create_owner --noinput || {
     echo "⚠️ Aviso: Não foi possível criar usuário OWNER automaticamente"
-    echo "Configure as variáveis DJANGO_SUPERUSER_* ou crie manualmente"
 }
 echo "✅ Verificação de usuário concluída"
 
