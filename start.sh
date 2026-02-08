@@ -15,32 +15,31 @@ echo "✅ DATABASE_URL configurado"
 
 # Executar migrations
 echo "📦 Executando migrations..."
-python manage.py migrate --noinput || {
-    echo "❌ Erro ao executar migrations!"
-    exit 1
-}
+python manage.py migrate --noinput
 echo "✅ Migrations concluídas"
 
-# Coletar arquivos estáticos (IMPORTANTE!)
+# IMPORTANTE: Coletar arquivos estáticos COM verbose para debug
 echo "📂 Coletando arquivos estáticos..."
-python manage.py collectstatic --noinput --clear || {
-    echo "⚠️ Aviso: Erro ao coletar arquivos estáticos, mas continuando..."
-}
+python manage.py collectstatic --noinput --clear -v 2
 echo "✅ Arquivos estáticos coletados"
 
-# Verificar se pasta staticfiles foi criada
+# Verificar arquivos coletados
+echo "📋 Verificando arquivos em staticfiles:"
 if [ -d "/app/staticfiles" ]; then
-    echo "✅ Pasta staticfiles encontrada em /app/staticfiles"
-    ls -la /app/staticfiles/ | head -10
+    echo "Pasta staticfiles existe"
+    echo "Arquivos CSS:"
+    ls -la /app/staticfiles/css/ || echo "Pasta css não encontrada"
+    echo "Arquivos JS:"
+    ls -la /app/staticfiles/js/ || echo "Pasta js não encontrada"
+    echo "Total de arquivos:"
+    find /app/staticfiles -type f | wc -l
 else
-    echo "⚠️ Pasta staticfiles não encontrada!"
+    echo "⚠️ Pasta staticfiles NÃO EXISTE!"
 fi
 
 # Criar usuário OWNER se não existir
 echo "👤 Verificando usuário OWNER..."
-python manage.py create_owner --noinput || {
-    echo "⚠️ Aviso: Não foi possível criar usuário OWNER automaticamente"
-}
+python manage.py create_owner --noinput
 echo "✅ Verificação de usuário concluída"
 
 # Iniciar servidor
