@@ -17,7 +17,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if User.objects.filter(role='OWNER').exists():
-            self.stdout.write(self.style.WARNING('Já existe um usuário OWNER no sistema.'))
+            self.stdout.write(self.style.WARNING('✅ Já existe um usuário OWNER no sistema.'))
             return
 
         # Verificar se há variáveis de ambiente (deploy automático)
@@ -26,7 +26,7 @@ class Command(BaseCommand):
         password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
         
         if username and email and password:
-            # Modo automático (deploy)
+            # Modo automático (deploy) com variáveis configuradas
             user = User.objects.create_user(
                 username=username,
                 email=email,
@@ -37,12 +37,33 @@ class Command(BaseCommand):
                 is_staff=True,
                 is_superuser=True
             )
-            self.stdout.write(self.style.SUCCESS(f'✓ Usuário OWNER "{username}" criado automaticamente!'))
+            self.stdout.write(self.style.SUCCESS(f'✅ Usuário OWNER "{username}" criado automaticamente!'))
         elif options.get('noinput'):
-            # Modo noinput mas sem variáveis - apenas avisar
-            self.stdout.write(self.style.WARNING('Modo --noinput ativo, mas variáveis de ambiente não configuradas.'))
-            self.stdout.write(self.style.WARNING('Configure DJANGO_SUPERUSER_USERNAME, DJANGO_SUPERUSER_EMAIL e DJANGO_SUPERUSER_PASSWORD.'))
-            self.stdout.write(self.style.WARNING('Pulando criação do usuário OWNER.'))
+            # Modo noinput SEM variáveis - criar usuário padrão
+            self.stdout.write(self.style.WARNING('⚠️ Variáveis DJANGO_SUPERUSER_* não configuradas.'))
+            self.stdout.write(self.style.WARNING('🔧 Criando usuário OWNER padrão...'))
+            
+            default_username = 'admin'
+            default_password = 'admin123'
+            default_email = 'admin@mediaexpand.com'
+            
+            user = User.objects.create_user(
+                username=default_username,
+                email=default_email,
+                first_name='Administrador',
+                last_name='Sistema',
+                password=default_password,
+                role='OWNER',
+                is_staff=True,
+                is_superuser=True
+            )
+            
+            self.stdout.write(self.style.SUCCESS('=' * 60))
+            self.stdout.write(self.style.SUCCESS(f'✅ Usuário OWNER padrão criado com sucesso!'))
+            self.stdout.write(self.style.WARNING(f'👤 Username: {default_username}'))
+            self.stdout.write(self.style.WARNING(f'🔑 Password: {default_password}'))
+            self.stdout.write(self.style.ERROR('⚠️  IMPORTANTE: ALTERE A SENHA APÓS O PRIMEIRO LOGIN!'))
+            self.stdout.write(self.style.SUCCESS('=' * 60))
         else:
             # Modo interativo (desenvolvimento local)
             self.stdout.write(self.style.SUCCESS('\n=== Criação do Usuário OWNER (Dono) ===\n'))
@@ -64,5 +85,5 @@ class Command(BaseCommand):
                 is_superuser=True
             )
             
-            self.stdout.write(self.style.SUCCESS(f'\n✓ Usuário OWNER "{username}" criado com sucesso!'))
+            self.stdout.write(self.style.SUCCESS(f'\n✅ Usuário OWNER "{username}" criado com sucesso!'))
             self.stdout.write(self.style.SUCCESS('Este usuário tem acesso total ao sistema.\n'))
