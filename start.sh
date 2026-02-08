@@ -1,66 +1,48 @@
 #!/bin/bash
 # Script de inicialização para Railway
 
+set -e  # Para na primeira falha
+
 echo "🚀 Iniciando MediaExpand..."
 
-# Aguardar PostgreSQL estar disponível
-echo "⏳ Aguardando PostgreSQL..."
-python << END
-import sys
-import time
-import psycopg2
-from urllib.parse import urlparse
-import os
+# Verificar se DATABASE_URL existe
+if [ -z "$DATABASE_URL" ]; then
+    echo "❌ Erro: DATABASE_URL não configurado!"
+    exit 1
+fi
 
-max_retries = 30
-retry_count = 0
-
-database_url = os.environ.get('DATABASE_URL')
-if not database_url:
-    print("❌ DATABASE_URL não configurado!")
-    sys.exit(1)
-
-result = urlparse(database_url)
-username = result.username
-password = result.password
-database = result.path[1:]
-hostname = result.hostname
-port = result.port
-
-while retry_count < max_retries:
-    try:
-        conn = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        conn.close()
-        print("✅ PostgreSQL conectado!")
-        break
-    except psycopg2.OperationalError:
-        retry_count += 1
-        print(f"⏳ Tentativa {retry_count}/{max_retries}...")
-        time.sleep(1)
-
-if retry_count >= max_retries:
-    print("❌ Não foi possível conectar ao PostgreSQL!")
-    sys.exit(1)
-END
+echo "✅ DATABASE_URL configurado"
 
 # Executar migrations
 echo "📦 Executando migrations..."
-python manage.py migrate --noinput
+python manage.py migrate --noinput || {
+    echo "❌ Erro ao executar migrations!"
+    exit 1
+}
+echo "✅ Migrations concluídas"
 
 # Coletar arquivos estáticos
 echo "📂 Coletando arquivos estáticos..."
-python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput || {
+    echo "❌ Erro ao coletar arquivos estáticos!"
+    exit 1
+}
+echo "✅ Arquivos estáticos coletados"
 
 # Criar usuário OWNER se não existir
 echo "👤 Verificando usuário OWNER..."
-python manage.py create_owner --noinput
+python manage.py create_owner --noinput || {
+    echo "⚠️ Aviso: Não foi possível criar usuário OWNER automaticamente"
+    echo "Configure as variáveis DJANGO_SUPERUSER_* ou crie manualmente"
+}
+echo "✅ Verificação de usuário concluída"
 
 # Iniciar servidor
-echo "✅ Iniciando servidor Gunicorn..."
-exec gunicorn mediaexpand.wsgi --log-file - --bind 0.0.0.0:$PORT
+echo "🌐 Iniciando servidor Gunicorn na porta ${PORT:-8000}..."
+exec gunicorn mediaexpand.wsgi:application \
+    --bind 0.0.0.0:${PORT:-8000} \
+    --workers 2 \
+    --timeout 120 \
+    --access-logfile - \
+    --error-logfile - \
+    --log-level info
