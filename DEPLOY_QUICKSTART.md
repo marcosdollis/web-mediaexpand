@@ -41,6 +41,13 @@ DEBUG=False
 SECRET_KEY=sua-secret-key-aqui
 ALLOWED_HOSTS=*.railway.app
 CSRF_TRUSTED_ORIGINS=https://*.railway.app
+
+# Usuário OWNER (criado automaticamente no primeiro deploy)
+DJANGO_SUPERUSER_USERNAME=admin
+DJANGO_SUPERUSER_EMAIL=admin@mediaexpand.com
+DJANGO_SUPERUSER_PASSWORD=SuaSenhaForteAqui123!
+DJANGO_SUPERUSER_FIRST_NAME=Administrador
+DJANGO_SUPERUSER_LAST_NAME=Sistema
 ```
 
 **Gerar SECRET_KEY:**
@@ -48,15 +55,18 @@ CSRF_TRUSTED_ORIGINS=https://*.railway.app
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
-### 5️⃣ Criar Usuário OWNER
+⚠️ **IMPORTANTE**: O usuário OWNER será criado **automaticamente** no primeiro deploy usando essas variáveis!
 
-1. Railway: **Deployments** → **View Logs**
-2. Abrir **Shell** (ícone terminal)
-3. Executar:
+### 5️⃣ Deploy Automático
 
-```bash
-python manage.py create_owner
-```
+O Railway faz deploy automaticamente e:
+1. Instala dependências
+2. Executa migrations
+3. **Cria usuário OWNER automaticamente** (se não existir)
+4. Coleta arquivos estáticos
+5. Inicia o servidor
+
+**Não precisa mais executar `create_owner` manualmente!** ✨
 
 **Pronto! 🎉**
 
