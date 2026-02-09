@@ -89,7 +89,6 @@ Todos os endpoints REST padrão para gerenciamento de:
    ),
    public=True,
    permission_classes=(permissions.AllowAny,),
-   schemes=['https'],
 )
 
 urlpatterns = [
