@@ -1,0 +1,412 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Métricas de Visibilidade - MediaExpand{% endblock %}
+
+{% block extra_head %}
+<style>
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        color: white;
+        padding: 1.5rem;
+        height: 100%;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    
+    .metric-card.highlight {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .metric-card.success {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    
+    .metric-card.info {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .metric-card.warning {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    
+    .metric-card.purple {
+        background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+    }
+    
+    .metric-card.dark {
+        background: linear-gradient(135deg, #434343 0%, #000000 100%);
+    }
+    
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+    }
+    
+    .metric-label {
+        font-size: 0.95rem;
+        font-weight: 600;
+        opacity: 0.95;
+        margin-bottom: 0.5rem;
+    }
+    
+    .metric-description {
+        font-size: 0.8rem;
+        opacity: 0.85;
+        line-height: 1.4;
+    }
+    
+    .metric-badge {
+        display: inline-block;
+        background: rgba(255,255,255,0.25);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        margin-top: 0.5rem;
+    }
+    
+    .metric-icon {
+        font-size: 2.5rem;
+        opacity: 0.3;
+        position: absolute;
+        right: 1rem;
+        top: 1rem;
+    }
+    
+    .section-title {
+        color: #667eea;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 3px solid #667eea;
+    }
+    
+    .device-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        border-left: 4px solid #667eea;
+    }
+    
+    .device-card .hours {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #667eea;
+    }
+
+    .positive-variation {
+        color: #38ef7d;
+    }
+    
+    .negative-variation {
+        color: #f5576c;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+                <h1 class="h3 mb-0">
+                    <i class="bi bi-graph-up-arrow me-2 text-primary"></i>
+                    Métricas de Visibilidade
+                </h1>
+                <p class="text-muted mb-0">{{ cliente.empresa }} - Acompanhamento de performance</p>
+            </div>
+            <div class="text-end">
+                <small class="text-muted d-block">{{ now|date:"F \d\e Y" }}</small>
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-primary btn-sm mt-2">
+                    <i class="bi bi-arrow-left me-1"></i>Voltar ao Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Métricas Principais -->
+<div class="row mb-4">
+    <!-- Telas Ativas -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="metric-card position-relative">
+            <i class="bi bi-tv metric-icon"></i>
+            <div class="metric-value">{{ telas_ativas }}</div>
+            <div class="metric-label">Telas Ativas</div>
+            <div class="metric-description">Pontos de exibição simultâneos</div>
+            <span class="metric-badge"><i class="bi bi-broadcast me-1"></i>Destaque</span>
+        </div>
+    </div>
+    
+    <!-- Público Impactado -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="metric-card highlight position-relative">
+            <i class="bi bi-people metric-icon"></i>
+            <div class="metric-value">{{ publico_impactado_formatado }}</div>
+            <div class="metric-label">Público Impactado/Mês</div>
+            <div class="metric-description">Pessoas que visualizaram sua marca</div>
+            {% if variacao_percentual > 0 %}
+            <span class="metric-badge positive-variation">
+                <i class="bi bi-arrow-up me-1"></i>+{{ variacao_percentual|floatformat:0 }}% vs mês anterior
+            </span>
+            {% elif variacao_percentual < 0 %}
+            <span class="metric-badge negative-variation">
+                <i class="bi bi-arrow-down me-1"></i>{{ variacao_percentual|floatformat:0 }}% vs mês anterior
+            </span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Tempo Total de Exibição -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="metric-card success position-relative">
+            <i class="bi bi-clock-history metric-icon"></i>
+            <div class="metric-value">{{ tempo_total_horas }}h</div>
+            <div class="metric-label">Tempo Total de Exibição/Mês</div>
+            <div class="metric-description">Tempo de operação de todas as telas</div>
+        </div>
+    </div>
+    
+    <!-- Inserções da Marca -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="metric-card info position-relative">
+            <i class="bi bi-play-circle metric-icon"></i>
+            <div class="metric-value">{{ insercoes_totais_formatado }}</div>
+            <div class="metric-label">Inserções da Marca (Total)</div>
+            <div class="metric-description">
+                Cálculo: {{ tempo_total_horas }}h × 3.600s ÷ {{ duracao_media_video|floatformat:0 }}s × {{ proporcao_cliente }}%
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Métricas Secundárias -->
+<div class="row mb-4">
+    <!-- Anunciantes Ativos -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="metric-card warning position-relative">
+            <i class="bi bi-megaphone metric-icon"></i>
+            <div class="metric-value">{{ anunciantes_ativos }}</div>
+            <div class="metric-label">Anunciantes Ativos</div>
+            <div class="metric-description">Parceiros na rede este mês</div>
+        </div>
+    </div>
+    
+    <!-- Tempo por Anúncio -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="metric-card purple position-relative">
+            <i class="bi bi-stopwatch metric-icon"></i>
+            <div class="metric-value">{{ tempo_por_anuncio|floatformat:0 }}s</div>
+            <div class="metric-label">Tempo por Anúncio</div>
+            <div class="metric-description">Duração média de cada exibição</div>
+        </div>
+    </div>
+    
+    <!-- Inserções por Anunciante -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="metric-card dark position-relative">
+            <i class="bi bi-bar-chart-line metric-icon"></i>
+            <div class="metric-value">{{ insercoes_por_anunciante_formatado }}</div>
+            <div class="metric-label">Inserções por Anunciante</div>
+            <div class="metric-description">Seu anúncio exibido {{ insercoes_por_anunciante|floatformat:0 }} vezes durante o mês</div>
+        </div>
+    </div>
+    
+    <!-- Tempo Corrido da Marca -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="metric-card position-relative">
+            <i class="bi bi-hourglass-split metric-icon"></i>
+            <div class="metric-value">{{ tempo_corrido_horas }}h</div>
+            <div class="metric-label">Tempo Corrido da Marca</div>
+            <div class="metric-description">
+                Cálculo: {{ insercoes_por_anunciante|floatformat:0 }} inserções × {{ tempo_por_anuncio|floatformat:0 }}s
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detalhes das Telas -->
+{% if dispositivos_detalhes %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="section-title mb-0">
+                    <i class="bi bi-display me-2"></i>
+                    Detalhamento por Tela
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for item in dispositivos_detalhes %}
+                    <div class="col-lg-4 col-md-6">
+                        <div class="device-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <i class="bi bi-tv text-primary me-2"></i>
+                                        {{ item.dispositivo.nome }}
+                                    </h6>
+                                    <small class="text-muted">
+                                        <i class="bi bi-geo-alt me-1"></i>{{ item.localizacao }}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="hours">{{ item.horas_mes }}h</span>
+                                    <small class="d-block text-muted">por mês</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Meus Vídeos nas Playlists -->
+{% if videos_cliente %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="section-title mb-0">
+                    <i class="bi bi-film me-2"></i>
+                    Seus Vídeos em Exibição
+                </h5>
+                <span class="badge bg-primary">{{ videos_cliente.count }} vídeo(s)</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Vídeo</th>
+                                <th>Duração</th>
+                                <th>Status</th>
+                                <th>Em Playlists</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for video in videos_cliente %}
+                            <tr>
+                                <td>
+                                    <i class="bi bi-play-btn text-primary me-2"></i>
+                                    {{ video.titulo }}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        {{ video.duracao_segundos }}s
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle me-1"></i>Aprovado
+                                    </span>
+                                </td>
+                                <td>
+                                    {{ video.playlist_items.count }} playlist(s)
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-3">
+                                    Nenhum vídeo aprovado encontrado
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Playlists Participantes -->
+{% if playlists %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="section-title mb-0">
+                    <i class="bi bi-collection-play me-2"></i>
+                    Playlists com Seus Vídeos
+                </h5>
+                <span class="badge bg-info">{{ playlists.count }} playlist(s)</span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for playlist in playlists %}
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card h-100 border">
+                            <div class="card-body">
+                                <h6 class="mb-2">
+                                    <i class="bi bi-music-note-list text-info me-2"></i>
+                                    {{ playlist.nome }}
+                                </h6>
+                                <p class="small text-muted mb-2">
+                                    <i class="bi bi-geo-alt me-1"></i>{{ playlist.municipio.nome }}/{{ playlist.municipio.estado }}
+                                </p>
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">
+                                        <i class="bi bi-film me-1"></i>{{ playlist.total_videos }} vídeos
+                                    </small>
+                                    <small class="text-muted">
+                                        <i class="bi bi-clock me-1"></i>{{ playlist.duracao_total_formatada }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Logs Reais (se houver) -->
+{% if logs_mes_atual > 0 %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info d-flex align-items-center">
+            <i class="bi bi-info-circle-fill me-3 fs-4"></i>
+            <div>
+                <strong>Dados Reais Disponíveis!</strong><br>
+                Foram registradas <strong>{{ logs_mes_atual }}</strong> exibições reais dos seus vídeos este mês através do aplicativo das TVs.
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Observação -->
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-light border-0">
+            <div class="card-body">
+                <p class="small text-muted mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>Nota:</strong> As métricas são calculadas dinamicamente com base nos horários de exibição configurados 
+                    para cada dispositivo e na proporção dos seus vídeos nas playlists ativas. Quando disponíveis, dados reais 
+                    de exibição do aplicativo são utilizados para maior precisão.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

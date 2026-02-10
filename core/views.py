@@ -782,6 +782,188 @@ def dashboard_view(request):
     return render(request, 'dashboard/dashboard.html', context)
 
 
+@login_required
+def cliente_metricas_view(request):
+    """Dashboard de métricas de visibilidade para clientes"""
+    user = request.user
+    
+    # Verificar se é cliente
+    if not user.is_client():
+        messages.error(request, 'Esta página é exclusiva para clientes.')
+        return redirect('dashboard')
+    
+    try:
+        cliente = user.cliente_profile
+    except Cliente.DoesNotExist:
+        messages.error(request, 'Perfil de cliente não encontrado.')
+        return redirect('dashboard')
+    
+    # Obter vídeos aprovados do cliente
+    videos_cliente = Video.objects.filter(cliente=cliente, status='APPROVED', ativo=True)
+    
+    # Encontrar playlists que contêm vídeos do cliente
+    playlist_ids = PlaylistItem.objects.filter(
+        video__in=videos_cliente, 
+        ativo=True
+    ).values_list('playlist_id', flat=True).distinct()
+    
+    playlists = Playlist.objects.filter(id__in=playlist_ids, ativa=True)
+    
+    # Dispositivos que usam essas playlists
+    dispositivos = DispositivoTV.objects.filter(
+        playlist_atual__in=playlists,
+        ativo=True
+    ).distinct()
+    
+    # Métricas básicas
+    telas_ativas = dispositivos.count()
+    
+    # Público impactado (soma do público estimado de todos os dispositivos)
+    publico_impactado = dispositivos.aggregate(
+        total=models.Sum('publico_estimado_mes')
+    )['total'] or 0
+    
+    # Calcular tempo total de exibição baseado nos agendamentos
+    tempo_total_segundos = 0
+    dispositivos_detalhes = []
+    
+    from datetime import datetime, time
+    import calendar
+    
+    # Dias úteis no mês atual
+    now = timezone.now()
+    _, dias_no_mes = calendar.monthrange(now.year, now.month)
+    
+    for dispositivo in dispositivos:
+        agendamentos = dispositivo.agendamentos.filter(ativo=True)
+        
+        horas_dia = 0
+        if agendamentos.exists():
+            # Calcular horas por semana baseado nos agendamentos
+            for agendamento in agendamentos:
+                hora_inicio = agendamento.hora_inicio
+                hora_fim = agendamento.hora_fim
+                
+                # Calcular duração em horas
+                inicio_segundos = hora_inicio.hour * 3600 + hora_inicio.minute * 60 + hora_inicio.second
+                fim_segundos = hora_fim.hour * 3600 + hora_fim.minute * 60 + hora_fim.second
+                duracao_segundos = fim_segundos - inicio_segundos
+                
+                if duracao_segundos > 0:
+                    horas_diarias = duracao_segundos / 3600
+                    dias_ativos = len(agendamento.dias_semana) if agendamento.dias_semana else 0
+                    # Média de dias por mês (considerando semanas)
+                    dias_mes = (dias_ativos / 7) * dias_no_mes
+                    horas_dia += horas_diarias * dias_mes
+        else:
+            # Sem agendamento = 12h por dia, todos os dias
+            horas_dia = 12 * dias_no_mes
+        
+        tempo_total_segundos += horas_dia * 3600
+        
+        dispositivos_detalhes.append({
+            'dispositivo': dispositivo,
+            'horas_mes': round(horas_dia, 1),
+            'localizacao': dispositivo.localizacao or dispositivo.municipio.nome
+        })
+    
+    tempo_total_horas = tempo_total_segundos / 3600
+    
+    # Duração média dos vídeos do cliente (em segundos)
+    duracao_media_video = videos_cliente.aggregate(
+        media=models.Avg('duracao_segundos')
+    )['media'] or 15  # Default 15 segundos
+    
+    # Total de vídeos em todas as playlists relevantes
+    total_videos_playlists = PlaylistItem.objects.filter(
+        playlist__in=playlists,
+        ativo=True
+    ).count()
+    
+    # Proporção de vídeos do cliente nas playlists
+    videos_cliente_em_playlists = PlaylistItem.objects.filter(
+        playlist__in=playlists,
+        video__in=videos_cliente,
+        ativo=True
+    ).count()
+    
+    # Evitar divisão por zero
+    proporcao_cliente = videos_cliente_em_playlists / max(total_videos_playlists, 1)
+    
+    # Inserções totais: tempo_total (em segundos) / duração média do vídeo * proporção de vídeos do cliente
+    insercoes_totais = int((tempo_total_segundos / max(duracao_media_video, 1)) * proporcao_cliente)
+    
+    # Anunciantes ativos (clientes únicos com vídeos nas mesmas playlists)
+    anunciantes_ids = PlaylistItem.objects.filter(
+        playlist__in=playlists,
+        ativo=True
+    ).values_list('video__cliente_id', flat=True).distinct()
+    anunciantes_ativos = len(set(anunciantes_ids))
+    
+    # Tempo por anúncio (duração média dos vídeos do cliente)
+    tempo_por_anuncio = duracao_media_video
+    
+    # Inserções por anunciante
+    insercoes_por_anunciante = int(insercoes_totais / max(anunciantes_ativos, 1)) if anunciantes_ativos > 0 else insercoes_totais
+    
+    # Tempo corrido da marca (inserções * duração média)
+    tempo_corrido_segundos = insercoes_totais * duracao_media_video
+    tempo_corrido_horas = tempo_corrido_segundos / 3600
+    
+    # Dados do mês anterior para comparação (usando logs reais se disponíveis)
+    mes_anterior = now.replace(day=1) - timedelta(days=1)
+    logs_mes_anterior = LogExibicao.objects.filter(
+        video__cliente=cliente,
+        data_hora_inicio__year=mes_anterior.year,
+        data_hora_inicio__month=mes_anterior.month
+    ).count()
+    
+    logs_mes_atual = LogExibicao.objects.filter(
+        video__cliente=cliente,
+        data_hora_inicio__year=now.year,
+        data_hora_inicio__month=now.month
+    ).count()
+    
+    # Calcular variação percentual
+    if logs_mes_anterior > 0:
+        variacao_percentual = ((logs_mes_atual - logs_mes_anterior) / logs_mes_anterior) * 100
+    else:
+        variacao_percentual = 100 if logs_mes_atual > 0 else 0
+    
+    # Função auxiliar para formatar números grandes
+    def formatar_numero(n):
+        if n >= 1000000:
+            return f"{n / 1000000:.1f}M"
+        elif n >= 1000:
+            return f"{n / 1000:.1f}K"
+        return str(int(n))
+    
+    context = {
+        'now': now,
+        'cliente': cliente,
+        'telas_ativas': telas_ativas,
+        'publico_impactado': publico_impactado,
+        'publico_impactado_formatado': formatar_numero(publico_impactado),
+        'tempo_total_horas': round(tempo_total_horas, 1),
+        'insercoes_totais': insercoes_totais,
+        'insercoes_totais_formatado': formatar_numero(insercoes_totais),
+        'anunciantes_ativos': anunciantes_ativos,
+        'tempo_por_anuncio': round(tempo_por_anuncio, 0),
+        'insercoes_por_anunciante': insercoes_por_anunciante,
+        'insercoes_por_anunciante_formatado': formatar_numero(insercoes_por_anunciante),
+        'tempo_corrido_horas': round(tempo_corrido_horas, 1),
+        'variacao_percentual': round(variacao_percentual, 0),
+        'dispositivos_detalhes': dispositivos_detalhes,
+        'videos_cliente': videos_cliente,
+        'playlists': playlists,
+        'duracao_media_video': round(duracao_media_video, 0),
+        'proporcao_cliente': round(proporcao_cliente * 100, 1),
+        'logs_mes_atual': logs_mes_atual,
+    }
+    
+    return render(request, 'dashboard/cliente_metricas.html', context)
+
+
 # Video Views
 @login_required
 def video_list_view(request):

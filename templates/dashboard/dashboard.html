@@ -319,13 +319,19 @@
                     {% endif %}
 
                     {% if user.role == 'CLIENT' %}
-                    <div class="col-md-6 col-sm-6">
+                    <div class="col-md-4 col-sm-6">
+                        <a href="{% url 'cliente_metricas' %}" class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center p-3">
+                            <i class="fas fa-chart-line fa-2x mb-2"></i>
+                            <span>Métricas de Visibilidade</span>
+                        </a>
+                    </div>
+                    <div class="col-md-4 col-sm-6">
                         <a href="{% url 'video_create' %}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center p-3">
                             <i class="fas fa-video fa-2x mb-2"></i>
                             <span>Enviar Vídeo</span>
                         </a>
                     </div>
-                    <div class="col-md-6 col-sm-6">
+                    <div class="col-md-4 col-sm-6">
                         <a href="{% url 'video_list' %}" class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center p-3">
                             <i class="fas fa-list fa-2x mb-2"></i>
                             <span>Meus Vídeos</span>
