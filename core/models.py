@@ -120,6 +120,16 @@ class Cliente(models.Model):
     
     def __str__(self):
         return f"{self.empresa} - {self.segmento.nome}"
+    
+    @property
+    def contrato_size_bytes(self):
+        """Retorna o tamanho do contrato em bytes, ou 0 se não existir"""
+        if self.contrato and os.path.exists(self.contrato.path):
+            try:
+                return self.contrato.size
+            except (OSError, ValueError):
+                return 0
+        return 0
 
 
 def video_upload_path(instance, filename):
@@ -159,8 +169,21 @@ class Video(models.Model):
     
     def get_file_size(self):
         """Retorna o tamanho do arquivo em MB"""
-        if self.arquivo:
-            return round(self.arquivo.size / (1024 * 1024), 2)
+        if self.arquivo and os.path.exists(self.arquivo.path):
+            try:
+                return round(self.arquivo.size / (1024 * 1024), 2)
+            except (OSError, ValueError):
+                return 0
+        return 0
+    
+    @property
+    def file_size_bytes(self):
+        """Retorna o tamanho do arquivo em bytes, ou 0 se não existir"""
+        if self.arquivo and os.path.exists(self.arquivo.path):
+            try:
+                return self.arquivo.size
+            except (OSError, ValueError):
+                return 0
         return 0
 
 
@@ -375,8 +398,11 @@ class AppVersion(models.Model):
         return f"MediaExpand TV v{self.versao}"
     
     def save(self, *args, **kwargs):
-        if self.arquivo_apk:
-            self.tamanho = self.arquivo_apk.size
+        if self.arquivo_apk and os.path.exists(self.arquivo_apk.path):
+            try:
+                self.tamanho = self.arquivo_apk.size
+            except (OSError, ValueError):
+                self.tamanho = 0
         super().save(*args, **kwargs)
     
     def get_tamanho_formatado(self):

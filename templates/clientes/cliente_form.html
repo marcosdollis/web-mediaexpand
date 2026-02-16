@@ -115,7 +115,7 @@
                                     <a href="{{ cliente.contrato.url }}" target="_blank" class="alert-link">
                                         {{ cliente.contrato.name|slice:"10:" }}
                                     </a>
-                                    <small class="text-muted">({{ cliente.contrato.size|filesizeformat }})</small>
+                                    <small class="text-muted">({{ cliente.contrato_size_bytes|filesizeformat }})</small>
                                 </div>
                                 <div class="form-check form-switch">
                                     <input type="checkbox" name="remover_contrato" class="form-check-input" id="remover_contrato">
