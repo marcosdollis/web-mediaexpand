@@ -21,8 +21,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     
     # Third party
-    'cloudinary_storage',
-    'cloudinary',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
@@ -111,22 +109,15 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 WHITENOISE_USE_FINDERS = True
 WHITENOISE_AUTOREFRESH = True if DEBUG else False
 
-# Cloudinary configuration for media storage
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME', default=''),
-    'API_KEY': config('CLOUDINARY_API_KEY', default=''),
-    'API_SECRET': config('CLOUDINARY_API_SECRET', default=''),
-}
-
 # Media files
+# Em desenvolvimento: usa pasta local 'media/'
+# Em produção (Railway): usa volume montado em '/data/media'
 if DEBUG:
-    # Desenvolvimento: usar sistema de arquivos local
     MEDIA_URL = 'media/'
     MEDIA_ROOT = BASE_DIR / 'media'
 else:
-    # Produção: usar Cloudinary
-    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-    MEDIA_URL = '/media/'  # Cloudinary irá gerar URLs completas
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = '/data/media'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
