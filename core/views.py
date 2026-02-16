@@ -385,6 +385,7 @@ class TVAPIView(APIView):
 class TVLogExibicaoView(APIView):
     """
     API para o app de TV registrar logs de exibição
+    Formato esperado: {dispositivo_id, video_id, tempo_exibicao_segundos}
     """
     permission_classes = [permissions.AllowAny]
     
@@ -392,31 +393,58 @@ class TVLogExibicaoView(APIView):
         """Registra log de exibição"""
         dispositivo_id = request.data.get('dispositivo_id')
         video_id = request.data.get('video_id')
-        playlist_id = request.data.get('playlist_id')
-        data_hora_inicio = request.data.get('data_hora_inicio')
-        data_hora_fim = request.data.get('data_hora_fim')
-        completamente_exibido = request.data.get('completamente_exibido', False)
+        tempo_exibicao_segundos = request.data.get('tempo_exibicao_segundos', 0)
+        
+        # Valida campos obrigatórios
+        if not dispositivo_id or not video_id:
+            return Response(
+                {'error': 'dispositivo_id e video_id são obrigatórios'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         try:
             dispositivo = DispositivoTV.objects.get(id=dispositivo_id)
             video = Video.objects.get(id=video_id)
-            playlist = Playlist.objects.get(id=playlist_id)
+            
+            # Usa a playlist atual do dispositivo
+            if not dispositivo.playlist_atual:
+                return Response(
+                    {'error': 'Dispositivo não possui playlist configurada'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Calcula horários automaticamente
+            data_hora_fim = timezone.now()
+            data_hora_inicio = data_hora_fim - timezone.timedelta(seconds=tempo_exibicao_segundos)
+            
+            # Verifica se foi completamente exibido (pelo menos 90% do tempo)
+            completamente_exibido = False
+            if video.duracao_segundos > 0:
+                porcentagem_exibida = (tempo_exibicao_segundos / video.duracao_segundos) * 100
+                completamente_exibido = porcentagem_exibida >= 90
             
             log = LogExibicao.objects.create(
                 dispositivo=dispositivo,
                 video=video,
-                playlist=playlist,
+                playlist=dispositivo.playlist_atual,
                 data_hora_inicio=data_hora_inicio,
                 data_hora_fim=data_hora_fim,
                 completamente_exibido=completamente_exibido
             )
             
-            serializer = LogExibicaoSerializer(log)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
-        except (DispositivoTV.DoesNotExist, Video.DoesNotExist, Playlist.DoesNotExist) as e:
             return Response(
-                {'error': str(e)},
+                {'success': True, 'message': 'Log registrado com sucesso'},
+                status=status.HTTP_201_CREATED
+            )
+        
+        except DispositivoTV.DoesNotExist:
+            return Response(
+                {'error': 'Dispositivo não encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Video.DoesNotExist:
+            return Response(
+                {'error': 'Vídeo não encontrado'},
                 status=status.HTTP_404_NOT_FOUND
             )
 

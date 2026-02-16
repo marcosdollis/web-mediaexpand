@@ -211,12 +211,24 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
         items = obj.items.filter(ativo=True).select_related('video').order_by('ordem')
         result = []
         for item in items:
+            # Pula vídeos sem arquivo ou inativos
+            if not item.video.arquivo or not item.video.ativo or item.video.status != 'APPROVED':
+                continue
+                
             for _ in range(item.repeticoes):
+                # Constrói URL e força HTTPS em produção
+                arquivo_url = self.context['request'].build_absolute_uri(item.video.arquivo.url)
+                
+                # Força HTTPS se estiver em produção (Railway)
+                if 'railway.app' in arquivo_url:
+                    arquivo_url = arquivo_url.replace('http://', 'https://')
+                
                 result.append({
                     'id': item.video.id,
                     'titulo': item.video.titulo,
-                    'arquivo_url': self.context['request'].build_absolute_uri(item.video.arquivo.url) if item.video.arquivo else None,
+                    'arquivo_url': arquivo_url,
                     'duracao_segundos': item.video.duracao_segundos,
+                    'ativo': item.video.ativo,
                 })
         return result
 
