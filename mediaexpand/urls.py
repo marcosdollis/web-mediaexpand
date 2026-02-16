@@ -109,7 +109,17 @@ admin.site.site_header = "MediaExpand - Administração"
 admin.site.site_title = "MediaExpand Admin"
 admin.site.index_title = "Gerenciamento de Mídia Indoor"
 
-# Serve media files in development
+from django.views.static import serve as static_serve
+
+# Serve static files in development
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+# Serve media files (both development and production)
+# Em produção (Railway), Django serve os arquivos de mídia do volume /data/media
+# django.conf.urls.static.static() não funciona com DEBUG=False, então usamos re_path direto
+urlpatterns += [
+    re_path(r'^media/(?P<path>.*)$', static_serve, {
+        'document_root': settings.MEDIA_ROOT,
+    }),
+]

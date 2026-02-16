@@ -157,11 +157,7 @@ SIMPLE_JWT = {
 }
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Apenas em desenvolvimento
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CORS_ALLOW_ALL_ORIGINS = True  # App de TV precisa acessar a API e mídia de qualquer origem
 
 # Security settings for production
 if not DEBUG:
