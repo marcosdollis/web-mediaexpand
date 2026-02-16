@@ -398,10 +398,12 @@ class AppVersion(models.Model):
         return f"MediaExpand TV v{self.versao}"
     
     def save(self, *args, **kwargs):
-        if self.arquivo_apk and os.path.exists(self.arquivo_apk.path):
+        # Obter tamanho do arquivo antes de salvar
+        if self.arquivo_apk:
             try:
+                # Durante upload, arquivo_apk.size está disponível
                 self.tamanho = self.arquivo_apk.size
-            except (OSError, ValueError):
+            except (OSError, ValueError, AttributeError):
                 self.tamanho = 0
         super().save(*args, **kwargs)
     
