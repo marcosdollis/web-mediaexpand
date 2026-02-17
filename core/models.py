@@ -185,6 +185,15 @@ class Video(models.Model):
             except (OSError, ValueError):
                 return 0
         return 0
+    
+    def arquivo_existe(self):
+        """Verifica se o arquivo físico existe no sistema de arquivos"""
+        if not self.arquivo:
+            return False
+        try:
+            return os.path.exists(self.arquivo.path)
+        except (ValueError, OSError):
+            return False
 
 
 class Playlist(models.Model):

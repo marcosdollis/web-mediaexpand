@@ -43,18 +43,29 @@ class Command(BaseCommand):
         orphaned = []
 
         for video in videos:
-            if video.arquivo and not os.path.exists(video.arquivo.path):
+            try:
+                if video.arquivo and not os.path.exists(video.arquivo.path):
+                    orphaned.append(video)
+            except (ValueError, OSError, AttributeError) as e:
+                # Arquivo com path inválido ou erro ao acessar
+                self.stdout.write(self.style.WARNING(f'Erro ao verificar vídeo {video.id}: {str(e)}'))
                 orphaned.append(video)
 
         if orphaned:
-            self.stdout.write(f'Encontrados {len(orphaned)} vídeos com arquivos inexistentes:')
+            self.stdout.write(self.style.WARNING(f'Encontrados {len(orphaned)} vídeos com arquivos inexistentes:'))
             for video in orphaned:
-                self.stdout.write(f'  - {video} (ID: {video.id}) - {video.arquivo.path}')
+                arquivo_path = 'N/A'
+                try:
+                    if video.arquivo:
+                        arquivo_path = video.arquivo.path
+                except:
+                    arquivo_path = 'Caminho inválido'
+                self.stdout.write(f'  - {video} (ID: {video.id}) - {arquivo_path}')
                 if not dry_run:
                     video.delete()
-                    self.stdout.write(f'    Removido')
+                    self.stdout.write(self.style.SUCCESS(f'    Removido'))
         else:
-            self.stdout.write('Nenhum vídeo órfão encontrado')
+            self.stdout.write(self.style.SUCCESS('Nenhum vídeo órfão encontrado'))
 
     def check_clientes(self, dry_run):
         clientes = Cliente.objects.exclude(contrato__isnull=True)

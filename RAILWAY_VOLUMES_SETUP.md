@@ -165,6 +165,44 @@ Se precisar economizar espaço, pode implementar:
 
 ## 🚨 Troubleshooting
 
+### Problema: Vídeos sumiram após deploy
+
+**Causa:** Os vídeos foram salvos no sistema de arquivos temporário do container (em `/app/media`), não no volume persistente (`/data/media`). Quando o Railway fez redeploy, o container foi recriado e os arquivos temporários foram perdidos. Os registros no banco de dados permaneceram, mas os arquivos físicos sumiram.
+
+**Solução:**
+1. **Certifique-se que criou o volume no Railway:**
+   ```
+   Railway Dashboard → Seu serviço → Settings → Volumes → New Volume
+   Mount Path: /data
+   ```
+
+2. **Verifique se `DEBUG=False` em produção:**
+   - No Railway, a variável `DEBUG` deve estar como `False` ou não existir
+   - Isso garante que `MEDIA_ROOT = '/data/media'` (não `/app/media`)
+
+3. **Limpar registros órfãos (vídeos sem arquivo):**
+   
+   **Via Interface Web (recomendado):**
+   - Faça login como OWNER
+   - Vá em "Vídeos"
+   - Use o filtro "Arquivos" → "Sem arquivo"
+   - Vídeos órfãos terão um badge vermelho "Arquivo ausente"
+   - Clique em "Excluir" em cada vídeo órfão
+   
+   **Via Comando (Railway CLI):**
+   ```bash
+   # Ver o que seria removido (sem executar)
+   railway run python manage.py cleanup_orphaned_files --dry-run
+   
+   # Remover os registros órfãos
+   railway run python manage.py cleanup_orphaned_files
+   ```
+
+4. **Re-upload dos vídeos:**
+   - Após limpar os órfãos, os clientes precisarão fazer upload dos vídeos novamente
+   - Desta vez, com o volume configurado, os arquivos serão salvos em `/data/media`
+   - Os arquivos persistirão entre deploys ✅
+
 ### Problema: 404 nos arquivos após deploy
 
 **Solução:** Certifique-se que criou o volume:
@@ -231,13 +269,57 @@ Se quiser fazer backup dos arquivos do volume:
 
 ## ✅ Checklist de Implementação
 
+- [x] Código configurado para usar `/data/media` em produção
 - [ ] Volume criado no Railway (`/data`)
-- [ ] Código já está configurado (não precisa mudar nada!)
-- [ ] Redeploy feito automaticamente
+- [ ] Variável `DEBUG=False` em produção
+- [ ] Redeploy feito após criar volume
 - [ ] Teste de upload funcionando
 - [ ] Arquivos persistem após novo deploy
+- [ ] Vídeos órfãos removidos (se houver)
 - [ ] App Android consegue reproduzir vídeos
 - [ ] URLs dos vídeos são HTTPS
+
+## 🛡️ Como Prevenir Perda de Arquivos
+
+1. **Sempre crie o volume ANTES do primeiro deploy em produção**
+2. **Verifique se `DEBUG=False` no Railway**
+3. **Teste com um vídeo após o primeiro deploy:**
+   - Faça upload de um vídeo teste
+   - Force um redeploy (commit qualquer mudança)
+   - Verifique se o vídeo ainda está acessível
+4. **Monitore vídeos órfãos:**
+   - Como OWNER, use o filtro "Arquivos → Sem arquivo" regularmente
+   - Se vídeos órfãos aparecerem, investigue o motivo
+
+## 🔍 Como Verificar se o Volume Está Funcionando
+
+### Via Railway Dashboard:
+1. Acesse seu projeto
+2. Clique no serviço
+3. Vá em "Settings" → "Volumes"
+4. Deve aparecer um volume montado em `/data`
+
+### Via Comando:
+```bash
+# Conectar ao container
+railway run bash
+
+# Verificar se /data existe
+ls -la /data
+
+# Verificar se /data/media existe
+ls -la /data/media
+
+# Ver espaço usado
+du -sh /data/media
+```
+
+### Via Upload Teste:
+1. Faça login como cliente
+2. Faça upload de um vídeo pequeno
+3. Acesse o banco de dados e veja o caminho do arquivo
+4. Deve começar com `app_versions/` ou `videos/cliente_X/`
+5. Em produção, estará fisicamente em `/data/media/...`
 
 ---
 

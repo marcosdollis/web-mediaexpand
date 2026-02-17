@@ -1003,6 +1003,7 @@ def video_list_view(request):
     search = request.GET.get('search', '')
     cliente_filter = request.GET.get('cliente', '')
     status_filter = request.GET.get('status', '')
+    orphaned_filter = request.GET.get('orphaned', '')
 
     if search:
         videos = videos.filter(Q(titulo__icontains=search) | Q(descricao__icontains=search))
@@ -1012,6 +1013,15 @@ def video_list_view(request):
 
     if status_filter:
         videos = videos.filter(status=status_filter.upper())
+    
+    # Filtro para arquivos órfãos (apenas para OWNER)
+    if orphaned_filter == 'true' and user.is_owner():
+        import os
+        orphaned_ids = []
+        for video in videos:
+            if not video.arquivo or not os.path.exists(video.arquivo.path):
+                orphaned_ids.append(video.id)
+        videos = videos.filter(id__in=orphaned_ids)
 
     # Controle de permissões
     if user.is_franchisee():
@@ -1194,6 +1204,7 @@ def video_reject_view(request, pk):
 @login_required
 def video_delete_view(request, pk):
     """Deletar vídeo"""
+    import os
     user = request.user
     video = get_object_or_404(Video, pk=pk)
     
@@ -1206,9 +1217,16 @@ def video_delete_view(request, pk):
             return JsonResponse({'success': False, 'error': 'Sem permissão'}, status=403)
     
     titulo = video.titulo
+    arquivo_existe = video.arquivo and os.path.exists(video.arquivo.path)
+    
+    # Deleta o registro (e o arquivo se existir)
     video.delete()
     
-    messages.success(request, f'Vídeo "{titulo}" excluído com sucesso!')
+    if arquivo_existe:
+        messages.success(request, f'Vídeo "{titulo}" excluído com sucesso!')
+    else:
+        messages.success(request, f'Registro do vídeo "{titulo}" excluído (arquivo já não existia no servidor)')
+    
     return JsonResponse({'success': True})
 
 
