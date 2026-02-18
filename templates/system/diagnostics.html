@@ -1,0 +1,300 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Diagnóstico do Sistema - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Diagnóstico do Sistema</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-stethoscope me-2"></i>Diagnóstico do Sistema
+                    </h1>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Verificação do Volume Railway:</strong> Se MEDIA_ROOT for <code>/data/media</code> e DEBUG for <code>False</code>, o volume está configurado corretamente.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Django Settings -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card shadow h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Configurações Django</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <th width="40%">DEBUG</th>
+                                <td>
+                                    {% if diagnostics.django.debug %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>True (Desenvolvimento)
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>False (Produção)
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>MEDIA_ROOT</th>
+                                <td>
+                                    <code>{{ diagnostics.django.media_root }}</code>
+                                    {% if '/data/media' in diagnostics.django.media_root %}
+                                        <span class="badge bg-success ms-2">✓ Volume</span>
+                                    {% else %}
+                                        <span class="badge bg-danger ms-2">✗ Temporário</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>MEDIA_URL</th>
+                                <td><code>{{ diagnostics.django.media_url }}</code></td>
+                            </tr>
+                            <tr>
+                                <th>STATIC_ROOT</th>
+                                <td><code>{{ diagnostics.django.static_root }}</code></td>
+                            </tr>
+                            <tr>
+                                <th>ALLOWED_HOSTS</th>
+                                <td><code>{{ diagnostics.django.allowed_hosts|join:", " }}</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-server me-2"></i>Sistema</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <th width="40%">Python Version</th>
+                                <td><code>{{ diagnostics.system.python_version }}</code></td>
+                            </tr>
+                            <tr>
+                                <th>Platform</th>
+                                <td><code>{{ diagnostics.system.platform }}</code></td>
+                            </tr>
+                            <tr>
+                                <th>Working Directory</th>
+                                <td><code>{{ diagnostics.system.cwd }}</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-hdd me-2"></i>Armazenamento</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>MEDIA_ROOT existe:</span>
+                                {% if diagnostics.storage.media_root_exists %}
+                                    <span class="badge bg-success">✓ Sim</span>
+                                {% else %}
+                                    <span class="badge bg-danger">✗ Não</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>MEDIA_ROOT gravável:</span>
+                                {% if diagnostics.storage.media_root_writable %}
+                                    <span class="badge bg-success">✓ Sim</span>
+                                {% else %}
+                                    <span class="badge bg-danger">✗ Não</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="mt-4 mb-3">Diretórios:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Caminho</th>
+                                    <th>Existe</th>
+                                    <th>Gravável</th>
+                                    <th>Tamanho</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for path, info in diagnostics.directories.items %}
+                                <tr>
+                                    <td><code class="small">{{ path }}</code></td>
+                                    <td>
+                                        {% if info.exists %}
+                                            <span class="badge bg-success">✓</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">✗</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if info.writable %}
+                                            <span class="badge bg-success">✓</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">✗</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if info.size > 0 %}
+                                            {{ info.size|filesizeformat }}
+                                        {% else %}
+                                            <span class="text-muted">0 bytes</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Stats -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-database me-2"></i>Banco de Dados</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 mb-3">
+                            <div class="border rounded p-3">
+                                <h3 class="mb-0">{{ diagnostics.database.total_videos }}</h3>
+                                <small class="text-muted">Total de Vídeos</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="border rounded p-3">
+                                <h3 class="mb-0 text-success">{{ diagnostics.database.videos_with_file }}</h3>
+                                <small class="text-muted">Com Arquivo</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="border rounded p-3">
+                                <h3 class="mb-0 {% if diagnostics.database.videos_without_file > 0 %}text-danger{% else %}text-muted{% endif %}">
+                                    {{ diagnostics.database.videos_without_file }}
+                                </h3>
+                                <small class="text-muted">Órfãos (Sem Arquivo)</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="border rounded p-3">
+                                <h3 class="mb-0">{{ diagnostics.database.total_logs }}</h3>
+                                <small class="text-muted">Logs de Exibição</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if diagnostics.database.videos_without_file > 0 %}
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>{{ diagnostics.database.videos_without_file }} vídeos órfãos encontrados!</strong>
+                        <p class="mb-2 mt-2">Esses registros estão no banco mas os arquivos não existem no servidor.</p>
+                        <a href="{% url 'video_list' %}?orphaned=true" class="btn btn-warning btn-sm">
+                            <i class="fas fa-eye me-1"></i>Ver Vídeos Órfãos
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-tools me-2"></i>Ações Recomendadas</h5>
+                </div>
+                <div class="card-body">
+                    {% if diagnostics.django.debug %}
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>DEBUG = True</h6>
+                        <p>O modo DEBUG está ativado. Em produção (Railway), configure a variável de ambiente:</p>
+                        <code>DEBUG=False</code>
+                        <p class="mt-2 mb-0">Isso fará com que os arquivos sejam salvos em <code>/data/media</code> (volume persistente).</p>
+                    </div>
+                    {% endif %}
+
+                    {% if '/data/media' not in diagnostics.django.media_root %}
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-times-circle me-2"></i>Volume não está sendo usado</h6>
+                        <p>MEDIA_ROOT não aponta para <code>/data/media</code>. Os arquivos estão sendo salvos em:</p>
+                        <code>{{ diagnostics.django.media_root }}</code>
+                        <p class="mt-2 mb-0">Isso significa que os arquivos serão perdidos a cada deploy!</p>
+                    </div>
+                    {% endif %}
+
+                    {% if diagnostics.database.videos_without_file > 0 %}
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-broom me-2"></i>Limpar Vídeos Órfãos</h6>
+                        <p>Há {{ diagnostics.database.videos_without_file }} registros de vídeos sem arquivo físico.</p>
+                        <p class="mb-2">Para limpar:</p>
+                        <ol class="mb-0">
+                            <li><a href="{% url 'video_list' %}?orphaned=true">Ver lista de vídeos órfãos</a></li>
+                            <li>Excluir manualmente cada um, OU</li>
+                            <li>Via Railway CLI: <code>railway run python manage.py cleanup_orphaned_files</code></li>
+                        </ol>
+                    </div>
+                    {% endif %}
+
+                    {% if diagnostics.django.debug == False and '/data/media' in diagnostics.django.media_root %}
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-check-circle me-2"></i>Configuração Correta!</h6>
+                        <p class="mb-0">
+                            ✅ DEBUG = False<br>
+                            ✅ MEDIA_ROOT = /data/media<br>
+                            Os arquivos estão sendo salvos no volume persistente do Railway!
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

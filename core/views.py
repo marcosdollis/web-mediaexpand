@@ -2653,3 +2653,95 @@ def app_download_view(request):
     response['Content-Disposition'] = f'attachment; filename="MediaExpandTV-v{app_version.versao}.apk"'
     
     return response
+
+
+@login_required
+def system_diagnostics_view(request):
+    """Diagnóstico do sistema - OWNER ONLY"""
+    from django.conf import settings
+    import os
+    import platform
+    
+    user = request.user
+    
+    # Apenas proprietários podem acessar
+    if not user.is_owner():
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+    
+    # Coletar informações de diagnóstico
+    diagnostics = {
+        'django': {
+            'debug': settings.DEBUG,
+            'media_root': str(settings.MEDIA_ROOT),
+            'media_url': settings.MEDIA_URL,
+            'static_root': str(settings.STATIC_ROOT),
+            'static_url': settings.STATIC_URL,
+            'allowed_hosts': settings.ALLOWED_HOSTS,
+        },
+        'system': {
+            'python_version': platform.python_version(),
+            'platform': platform.platform(),
+            'cwd': os.getcwd(),
+        },
+        'storage': {
+            'media_root_exists': os.path.exists(settings.MEDIA_ROOT),
+            'media_root_writable': os.access(settings.MEDIA_ROOT, os.W_OK) if os.path.exists(settings.MEDIA_ROOT) else False,
+        },
+        'database': {
+            'total_videos': Video.objects.count(),
+            'videos_with_file': Video.objects.exclude(arquivo='').count(),
+            'videos_without_file': 0,
+            'total_clientes': Cliente.objects.count(),
+            'total_dispositivos': DispositivoTV.objects.count(),
+            'total_logs': LogExibicao.objects.count(),
+        }
+    }
+    
+    # Contar vídeos órfãos (sem arquivo físico)
+    orphaned_count = 0
+    for video in Video.objects.all():
+        if not video.arquivo_existe():
+            orphaned_count += 1
+    diagnostics['database']['videos_without_file'] = orphaned_count
+    
+    # Verificar diretórios
+    directories = {}
+    paths_to_check = [
+        settings.MEDIA_ROOT,
+        os.path.join(settings.MEDIA_ROOT, 'videos'),
+        os.path.join(settings.MEDIA_ROOT, 'app_versions'),
+        os.path.join(settings.MEDIA_ROOT, 'thumbnails'),
+        '/data',
+        '/data/media',
+    ]
+    
+    for path in paths_to_check:
+        exists = os.path.exists(path)
+        directories[path] = {
+            'exists': exists,
+            'writable': os.access(path, os.W_OK) if exists else False,
+            'size': get_dir_size(path) if exists else 0,
+        }
+    
+    diagnostics['directories'] = directories
+    
+    context = {
+        'diagnostics': diagnostics,
+    }
+    
+    return render(request, 'system/diagnostics.html', context)
+
+
+def get_dir_size(path):
+    """Calcula o tamanho total de um diretório em bytes"""
+    total = 0
+    try:
+        for dirpath, dirnames, filenames in os.walk(path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                if os.path.exists(fp):
+                    total += os.path.getsize(fp)
+    except Exception:
+        pass
+    return total
