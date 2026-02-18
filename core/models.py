@@ -380,6 +380,22 @@ class LogExibicao(models.Model):
     
     def __str__(self):
         return f"{self.video.titulo} - {self.dispositivo.nome} - {self.data_hora_inicio}"
+    
+    def duracao_exibicao_segundos(self):
+        """Retorna a duração da exibição em segundos"""
+        if not self.data_hora_fim:
+            return 0
+        delta = self.data_hora_fim - self.data_hora_inicio
+        return int(delta.total_seconds())
+    
+    def duracao_exibicao_formatada(self):
+        """Retorna a duração formatada em MM:SS"""
+        segundos = self.duracao_exibicao_segundos()
+        if segundos == 0:
+            return "0:00"
+        minutos = segundos // 60
+        segs = segundos % 60
+        return f"{minutos}:{segs:02d}"
 
 
 class AppVersion(models.Model):

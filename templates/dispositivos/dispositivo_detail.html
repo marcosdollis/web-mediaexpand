@@ -184,26 +184,96 @@
                     <h5 class="mb-0"><i class="fas fa-history me-2"></i>Atividade Recente</h5>
                 </div>
                 <div class="card-body">
-                    {% if dispositivo.logs_exibicao.all %}
+                    {% if logs_recentes %}
                     <div class="list-group">
-                        {% for log in dispositivo.logs_exibicao.all|slice:":10" %}
+                        {% for log in logs_recentes %}
                         <div class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="mb-1">{{ log.video.titulo }}</h6>
-                                    <small class="text-muted">
-                                        <i class="fas fa-clock me-1"></i>{{ log.data_exibicao|date:"d/m/Y H:i" }}
-                                    </small>
+                            <div class="d-flex align-items-start gap-3">
+                                <!-- Thumbnail -->
+                                <div class="flex-shrink-0">
+                                    {% if log.video.thumbnail %}
+                                    <img src="{{ log.video.thumbnail.url }}" 
+                                         alt="{{ log.video.titulo }}"
+                                         class="log-thumbnail">
+                                    {% else %}
+                                    <div class="log-thumbnail-placeholder">
+                                        <i class="fas fa-video text-secondary"></i>
+                                    </div>
+                                    {% endif %}
                                 </div>
-                                <span class="badge bg-success">Exibido</span>
+                                
+                                <!-- Content -->
+                                <div class="flex-grow-1 log-content">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="mb-1">{{ log.video.titulo }}</h6>
+                                            <small class="text-muted d-block">
+                                                <i class="fas fa-building me-1"></i>{{ log.video.cliente.empresa }}
+                                            </small>
+                                        </div>
+                                        {% if log.completamente_exibido %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>Completo
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>Parcial
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="d-flex gap-3 small text-muted flex-wrap">
+                                        <span class="log-info-item">
+                                            <i class="fas fa-calendar"></i>
+                                            {{ log.data_hora_inicio|date:"d/m/Y" }}
+                                        </span>
+                                        <span class="log-info-item">
+                                            <i class="fas fa-clock"></i>
+                                            {{ log.data_hora_inicio|date:"H:i:s" }}
+                                            {% if log.data_hora_fim %}
+                                                → {{ log.data_hora_fim|date:"H:i:s" }}
+                                            {% endif %}
+                                        </span>
+                                        {% if log.data_hora_fim %}
+                                        <span class="log-info-item" title="Duração da exibição">
+                                            <i class="fas fa-hourglass-half"></i>
+                                            {{ log.duracao_exibicao_formatada }}
+                                        </span>
+                                        {% endif %}
+                                        {% if log.video.duracao_segundos %}
+                                        <span class="log-info-item" title="Duração do vídeo">
+                                            <i class="fas fa-film"></i>
+                                            {{ log.video.duracao_segundos }}s
+                                        </span>
+                                        {% endif %}
+                                        {% if log.playlist %}
+                                        <span class="log-info-item">
+                                            <i class="fas fa-list"></i>
+                                            {{ log.playlist.nome }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
+                    
+                    {% if logs_recentes|length == 15 %}
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Mostrando os 15 registros mais recentes
+                        </small>
+                    </div>
+                    {% endif %}
                     {% else %}
                     <div class="text-center py-4">
                         <i class="fas fa-history fa-2x text-muted mb-2"></i>
                         <p class="text-muted mb-0">Nenhuma atividade registrada ainda.</p>
+                        <small class="text-muted d-block mt-2">
+                            Os logs de exibição aparecerão aqui quando a TV começar a reproduzir vídeos.
+                        </small>
                     </div>
                     {% endif %}
                 </div>

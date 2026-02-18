@@ -252,3 +252,44 @@ body {
         padding: 1.5rem;
     }
 }
+
+/* Log de Exibição - Dispositivo Detail */
+.list-group-item {
+    transition: all 0.2s ease;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(2px);
+}
+
+.log-thumbnail {
+    width: 80px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.log-thumbnail-placeholder {
+    width: 80px;
+    height: 60px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.log-content h6 {
+    color: #212529;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.log-info-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}

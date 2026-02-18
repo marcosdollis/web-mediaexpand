@@ -1520,9 +1520,15 @@ def dispositivo_detail_view(request, pk):
     # Contar agendamentos ativos
     agendamentos_ativos_count = dispositivo.agendamentos.filter(ativo=True).count()
     
+    # Buscar logs recentes com vídeo e thumbnail
+    logs_recentes = dispositivo.logs_exibicao.select_related(
+        'video', 'video__cliente', 'playlist'
+    ).order_by('-data_hora_inicio')[:15]
+    
     context = {
         'dispositivo': dispositivo,
         'agendamentos_ativos_count': agendamentos_ativos_count,
+        'logs_recentes': logs_recentes,
     }
     
     return render(request, 'dispositivos/dispositivo_detail.html', context)
