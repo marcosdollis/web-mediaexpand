@@ -31,75 +31,25 @@ Mount Path: /data
 
 Isso criará um volume persistente montado em `/data` no container.
 
-### 2. **IMPORTANTE: Configurar DEBUG=False**
-
-⚠️ **Este é o passo mais importante!** ⚠️
-
-No Railway, você **PRECISA** configurar a variável de ambiente `DEBUG=False`:
-
-1. Na mesma aba **"Variables"**
-2. Clique em **"New Variable"**
-3. Adicione:
-   - **Variable:** `DEBUG`
-   - **Value:** `False`
-
-**Por quê?**
-- Com `DEBUG=True`: arquivos salvos em `/app/media` (temporário, perdidos no deploy)
-- Com `DEBUG=False`: arquivos salvos em `/data/media` (persistente, mantidos após deploy)
-
-### 3. Verificar a Configuração
+### 2. Verificar a Configuração
 
 O código já está configurado! Em `settings.py`:
 
 ```python
-DEBUG = config('DEBUG', default=False, cast=bool)  # Agora default é False
-
 if DEBUG:
     MEDIA_URL = 'media/'
     MEDIA_ROOT = BASE_DIR / 'media'  # Desenvolvimento local
 else:
     MEDIA_URL = '/media/'
-    MEDIA_ROOT = '/data/media'  # Produção Railway ✓
+    MEDIA_ROOT = '/data/media'  # Produção Railway
 ```
 
-### 4. Verificar se Está Funcionando
+### 3. Redeploy
 
-Após criar o volume e configurar `DEBUG=False`:
-
-1. **Faça login como OWNER** na aplicação
-2. **Acesse o Dashboard** e clique em **"Diagnóstico"**
-3. **Verifique:**
-   - ✅ DEBUG deve estar `False` (badge verde)
-   - ✅ MEDIA_ROOT deve ser `/data/media` (badge "Volume")
-   - ✅ O diretório `/data/media` deve existir e ser gravável
-
-**OU via URL direta:**
-```
-https://seu-dominio.railway.app/system/diagnostics/
-```
-
-### 5. Limpar Vídeos Órfãos (se houver)
-
-Se você fez uploads antes de configurar o volume, os vídeos foram salvos no container temporário e estão órfãos agora:
-
-**Opção 1 - Interface Web:**
-1. Faça login como OWNER
-2. Vá em **"Vídeos"**
-3. Use o filtro **"Arquivos" → "Sem arquivo"**
-4. Exclua cada vídeo órfão manualmente
-
-**Opção 2 - Comando:**
-```bash
-# Ver o que seria removido
-railway run python manage.py cleanup_orphaned_files --dry-run
-
-# Remover os vídeos órfãos
-railway run python manage.py cleanup_orphaned_files
-```
-
-### 6. Re-upload dos Vídeos
-
-Após limpar os órfãos, peça aos clientes para fazer upload dos vídeos novamente. Desta vez eles serão salvos em `/data/media` e **persistirão entre deploys**! ✅
+Após criar o volume:
+1. Railway detectará a mudança
+2. Fará redeploy automático
+3. Os uploads serão salvos em `/data/media`
 
 ---
 
@@ -215,44 +165,6 @@ Se precisar economizar espaço, pode implementar:
 
 ## 🚨 Troubleshooting
 
-### Problema: Criei o volume mas os vídeos sumiram após deploy
-
-**Causa Raiz:** A variável de ambiente `DEBUG` não foi configurada como `False` no Railway.
-
-**O que aconteceu:**
-1. Você criou o volume em `/data` ✓
-2. Mas `DEBUG` estava em `True` (ou não configurado, usando default antigo)
-3. Com `DEBUG=True`, o Django salva arquivos em `/app/media` (temporário)
-4. Ao fazer deploy, o container foi recriado e `/app/media` foi perdido
-5. Os registros no banco permaneceram, mas os arquivos físicos sumiram
-
-**Solução passo a passo:**
-
-1. **Configure DEBUG=False no Railway:**
-   ```
-   Railway → Variables → New Variable
-   Variable: DEBUG
-   Value: False
-   ```
-
-2. **Verifique via Diagnóstico:**
-   - Faça login como OWNER
-   - Dashboard → Diagnóstico
-   - Confirme: DEBUG = False, MEDIA_ROOT = /data/media
-
-3. **Limpe os vídeos órfãos:**
-   - Via web: Vídeos → Filtro "Sem arquivo" → Excluir
-   - Via CLI: `railway run python manage.py cleanup_orphaned_files`
-
-4. **Re-upload dos vídeos:**
-   - Peça aos clientes para fazer upload novamente
-   - Desta vez, arquivos irão para `/data/media` ✓
-
-5. **Teste:**
-   - Faça upload de um vídeo teste
-   - Faça um commit qualquer e force redeploy
-   - Verifique se o vídeo ainda está acessível ✅
-
 ### Problema: Vídeos sumiram após deploy
 
 **Causa:** Os vídeos foram salvos no sistema de arquivos temporário do container (em `/app/media`), não no volume persistente (`/data/media`). Quando o Railway fez redeploy, o container foi recriado e os arquivos temporários foram perdidos. Os registros no banco de dados permaneceram, mas os arquivos físicos sumiram.
@@ -358,10 +270,9 @@ Se quiser fazer backup dos arquivos do volume:
 ## ✅ Checklist de Implementação
 
 - [x] Código configurado para usar `/data/media` em produção
-- [ ] Volume criado no Railway com Mount Path `/data`
-- [ ] **Variável `DEBUG=False` configurada no Railway** ← CRÍTICO!
-- [ ] Diagnóstico verificado (MEDIA_ROOT = /data/media, DEBUG = False)
-- [ ] Redeploy feito após criar volume e configurar DEBUG
+- [ ] Volume criado no Railway (`/data`)
+- [ ] Variável `DEBUG=False` em produção
+- [ ] Redeploy feito após criar volume
 - [ ] Teste de upload funcionando
 - [ ] Arquivos persistem após novo deploy
 - [ ] Vídeos órfãos removidos (se houver)

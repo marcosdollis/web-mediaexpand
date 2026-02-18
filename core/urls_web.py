@@ -69,7 +69,4 @@ urlpatterns = [
     path('app/version/<int:pk>/toggle/', views.app_version_toggle_view, name='app_version_toggle'),
     path('app/version/<int:pk>/delete/', views.app_version_delete_view, name='app_version_delete'),
     path('app/download/', views.app_download_view, name='app_download'),
-    
-    # System Diagnostics (OWNER ONLY)
-    path('system/diagnostics/', views.system_diagnostics_view, name='system_diagnostics'),
 ]
