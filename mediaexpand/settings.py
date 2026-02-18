@@ -161,7 +161,10 @@ CORS_ALLOW_ALL_ORIGINS = True  # App de TV precisa acessar a API e mídia de qua
 
 # Security settings for production
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+    # Railway usa proxy reverso, então precisamos confiar no header X-Forwarded-Proto
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    # Não force SSL redirect aqui pois o Railway já faz isso no proxy
+    # SECURE_SSL_REDIRECT = True  # Comentado para evitar loop de redirecionamento
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
