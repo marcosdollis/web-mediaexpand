@@ -1,7 +1,7 @@
 {% extends "base/base.html" %}
 {% load static %}
 
-{% block title %}Enviar Vídeo - MediaExpand{% endblock %}
+{% block title %}{% if video %}Editar Vídeo{% else %}Enviar Vídeo{% endif %} - MediaExpand{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -9,8 +9,13 @@
         <div class="col-lg-8">
             <!-- Page Header -->
             <div class="text-center mb-4">
+                {% if video %}
+                <h1 class="h3 mb-2">Editar Vídeo</h1>
+                <p class="text-muted">Atualize as informações do vídeo "{{ video.titulo }}"</p>
+                {% else %}
                 <h1 class="h3 mb-2">Enviar Novo Vídeo</h1>
                 <p class="text-muted">Envie seu vídeo para aprovação e exibição nas TVs</p>
+                {% endif %}
             </div>
 
             <!-- Upload Form -->
@@ -44,11 +49,27 @@
                             <label for="{% if form %}{{ form.arquivo.id_for_label }}{% else %}arquivo{% endif %}" class="form-label fw-bold">
                                 <i class="fas fa-video text-primary me-2"></i>Arquivo de Vídeo
                             </label>
+                            
+                            {% if video and video.arquivo %}
+                            <!-- Mostra arquivo atual quando editando -->
+                            <div class="alert alert-info mb-2">
+                                <i class="fas fa-file-video me-2"></i>
+                                <strong>Arquivo atual:</strong> {{ video.arquivo.name|truncatechars:40 }}
+                                <span class="badge bg-secondary ms-2">{{ video.file_size_bytes|filesizeformat }}</span>
+                                <br><small class="text-muted">Deixe em branco para manter o arquivo atual, ou selecione um novo para substituir.</small>
+                            </div>
+                            {% endif %}
+                            
                             <div class="upload-area" id="uploadArea">
                                 <div class="upload-content">
                                     <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                    {% if video %}
+                                    <h5 class="text-muted">Arraste um novo vídeo aqui</h5>
+                                    <p class="text-muted small mb-3">ou clique para substituir o vídeo atual</p>
+                                    {% else %}
                                     <h5 class="text-muted">Arraste seu vídeo aqui</h5>
                                     <p class="text-muted small mb-3">ou clique para selecionar</p>
+                                    {% endif %}
                                     {% if form %}
                                         {{ form.arquivo }}
                                     {% else %}
@@ -122,9 +143,16 @@
 
                         <!-- QR Code Section -->
                         <div class="mb-4 mt-4">
-                            <div class="d-flex align-items-center mb-3">
-                                <h6 class="mb-0"><i class="fas fa-qrcode text-primary me-2"></i>QR Code Interativo</h6>
-                                <span class="badge bg-info ms-2">Opcional</span>
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="d-flex align-items-center">
+                                    <h6 class="mb-0"><i class="fas fa-qrcode text-primary me-2"></i>QR Code Interativo</h6>
+                                    <span class="badge bg-info ms-2">Opcional</span>
+                                </div>
+                                {% if video and video.qrcode_url_destino %}
+                                <a href="{% url 'video_qrcode_metricas' video.pk %}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-chart-line me-1"></i>Ver Métricas ({{ video.qrcode_clicks.count }} cliques)
+                                </a>
+                                {% endif %}
                             </div>
                             <div class="card bg-light border-0">
                                 <div class="card-body">
@@ -187,7 +215,11 @@
                                 <i class="fas fa-arrow-left me-2"></i>Cancelar
                             </a>
                             <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                {% if video %}
+                                <i class="fas fa-save me-2"></i>Salvar Alterações
+                                {% else %}
                                 <i class="fas fa-upload me-2"></i>Enviar Vídeo
+                                {% endif %}
                             </button>
                         </div>
                     </form>

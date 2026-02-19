@@ -142,7 +142,9 @@ class VideoForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Remover o campo cliente se não for necessário (é definido automaticamente)
+        # Se estiver editando um vídeo que já tem arquivo, não exige novo upload
+        if self.instance and self.instance.pk and self.instance.arquivo:
+            self.fields['arquivo'].required = False
 
 
 class PlaylistForm(forms.ModelForm):
