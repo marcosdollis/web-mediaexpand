@@ -1564,10 +1564,15 @@ def dispositivo_list_view(request):
 
     # Estatísticas - baseadas no queryset filtrado
     stats_qs = dispositivos
+    
+    # Contagem de exibições dos dispositivos visíveis (escopo correto)
+    dispositivos_ids = list(stats_qs.values_list('id', flat=True))
+    total_exibicoes = LogExibicao.objects.filter(dispositivo_id__in=dispositivos_ids).count() if dispositivos_ids else 0
+    
     context = {
         'dispositivos_ativos': stats_qs.filter(ativo=True).count(),
         'dispositivos_inativos': stats_qs.filter(ativo=False).count(),
-        'total_exibicoes': 0,
+        'total_exibicoes': total_exibicoes,
         'tempo_total_exibicao': '0h',
     }
 
