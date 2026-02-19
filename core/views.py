@@ -1295,7 +1295,7 @@ def video_qrcode_metricas_view(request, pk):
     dias_valores = []
     clicks_dict = {item['data']: item['count'] for item in clicks_por_dia}
     
-    for i in range(30):
+    for i in range(31):  # 31 dias para incluir hoje
         dia = inicio_periodo + timedelta(days=i)
         dias_labels.append(dia.strftime('%d/%m'))
         dias_valores.append(clicks_dict.get(dia, 0))
@@ -1313,12 +1313,15 @@ def video_qrcode_metricas_view(request, pk):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    # Converter listas para JSON para o gráfico (JavaScript precisa de JSON válido)
+    import json
+    
     context = {
         'video': video,
         'clicks': page_obj,
         'total_clicks': total_clicks,
-        'dias_labels': dias_labels,
-        'dias_valores': dias_valores,
+        'dias_labels': json.dumps(dias_labels),
+        'dias_valores': json.dumps(dias_valores),
         'top_ips': top_ips,
     }
     
