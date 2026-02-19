@@ -1533,6 +1533,8 @@ def dispositivo_list_view(request):
     user = request.user
     dispositivos = DispositivoTV.objects.select_related(
         'municipio', 'municipio__franqueado', 'playlist_atual'
+    ).annotate(
+        total_exibicoes=Count('logs_exibicao')
     )
 
     # Filtros
@@ -1563,15 +1565,14 @@ def dispositivo_list_view(request):
         return redirect('dashboard')
 
     # Estatísticas - baseadas no queryset filtrado
-    stats_qs = dispositivos
-    
-    # Contagem de exibições dos dispositivos visíveis (escopo correto)
-    dispositivos_ids = list(stats_qs.values_list('id', flat=True))
-    total_exibicoes = LogExibicao.objects.filter(dispositivo_id__in=dispositivos_ids).count() if dispositivos_ids else 0
+    # Total de exibições: contar logs dos dispositivos filtrados
+    total_exibicoes = LogExibicao.objects.filter(
+        dispositivo__in=dispositivos
+    ).count()
     
     context = {
-        'dispositivos_ativos': stats_qs.filter(ativo=True).count(),
-        'dispositivos_inativos': stats_qs.filter(ativo=False).count(),
+        'dispositivos_ativos': dispositivos.filter(ativo=True).count(),
+        'dispositivos_inativos': dispositivos.filter(ativo=False).count(),
         'total_exibicoes': total_exibicoes,
         'tempo_total_exibicao': '0h',
     }
