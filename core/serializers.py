@@ -117,15 +117,19 @@ class VideoSerializer(serializers.ModelSerializer):
     cliente_nome = serializers.CharField(source='cliente.empresa', read_only=True)
     tamanho_mb = serializers.SerializerMethodField()
     arquivo_url = serializers.SerializerMethodField()
+    qrcode_tracking_url = serializers.SerializerMethodField()
+    qrcode_total_clicks = serializers.SerializerMethodField()
     
     class Meta:
         model = Video
         fields = [
             'id', 'cliente', 'cliente_nome', 'titulo', 'descricao', 'arquivo',
             'arquivo_url', 'duracao_segundos', 'thumbnail', 'status', 'ativo',
-            'tamanho_mb', 'created_at', 'updated_at'
+            'tamanho_mb', 'qrcode_url_destino', 'qrcode_descricao',
+            'qrcode_tracking_code', 'qrcode_tracking_url', 'qrcode_total_clicks',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'qrcode_tracking_code', 'created_at', 'updated_at']
     
     def get_tamanho_mb(self, obj):
         return obj.get_file_size()
@@ -136,6 +140,21 @@ class VideoSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.arquivo.url)
         return None
+    
+    def get_qrcode_tracking_url(self, obj):
+        """Retorna a URL de rastreamento completa para gerar o QR Code"""
+        if obj.qrcode_url_destino:
+            request = self.context.get('request')
+            if request:
+                tracking_url = request.build_absolute_uri(f'/r/{obj.qrcode_tracking_code}/')
+                if 'railway.app' in tracking_url:
+                    tracking_url = tracking_url.replace('http://', 'https://')
+                return tracking_url
+        return None
+    
+    def get_qrcode_total_clicks(self, obj):
+        """Retorna o total de cliques no QR Code"""
+        return obj.qrcode_clicks.count() if hasattr(obj, 'qrcode_clicks') else 0
 
 
 class PlaylistItemSerializer(serializers.ModelSerializer):
@@ -223,13 +242,30 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                 if 'railway.app' in arquivo_url:
                     arquivo_url = arquivo_url.replace('http://', 'https://')
                 
-                result.append({
+                video_data = {
                     'id': item.video.id,
                     'titulo': item.video.titulo,
                     'arquivo_url': arquivo_url,
                     'duracao_segundos': item.video.duracao_segundos,
                     'ativo': item.video.ativo,
-                })
+                }
+                
+                # QR Code data (opcional - só enviado se configurado)
+                if item.video.qrcode_url_destino:
+                    tracking_url = self.context['request'].build_absolute_uri(
+                        f'/r/{item.video.qrcode_tracking_code}/'
+                    )
+                    if 'railway.app' in tracking_url:
+                        tracking_url = tracking_url.replace('http://', 'https://')
+                    
+                    video_data['qrcode'] = {
+                        'tracking_url': tracking_url,
+                        'descricao': item.video.qrcode_descricao or '',
+                    }
+                else:
+                    video_data['qrcode'] = None
+                
+                result.append(video_data)
         return result
 
 

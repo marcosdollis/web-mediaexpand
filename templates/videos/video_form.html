@@ -120,6 +120,67 @@
                             </div>
                         </div>
 
+                        <!-- QR Code Section -->
+                        <div class="mb-4 mt-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <h6 class="mb-0"><i class="fas fa-qrcode text-primary me-2"></i>QR Code Interativo</h6>
+                                <span class="badge bg-info ms-2">Opcional</span>
+                            </div>
+                            <div class="card bg-light border-0">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-3">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Adicione um QR Code ao vídeo para direcionar os espectadores ao site, promoção ou rede social do cliente.
+                                        Cada acesso via QR Code é rastreado automaticamente.
+                                    </p>
+
+                                    <!-- QR Code URL -->
+                                    <div class="mb-3">
+                                        <label for="{% if form %}{{ form.qrcode_url_destino.id_for_label }}{% else %}qrcode_url_destino{% endif %}" class="form-label">
+                                            <i class="fas fa-link text-success me-2"></i>Link de Destino
+                                        </label>
+                                        {% if form %}
+                                            {{ form.qrcode_url_destino }}
+                                        {% else %}
+                                            <input type="url" name="qrcode_url_destino" id="qrcode_url_destino" class="form-control" placeholder="https://exemplo.com/promoção">
+                                        {% endif %}
+                                        {% if form.qrcode_url_destino.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.qrcode_url_destino.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <small class="text-muted">URL para onde o QR Code redirecionará (Instagram, site, página de promoção)</small>
+                                        </div>
+                                    </div>
+
+                                    <!-- QR Code Description -->
+                                    <div class="mb-2">
+                                        <label for="{% if form %}{{ form.qrcode_descricao.id_for_label }}{% else %}qrcode_descricao{% endif %}" class="form-label">
+                                            <i class="fas fa-tag text-warning me-2"></i>Texto do QR Code
+                                        </label>
+                                        {% if form %}
+                                            {{ form.qrcode_descricao }}
+                                        {% else %}
+                                            <input type="text" name="qrcode_descricao" id="qrcode_descricao" class="form-control" placeholder="Ex: Resgate seu desconto!" maxlength="100">
+                                        {% endif %}
+                                        {% if form.qrcode_descricao.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.qrcode_descricao.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <small class="text-muted">Mensagem exibida junto ao QR Code na TV (máx. 100 caracteres)</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Submit Buttons -->
                         <div class="d-flex justify-content-between align-items-center mt-4">
                             <a href="{% url 'video_list' %}" class="btn btn-outline-secondary">

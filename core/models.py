@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 import os
+import uuid
 
 
 class User(AbstractUser):
@@ -156,6 +157,30 @@ class Video(models.Model):
     thumbnail = models.ImageField(upload_to='thumbnails/', blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     ativo = models.BooleanField(default=True)
+    
+    # QR Code para rastreamento de conversão
+    qrcode_url_destino = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        verbose_name='URL de destino do QR Code',
+        help_text='Link para onde o QR Code redirecionará (ex: site do cliente, Instagram, promoção)'
+    )
+    qrcode_descricao = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='Descrição do QR Code',
+        help_text='Texto exibido junto ao QR Code (ex: "Resgate seu desconto!", "Acesse nosso site")'
+    )
+    qrcode_tracking_code = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        verbose_name='Código de rastreamento',
+        help_text='Código único para rastrear acessos via QR Code'
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -440,3 +465,21 @@ class AppVersion(models.Model):
     def get_versao_ativa(cls):
         """Retorna a versão ativa mais recente"""
         return cls.objects.filter(ativo=True).first()
+
+
+class QRCodeClick(models.Model):
+    """Registro de cliques/acessos via QR Code para rastreamento de conversão"""
+    video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name='qrcode_clicks')
+    tracking_code = models.UUIDField(db_index=True, help_text='Código de rastreamento do vídeo')
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, null=True)
+    referer = models.URLField(max_length=500, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = 'Clique QR Code'
+        verbose_name_plural = 'Cliques QR Code'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Click em {self.video.titulo} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"

@@ -3,7 +3,8 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
 from .models import (
     User, Municipio, Cliente, Video, 
-    Playlist, PlaylistItem, DispositivoTV, AgendamentoExibicao, LogExibicao, AppVersion
+    Playlist, PlaylistItem, DispositivoTV, AgendamentoExibicao, LogExibicao, AppVersion,
+    QRCodeClick
 )
 
 
@@ -46,11 +47,24 @@ class ClienteAdmin(admin.ModelAdmin):
 
 @admin.register(Video)
 class VideoAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'cliente', 'status', 'duracao_segundos', 'get_file_size_display', 'ativo', 'created_at')
+    list_display = ('titulo', 'cliente', 'status', 'duracao_segundos', 'get_file_size_display', 'has_qrcode', 'get_qrcode_clicks', 'ativo', 'created_at')
     list_filter = ('status', 'ativo', 'cliente__franqueado')
     search_fields = ('titulo', 'descricao', 'cliente__empresa')
-    readonly_fields = ('created_at', 'updated_at', 'get_thumbnail_preview')
+    readonly_fields = ('created_at', 'updated_at', 'get_thumbnail_preview', 'qrcode_tracking_code')
     ordering = ('-created_at',)
+    fieldsets = (
+        (None, {
+            'fields': ('cliente', 'titulo', 'descricao', 'arquivo', 'duracao_segundos', 'thumbnail', 'status', 'ativo')
+        }),
+        ('QR Code', {
+            'fields': ('qrcode_url_destino', 'qrcode_descricao', 'qrcode_tracking_code'),
+            'classes': ('collapse',),
+            'description': 'Configure um QR Code interativo para exibir junto ao vídeo na TV.'
+        }),
+        ('Informações', {
+            'fields': ('created_at', 'updated_at', 'get_thumbnail_preview'),
+        }),
+    )
     
     def get_file_size_display(self, obj):
         return f"{obj.get_file_size()} MB"
@@ -61,6 +75,19 @@ class VideoAdmin(admin.ModelAdmin):
             return format_html('<img src="{}" width="300" />', obj.thumbnail.url)
         return "Sem thumbnail"
     get_thumbnail_preview.short_description = 'Preview'
+    
+    def has_qrcode(self, obj):
+        if obj.qrcode_url_destino:
+            return format_html('<span style="color: green;">\u2713</span>')
+        return format_html('<span style="color: gray;">\u2014</span>')
+    has_qrcode.short_description = 'QR Code'
+    
+    def get_qrcode_clicks(self, obj):
+        count = obj.qrcode_clicks.count()
+        if count > 0:
+            return format_html('<strong>{}</strong>', count)
+        return '0'
+    get_qrcode_clicks.short_description = 'Clicks QR'
 
 
 class PlaylistItemInline(admin.TabularInline):
@@ -134,3 +161,13 @@ class AppVersionAdmin(admin.ModelAdmin):
     def tamanho_formatado(self, obj):
         return obj.get_tamanho_formatado()
     tamanho_formatado.short_description = 'Tamanho'
+
+
+@admin.register(QRCodeClick)
+class QRCodeClickAdmin(admin.ModelAdmin):
+    list_display = ('video', 'ip_address', 'created_at')
+    list_filter = ('created_at', 'video__cliente')
+    search_fields = ('video__titulo', 'ip_address')
+    readonly_fields = ('video', 'tracking_code', 'ip_address', 'user_agent', 'referer', 'created_at')
+    ordering = ('-created_at',)
+    date_hierarchy = 'created_at'

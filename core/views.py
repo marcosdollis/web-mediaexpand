@@ -7,7 +7,8 @@ from django.db.models import Q, Count, Sum
 from django.db import models
 from .models import (
     User, Municipio, Cliente, Video,
-    Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion
+    Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion,
+    QRCodeClick
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -1092,6 +1093,8 @@ def video_create_view(request):
             titulo = request.POST.get('titulo')
             descricao = request.POST.get('descricao')
             arquivo = request.FILES.get('arquivo')
+            qrcode_url_destino = request.POST.get('qrcode_url_destino', '').strip() or None
+            qrcode_descricao = request.POST.get('qrcode_descricao', '').strip() or None
             
             if not cliente_id or not titulo or not arquivo:
                 messages.error(request, 'Cliente, título e arquivo de vídeo são obrigatórios.')
@@ -1109,6 +1112,8 @@ def video_create_view(request):
                         titulo=titulo,
                         descricao=descricao,
                         arquivo=arquivo,
+                        qrcode_url_destino=qrcode_url_destino,
+                        qrcode_descricao=qrcode_descricao,
                         status='PENDING'
                     )
                     messages.success(request, f'Vídeo enviado com sucesso para {cliente.empresa}!')
@@ -2653,3 +2658,44 @@ def app_download_view(request):
     response['Content-Disposition'] = f'attachment; filename="MediaExpandTV-v{app_version.versao}.apk"'
     
     return response
+
+
+# ============================================================
+# QR CODE TRACKING
+# ============================================================
+
+def qrcode_redirect_view(request, tracking_code):
+    """
+    View pública que rastreia cliques no QR Code e redireciona ao destino.
+    URL: /r/<tracking_code>/
+    """
+    from django.shortcuts import redirect as django_redirect
+    
+    try:
+        video = Video.objects.get(qrcode_tracking_code=tracking_code)
+    except Video.DoesNotExist:
+        raise Http404("Link não encontrado")
+    
+    if not video.qrcode_url_destino:
+        raise Http404("Link de destino não configurado")
+    
+    # Registrar o clique
+    QRCodeClick.objects.create(
+        video=video,
+        tracking_code=tracking_code,
+        ip_address=get_client_ip(request),
+        user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+        referer=request.META.get('HTTP_REFERER', '')[:500] or None,
+    )
+    
+    # Redirecionar ao destino do cliente
+    return django_redirect(video.qrcode_url_destino)
+
+
+def get_client_ip(request):
+    """Obtém o IP real do cliente, considerando proxies"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+

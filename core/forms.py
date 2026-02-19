@@ -125,11 +125,19 @@ class VideoForm(forms.ModelForm):
 
     class Meta:
         model = Video
-        fields = ['titulo', 'descricao', 'arquivo']
+        fields = ['titulo', 'descricao', 'arquivo', 'qrcode_url_destino', 'qrcode_descricao']
         widgets = {
             'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título do vídeo'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descrição do vídeo'}),
             'arquivo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'video/*'}),
+            'qrcode_url_destino': forms.URLInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'https://exemplo.com/promoção'
+            }),
+            'qrcode_descricao': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ex: Resgate seu desconto!'
+            }),
         }
 
     def __init__(self, *args, **kwargs):
