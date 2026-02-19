@@ -136,7 +136,7 @@
                         </small>
                     </div>
 
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
                         <small class="text-muted">
                             {% if video.arquivo %}
                             <i class="fas fa-file-video me-1"></i>{{ video.file_size_bytes|filesizeformat }}
@@ -153,6 +153,21 @@
                             {% endif %}
                         </small>
                     </div>
+                    
+                    <!-- QR Code Stats -->
+                    {% if video.qrcode_url_destino %}
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <a href="{% url 'video_qrcode_metricas' video.pk %}" class="text-decoration-none">
+                            <small class="text-primary">
+                                <i class="fas fa-qrcode me-1"></i>
+                                <strong>{{ video.qrcode_clicks_count }}</strong> cliques
+                            </small>
+                        </a>
+                        <small class="text-muted" title="{{ video.qrcode_descricao }}">
+                            <i class="fas fa-comment-alt me-1"></i>{{ video.qrcode_descricao|truncatechars:15 }}
+                        </small>
+                    </div>
+                    {% endif %}
 
                     <!-- Action Buttons -->
                     <div class="d-flex flex-column gap-2">

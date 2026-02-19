@@ -998,7 +998,9 @@ def cliente_metricas_view(request):
 def video_list_view(request):
     """Lista de vídeos"""
     user = request.user
-    videos = Video.objects.all()
+    videos = Video.objects.all().annotate(
+        qrcode_clicks_count=Count('qrcode_clicks')
+    )
 
     # Filtros
     search = request.GET.get('search', '')
@@ -1233,6 +1235,80 @@ def video_delete_view(request, pk):
         messages.success(request, f'Registro do vídeo "{titulo}" excluído (arquivo já não existia no servidor)')
     
     return JsonResponse({'success': True})
+
+
+@login_required
+def video_qrcode_metricas_view(request, pk):
+    """Métricas de cliques do QR Code de um vídeo"""
+    user = request.user
+    video = get_object_or_404(Video, pk=pk)
+    
+    # Verificar permissões
+    if not user.is_owner():
+        if user.is_franchisee():
+            if video.cliente.franqueado != user:
+                messages.error(request, 'Você não tem permissão para ver estas métricas.')
+                return redirect('video_list')
+        elif video.cliente.user != user:
+            messages.error(request, 'Você não tem permissão para ver estas métricas.')
+            return redirect('video_list')
+    
+    # Buscar cliques
+    clicks = video.qrcode_clicks.all().order_by('-created_at')
+    
+    # Estatísticas
+    total_clicks = clicks.count()
+    
+    # Cliques por dia (últimos 30 dias)
+    from datetime import timedelta
+    from django.db.models.functions import TruncDate
+    
+    hoje = timezone.now().date()
+    inicio_periodo = hoje - timedelta(days=30)
+    
+    clicks_por_dia = (
+        clicks.filter(created_at__date__gte=inicio_periodo)
+        .annotate(data=TruncDate('created_at'))
+        .values('data')
+        .annotate(count=Count('id'))
+        .order_by('data')
+    )
+    
+    # Preparar dados para o gráfico
+    dias_labels = []
+    dias_valores = []
+    clicks_dict = {item['data']: item['count'] for item in clicks_por_dia}
+    
+    for i in range(30):
+        dia = inicio_periodo + timedelta(days=i)
+        dias_labels.append(dia.strftime('%d/%m'))
+        dias_valores.append(clicks_dict.get(dia, 0))
+    
+    # Top IPs (para detectar possível fraude)
+    from django.db.models import Count as DjCount
+    top_ips = (
+        clicks.exclude(ip_address__isnull=True)
+        .values('ip_address')
+        .annotate(total=DjCount('id'))
+        .order_by('-total')[:10]
+    )
+    
+    # Paginação dos cliques
+    from django.core.paginator import Paginator
+    paginator = Paginator(clicks, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'video': video,
+        'clicks': page_obj,
+        'total_clicks': total_clicks,
+        'dias_labels': dias_labels,
+        'dias_valores': dias_valores,
+        'top_ips': top_ips,
+    }
+    
+    return render(request, 'videos/video_qrcode_metricas.html', context)
 
 
 # Playlist Views

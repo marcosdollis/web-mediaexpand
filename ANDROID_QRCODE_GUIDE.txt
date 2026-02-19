@@ -1,0 +1,231 @@
+================================================================================
+INSTRUÇÕES PARA AJUSTE DO APP ANDROID TV - QR CODE INTERATIVO
+================================================================================
+
+1. ALTERAÇÃO NO MODELO DE DADOS
+--------------------------------------------------------------------------------
+
+A resposta da API POST /api/tv/auth/ agora inclui um campo "qrcode" em cada vídeo:
+
+// Antes (manter compatibilidade)
+data class VideoItem(
+    val id: Int,
+    val titulo: String,
+    val arquivo_url: String,
+    val duracao_segundos: Int,
+    val ativo: Boolean
+)
+
+// Depois (adicionar campo qrcode)
+data class VideoItem(
+    val id: Int,
+    val titulo: String,
+    val arquivo_url: String,
+    val duracao_segundos: Int,
+    val ativo: Boolean,
+    val qrcode: QRCodeData?  // NOVO - pode ser null
+)
+
+data class QRCodeData(
+    val tracking_url: String,  // URL para gerar o QR Code
+    val descricao: String      // Texto para exibir (ex: "Resgate seu desconto!")
+)
+
+
+2. EXEMPLO DE RESPOSTA DA API
+--------------------------------------------------------------------------------
+
+{
+  "dispositivo_id": 1,
+  "dispositivo_nome": "TV Praça Central",
+  "municipio": "São Paulo/SP",
+  "playlist": {
+    "id": 5,
+    "nome": "Playlist Verão",
+    "duracao_total_segundos": 180,
+    "videos": [
+      {
+        "id": 10,
+        "titulo": "Promo Pizzaria",
+        "arquivo_url": "https://domain/media/videos/cliente_1/promo.mp4",
+        "duracao_segundos": 30,
+        "ativo": true,
+        "qrcode": {
+          "tracking_url": "https://domain/r/550e8400-e29b-41d4-a716-446655440000/",
+          "descricao": "Resgate 10% de desconto!"
+        }
+      },
+      {
+        "id": 11,
+        "titulo": "Loja de Roupas",
+        "arquivo_url": "https://domain/media/videos/cliente_2/loja.mp4",
+        "duracao_segundos": 20,
+        "ativo": true,
+        "qrcode": null
+      }
+    ]
+  }
+}
+
+NOTA: Quando "qrcode" é null, o vídeo NÃO tem QR Code configurado.
+
+
+3. LÓGICA DE EXIBIÇÃO
+--------------------------------------------------------------------------------
+
+// Durante reprodução do vídeo
+fun onVideoStarted(video: VideoItem) {
+    if (video.qrcode != null) {
+        showQRCode(video.qrcode)
+    } else {
+        hideQRCode()
+    }
+}
+
+fun showQRCode(qrcode: QRCodeData) {
+    // 1. Gerar imagem do QR Code a partir de qrcode.tracking_url
+    val qrBitmap = generateQRCode(qrcode.tracking_url, size = 150)
+    
+    // 2. Exibir no canto inferior direito da tela
+    qrCodeImageView.setImageBitmap(qrBitmap)
+    qrCodeImageView.visibility = View.VISIBLE
+    
+    // 3. Exibir descrição abaixo/ao lado do QR Code
+    qrCodeDescriptionText.text = qrcode.descricao
+    qrCodeDescriptionText.visibility = View.VISIBLE
+}
+
+fun hideQRCode() {
+    qrCodeImageView.visibility = View.GONE
+    qrCodeDescriptionText.visibility = View.GONE
+}
+
+
+4. GERAÇÃO DO QR CODE (BIBLIOTECA ZXING)
+--------------------------------------------------------------------------------
+
+Dependência (build.gradle):
+
+    implementation 'com.google.zxing:core:3.5.2'
+
+Função de geração:
+
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
+
+fun generateQRCode(content: String, size: Int): Bitmap {
+    val writer = QRCodeWriter()
+    val bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, size, size)
+    
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+    for (x in 0 until size) {
+        for (y in 0 until size) {
+            bitmap.setPixel(x, y, if (bitMatrix[x, y]) Color.BLACK else Color.WHITE)
+        }
+    }
+    return bitmap
+}
+
+
+5. LAYOUT SUGERIDO
+--------------------------------------------------------------------------------
+
+Overlay no canto inferior direito durante reprodução do vídeo:
+
+<FrameLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    
+    <!-- VideoView/ExoPlayer aqui -->
+    
+    <!-- Container do QR Code -->
+    <LinearLayout
+        android:id="@+id/qrCodeContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="24dp"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:background="@drawable/qr_code_background"
+        android:visibility="gone">
+        
+        <ImageView
+            android:id="@+id/qrCodeImage"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_gravity="center" />
+        
+        <TextView
+            android:id="@+id/qrCodeDescription"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:maxWidth="150dp"
+            android:gravity="center" />
+    </LinearLayout>
+</FrameLayout>
+
+Background sugerido (res/drawable/qr_code_background.xml):
+
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#CC000000" />
+    <corners android:radius="12dp" />
+</shape>
+
+
+6. TABELA DE COMPATIBILIDADE
+--------------------------------------------------------------------------------
+
+| Cenário                           | Comportamento                           |
+|-----------------------------------|-----------------------------------------|
+| qrcode é null                     | Não exibe nada (comportamento atual)    |
+| qrcode tem dados                  | Exibe QR Code + descrição               |
+| API antiga sem campo qrcode       | Gson/Moshi parseia como null            |
+
+
+7. FLUXO DE RASTREAMENTO
+--------------------------------------------------------------------------------
+
+    ┌─────────────────────────────────────────────────────────┐
+    │  TV exibe vídeo com QR Code                             │
+    │  (QR Code = https://domain/r/uuid-unico/)               │
+    └─────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+    ┌─────────────────────────────────────────────────────────┐
+    │  Pessoa na rua escaneia o QR Code com celular           │
+    └─────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+    ┌─────────────────────────────────────────────────────────┐
+    │  Servidor MediaExpand registra acesso:                  │
+    │  - IP do celular                                        │
+    │  - Data/hora                                            │
+    │  - User-agent                                           │
+    └─────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+    ┌─────────────────────────────────────────────────────────┐
+    │  Redireciona para URL do cliente                        │
+    │  (site, Instagram, promoção, etc.)                      │
+    └─────────────────────────────────────────────────────────┘
+
+
+8. RESUMO DAS MUDANÇAS NECESSÁRIAS
+--------------------------------------------------------------------------------
+
+1. Atualizar modelo de dados - adicionar campo qrcode: QRCodeData?
+2. Adicionar biblioteca ZXing para geração de QR Code
+3. Adicionar UI overlay no canto da tela
+4. Implementar lógica - mostrar QR Code apenas quando qrcode != null
+5. Testar com vídeos com e sem QR Code configurado
+
+
+================================================================================
+FIM DO DOCUMENTO
+================================================================================

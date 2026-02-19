@@ -1,0 +1,284 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Métricas QR Code - {{ video.titulo }} - MediaExpand{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'video_list' %}">Vídeos</a></li>
+                <li class="breadcrumb-item active">Métricas QR Code</li>
+            </ol>
+        </nav>
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-qrcode text-primary me-2"></i>Métricas QR Code
+                </h1>
+                <p class="text-muted mb-0">{{ video.titulo }} - {{ video.cliente.empresa }}</p>
+            </div>
+            <a href="{% url 'video_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Voltar
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h4 class="mb-0">{{ total_clicks }}</h4>
+                        <small>Total de Acessos</small>
+                    </div>
+                    <i class="fas fa-mouse-pointer fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h4 class="mb-0">{{ video.qrcode_url_destino|default:"Não configurado"|truncatechars:20 }}</h4>
+                        <small>URL de Destino</small>
+                    </div>
+                    <i class="fas fa-external-link-alt fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h4 class="mb-0">{{ video.qrcode_descricao|default:"-"|truncatechars:15 }}</h4>
+                        <small>CTA do QR Code</small>
+                    </div>
+                    <i class="fas fa-comment-alt fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h4 class="mb-0">{{ video.status }}</h4>
+                        <small>Status do Vídeo</small>
+                    </div>
+                    <i class="fas fa-video fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QR Code Info -->
+{% if video.qrcode_url_destino %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-link me-2"></i>Configuração do QR Code</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-2"><strong>URL de Rastreamento:</strong></p>
+                        <code class="d-block p-2 bg-light rounded">{{ request.scheme }}://{{ request.get_host }}/r/{{ video.qrcode_tracking_code }}/</code>
+                        <small class="text-muted">Esta é a URL que o QR Code na TV redireciona</small>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-2"><strong>URL de Destino Final:</strong></p>
+                        <a href="{{ video.qrcode_url_destino }}" target="_blank" class="d-block p-2 bg-light rounded text-break">
+                            {{ video.qrcode_url_destino }}
+                            <i class="fas fa-external-link-alt ms-1"></i>
+                        </a>
+                        <small class="text-muted">Onde o usuário é redirecionado após escanear</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>QR Code não configurado!</strong> 
+            <a href="{% url 'video_update' video.pk %}">Edite o vídeo</a> para adicionar uma URL de destino e descrição do QR Code.
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Chart -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-chart-line me-2"></i>Acessos nos Últimos 30 Dias</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="clicksChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-network-wired me-2"></i>Top IPs</h6>
+            </div>
+            <div class="card-body">
+                {% if top_ips %}
+                <ul class="list-group list-group-flush">
+                    {% for ip in top_ips %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <code>{{ ip.ip_address }}</code>
+                        <span class="badge bg-primary rounded-pill">{{ ip.total }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted text-center mb-0">Nenhum acesso registrado</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clicks Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="fas fa-list me-2"></i>Histórico de Acessos</h6>
+                <span class="badge bg-secondary">{{ total_clicks }} total</span>
+            </div>
+            <div class="card-body">
+                {% if clicks %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>IP</th>
+                                <th>Dispositivo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for click in clicks %}
+                            <tr>
+                                <td>
+                                    <i class="fas fa-clock text-muted me-1"></i>
+                                    {{ click.created_at|date:"d/m/Y H:i:s" }}
+                                </td>
+                                <td><code>{{ click.ip_address|default:"-" }}</code></td>
+                                <td>
+                                    <small class="text-muted" title="{{ click.user_agent }}">
+                                        {{ click.user_agent|truncatechars:50 }}
+                                    </small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if clicks.has_other_pages %}
+                <nav aria-label="Navegação">
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if clicks.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ clicks.previous_page_number }}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in clicks.paginator.page_range %}
+                        {% if clicks.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > clicks.number|add:'-3' and num < clicks.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        {% if clicks.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ clicks.next_page_number }}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-mouse-pointer fa-3x text-muted mb-3"></i>
+                    <p class="text-muted mb-0">Nenhum acesso registrado ainda.</p>
+                    <small class="text-muted">Quando alguém escanear o QR Code, os acessos aparecerão aqui.</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('clicksChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ dias_labels|safe }},
+            datasets: [{
+                label: 'Acessos',
+                data: {{ dias_valores|safe }},
+                borderColor: 'rgb(13, 110, 253)',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

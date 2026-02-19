@@ -44,6 +44,7 @@ urlpatterns = [
     path('videos/<int:pk>/approve/', views.video_approve_view, name='video_approve'),
     path('videos/<int:pk>/reject/', views.video_reject_view, name='video_reject'),
     path('videos/<int:pk>/delete/', views.video_delete_view, name='video_delete'),
+    path('videos/<int:pk>/qrcode-metricas/', views.video_qrcode_metricas_view, name='video_qrcode_metricas'),
 
     # Playlists
     path('playlists/', views.playlist_list_view, name='playlist_list'),
