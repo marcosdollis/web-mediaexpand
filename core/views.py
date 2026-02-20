@@ -2775,3 +2775,108 @@ def get_client_ip(request):
         return x_forwarded_for.split(',')[0].strip()
     return request.META.get('REMOTE_ADDR')
 
+
+# ============================================================
+# STREAMING DE MÍDIA COM SUPORTE A RANGE REQUESTS
+# ============================================================
+
+def serve_media_streaming(request, path):
+    """
+    Serve arquivos de mídia com suporte a HTTP Range Requests (RFC 7233).
+    Permite streaming progressivo de vídeos grandes sem carregar tudo na memória.
+    
+    - Suporta Range requests (HTTP 206 Partial Content)
+    - Chunked streaming via FileResponse
+    - Headers corretos para players de vídeo (Accept-Ranges, Content-Range)
+    - Fallback para resposta completa quando Range não é solicitado
+    """
+    import os
+    import re as re_module
+    import mimetypes
+    from django.http import FileResponse, HttpResponse, Http404, StreamingHttpResponse
+    from django.conf import settings
+    
+    # Construir caminho completo e validar contra path traversal
+    full_path = os.path.join(settings.MEDIA_ROOT, path)
+    full_path = os.path.normpath(full_path)
+    media_root = os.path.normpath(str(settings.MEDIA_ROOT))
+    
+    if not full_path.startswith(media_root):
+        raise Http404("Acesso negado")
+    
+    if not os.path.isfile(full_path):
+        raise Http404("Arquivo não encontrado")
+    
+    # Detectar content type
+    content_type, _ = mimetypes.guess_type(full_path)
+    if not content_type:
+        content_type = 'application/octet-stream'
+    
+    file_size = os.path.getsize(full_path)
+    
+    # Verificar se é um Range request
+    range_header = request.META.get('HTTP_RANGE', '')
+    
+    if range_header:
+        # Parse do Range header: "bytes=start-end"
+        range_match = re_module.match(r'bytes=(\d*)-(\d*)', range_header)
+        if range_match:
+            start = range_match.group(1)
+            end = range_match.group(2)
+            
+            if start:
+                start = int(start)
+            else:
+                # Range: bytes=-500 (últimos 500 bytes)
+                start = max(0, file_size - int(end))
+                end = file_size - 1
+            
+            if end:
+                end = int(end)
+            else:
+                # Servir em chunks de no máximo 8MB para evitar sobrecarga
+                end = min(start + (8 * 1024 * 1024), file_size - 1)
+            
+            # Validar range
+            if start >= file_size:
+                response = HttpResponse(status=416)  # Range Not Satisfiable
+                response['Content-Range'] = f'bytes */{file_size}'
+                return response
+            
+            end = min(end, file_size - 1)
+            content_length = end - start + 1
+            
+            # Streaming com range
+            def file_range_iterator(path, start, end, chunk_size=8192):
+                with open(path, 'rb') as f:
+                    f.seek(start)
+                    remaining = end - start + 1
+                    while remaining > 0:
+                        read_size = min(chunk_size, remaining)
+                        data = f.read(read_size)
+                        if not data:
+                            break
+                        remaining -= len(data)
+                        yield data
+            
+            response = StreamingHttpResponse(
+                file_range_iterator(full_path, start, end),
+                status=206,
+                content_type=content_type,
+            )
+            response['Content-Length'] = content_length
+            response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+            response['Accept-Ranges'] = 'bytes'
+            response['Cache-Control'] = 'public, max-age=86400'
+            return response
+    
+    # Sem Range header - resposta completa com streaming
+    response = FileResponse(
+        open(full_path, 'rb'),
+        content_type=content_type,
+    )
+    response['Content-Length'] = file_size
+    response['Accept-Ranges'] = 'bytes'
+    response['Cache-Control'] = 'public, max-age=86400'
+    return response
+

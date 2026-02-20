@@ -47,7 +47,8 @@ echo "🌐 Iniciando servidor Gunicorn na porta ${PORT:-8000}..."
 exec gunicorn mediaexpand.wsgi:application \
     --bind 0.0.0.0:${PORT:-8000} \
     --workers 2 \
-    --timeout 120 \
+    --timeout 300 \
+    --keep-alive 5 \
     --access-logfile - \
     --error-logfile - \
     --log-level info

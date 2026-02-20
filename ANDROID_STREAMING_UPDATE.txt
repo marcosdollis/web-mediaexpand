@@ -1,0 +1,266 @@
+================================================================================
+ATUALIZAÇÃO: STREAMING DE VÍDEOS COM HTTP RANGE REQUESTS
+================================================================================
+
+DATA: 20/02/2026
+MOTIVO: Resolver travamento de vídeos grandes (100MB+)
+
+O backend agora suporta HTTP Range Requests (RFC 7233) para streaming 
+progressivo de vídeos. Isso permite que o player baixe apenas os trechos 
+necessários em vez do arquivo completo.
+
+
+1. O QUE MUDOU NO BACKEND
+================================================================================
+
+✅ Servidor agora responde com HTTP 206 (Partial Content) quando solicitado
+✅ Header "Accept-Ranges: bytes" indica suporte a range requests
+✅ Vídeos podem ser baixados em chunks de 8MB
+✅ Players podem fazer seek sem baixar o arquivo inteiro
+✅ Cache de 24h para reduzir tráfego
+
+
+2. O APK PRECISA DE MUDANÇAS?
+================================================================================
+
+RESPOSTA CURTA: Provavelmente NÃO, mas depende de como o vídeo é reproduzido.
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CENÁRIO 1: Usando ExoPlayer (RECOMENDADO)                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ✅ NÃO PRECISA MUDAR NADA                                               │
+│                                                                          │
+│ O ExoPlayer JÁ faz Range Requests automaticamente. Se você está usando: │
+│                                                                          │
+│   val player = ExoPlayer.Builder(context).build()                       │
+│   val mediaItem = MediaItem.fromUri(video.arquivo_url)                  │
+│   player.setMediaItem(mediaItem)                                        │
+│   player.prepare()                                                      │
+│   player.play()                                                         │
+│                                                                          │
+│ O ExoPlayer vai fazer streaming progressivo automaticamente.            │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CENÁRIO 2: Usando MediaPlayer nativo                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ✅ NÃO PRECISA MUDAR NADA                                               │
+│                                                                          │
+│ O MediaPlayer também suporta streaming:                                 │
+│                                                                          │
+│   val mediaPlayer = MediaPlayer()                                       │
+│   mediaPlayer.setDataSource(video.arquivo_url)                          │
+│   mediaPlayer.prepareAsync()  // ← IMPORTANTE: use Async!              │
+│   mediaPlayer.setOnPreparedListener { player.start() }                  │
+│                                                                          │
+│ NUNCA use prepare() síncrono - sempre prepareAsync()                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CENÁRIO 3: Fazendo download completo antes de reproduzir (PROBLEMA!)    │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ⚠️ PRECISA MUDAR URGENTEMENTE                                           │
+│                                                                          │
+│ Se o código faz algo assim:                                             │
+│                                                                          │
+│   // ❌ MAU: Baixa o arquivo inteiro antes                              │
+│   val file = downloadFile(video.arquivo_url)                            │
+│   player.setDataSource(file.path)                                       │
+│                                                                          │
+│ MUDE PARA:                                                              │
+│                                                                          │
+│   // ✅ BOM: Streaming direto                                           │
+│   player.setDataSource(video.arquivo_url)                               │
+│   player.prepareAsync()                                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CENÁRIO 4: Usando VideoView                                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ⚠️ FUNCIONA, mas não é recomendado para TV                              │
+│                                                                          │
+│   videoView.setVideoURI(Uri.parse(video.arquivo_url))                   │
+│   videoView.start()                                                     │
+│                                                                          │
+│ VideoView já faz streaming, mas é limitado. Prefira ExoPlayer.          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+3. CONFIGURAÇÕES RECOMENDADAS PARA EXOPLAYER
+================================================================================
+
+Se você usa ExoPlayer, estas configurações otimizam o streaming:
+
+```kotlin
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.common.MediaItem
+import androidx.media3.datasource.DefaultHttpDataSource
+
+// Configurar buffer otimizado para vídeos grandes
+val loadControl = DefaultLoadControl.Builder()
+    .setBufferDurationsMs(
+        15000,  // Min buffer: 15s antes de começar
+        50000,  // Max buffer: 50s
+        2500,   // Buffer para playback: 2.5s
+        5000    // Rebuffer: 5s
+    )
+    .build()
+
+// Configurar timeout para conexões lentas
+val dataSourceFactory = DefaultHttpDataSource.Factory()
+    .setConnectTimeoutMs(30000)      // 30s para conectar
+    .setReadTimeoutMs(30000)         // 30s para ler dados
+    .setAllowCrossProtocolRedirects(true)
+
+// Criar player com configurações
+val player = ExoPlayer.Builder(context)
+    .setLoadControl(loadControl)
+    .setMediaSourceFactory(
+        DefaultMediaSourceFactory(context)
+            .setDataSourceFactory(dataSourceFactory)
+    )
+    .build()
+
+// Usar normalmente
+val mediaItem = MediaItem.fromUri(video.arquivo_url)
+player.setMediaItem(mediaItem)
+player.prepare()
+player.playWhenReady = true
+```
+
+
+4. COMO VERIFICAR SE ESTÁ FUNCIONANDO
+================================================================================
+
+### No Logcat (Android Studio):
+
+✅ CORRETO - Você deve ver logs como:
+```
+ExoPlayer: Loading media from https://domain/media/videos/...
+ExoPlayer: Loaded chunk [bytes 0-8388607]
+ExoPlayer: Loaded chunk [bytes 8388608-16777215]
+```
+
+❌ ERRADO - Se você ver:
+```
+Downloading file: 100MB...
+Download complete: /storage/emulated/0/video.mp4
+```
+→ Significa que está baixando o arquivo inteiro (BAD!)
+
+
+### Teste manual:
+
+1. Inicie um vídeo de 100MB+
+2. O vídeo deve começar a tocar em 2-5 segundos (não esperar download completo)
+3. Faça seek para o meio do vídeo
+4. O seek deve ser rápido (< 2s), não esperar download até aquele ponto
+
+
+5. DEPENDÊNCIAS NECESSÁRIAS (ExoPlayer - AndroidX Media3)
+================================================================================
+
+Se você ainda não usa ExoPlayer, adicione no build.gradle (app):
+
+```gradle
+dependencies {
+    // ExoPlayer (versão atual - AndroidX Media3)
+    implementation "androidx.media3:media3-exoplayer:1.2.1"
+    implementation "androidx.media3:media3-ui:1.2.1"
+    implementation "androidx.media3:media3-common:1.2.1"
+}
+```
+
+Versões antigas (com.google.android.exoplayer) funcionam, mas recomenda-se migrar:
+```gradle
+// LEGADO (ainda funciona)
+implementation 'com.google.android.exoplayer:exoplayer:2.19.1'
+```
+
+
+6. TROUBLESHOOTING
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PROBLEMA: Vídeo ainda trava em 100MB+                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│ CAUSA: App está baixando arquivo completo antes de reproduzir           │
+│                                                                          │
+│ SOLUÇÃO:                                                                │
+│ 1. Verifique se há código de download de arquivo                        │
+│ 2. Use setMediaItem(MediaItem.fromUri(url)) diretamente                 │
+│ 3. Nunca salve o vídeo em storage antes de reproduzir                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PROBLEMA: Demora muito para começar a tocar                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│ CAUSA: Buffer inicial muito alto ou conexão lenta                       │
+│                                                                          │
+│ SOLUÇÃO:                                                                │
+│ 1. Reduza min buffer para 10-15s (veja seção 3)                         │
+│ 2. Verifique conexão de rede na TV                                      │
+│ 3. Use prepareAsync() no MediaPlayer                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PROBLEMA: Erro "416 Range Not Satisfiable"                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│ CAUSA: Player pediu range inválido (start >= filesize)                  │
+│                                                                          │
+│ SOLUÇÃO:                                                                │
+│ - Isso é raro e geralmente auto-corrigido pelo player                   │
+│ - Se persistir, reporte o log completo                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PROBLEMA: Rede mobile 4G/5G trava mais que WiFi                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│ CAUSA: Latência variável em redes mobile                                │
+│                                                                          │
+│ SOLUÇÃO:                                                                │
+│ 1. Aumente rebuffer time para 10s em LoadControl                        │
+│ 2. Teste com bitrate mais baixo de vídeo (< 5 Mbps)                     │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+7. CHECKLIST DE VERIFICAÇÃO
+================================================================================
+
+Verifique no código do APK:
+
+[ ] Player usado: □ ExoPlayer  □ MediaPlayer  □ VideoView  □ Outro: _________
+
+[ ] Método de carregamento:
+    □ Streaming direto da URL (✅ CORRETO)
+    □ Download completo antes (❌ ERRADO)
+
+[ ] MediaPlayer usa prepareAsync() em vez de prepare()? □ Sim □ Não □ N/A
+
+[ ] Há código que salva o vídeo em File antes de reproduzir? □ Sim □ Não
+
+[ ] Buffer configurado? □ Sim □ Não □ Usa padrão
+
+[ ] Permissão INTERNET no AndroidManifest.xml? □ Sim □ Não
+
+
+8. SUPORTE
+================================================================================
+
+Se após verificar você tiver dúvidas:
+
+1. Compartilhe o trecho de código que faz o player carregar o vídeo
+2. Informe qual biblioteca/player você usa (ExoPlayer/MediaPlayer/etc)
+3. Envie logs do Logcat durante reprodução de vídeo grande (100MB+)
+
+
+CONCLUSÃO:
+Se você usa ExoPlayer ou MediaPlayer com prepareAsync(), provavelmente 
+NÃO precisa mudar nada. A mudança é no backend e os players Android já 
+suportam Range Requests nativamente.
+
+Se você baixa o arquivo completo antes de reproduzir, PRECISA MUDAR para 
+streaming direto da URL.
+
+================================================================================

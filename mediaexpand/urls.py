@@ -131,7 +131,7 @@ Todos os endpoints REST padrão para gerenciamento de:
    permission_classes=(permissions.AllowAny,),
 )
 
-from core.views import qrcode_redirect_view
+from core.views import qrcode_redirect_view, serve_media_streaming
 
 urlpatterns = [
     path('', include('core.urls_web')),  # Web URLs (templates)
@@ -154,17 +154,12 @@ admin.site.site_header = "MediaExpand - Administração"
 admin.site.site_title = "MediaExpand Admin"
 admin.site.index_title = "Gerenciamento de Mídia Indoor"
 
-from django.views.static import serve as static_serve
-
 # Serve static files in development
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-# Serve media files (both development and production)
-# Em produção (Railway), Django serve os arquivos de mídia do volume /data/media
-# django.conf.urls.static.static() não funciona com DEBUG=False, então usamos re_path direto
+# Serve media files com streaming e suporte a Range Requests
+# Resolve travamento de vídeos grandes (100MB+) permitindo download parcial/progressivo
 urlpatterns += [
-    re_path(r'^media/(?P<path>.*)$', static_serve, {
-        'document_root': settings.MEDIA_ROOT,
-    }),
+    re_path(r'^media/(?P<path>.*)$', serve_media_streaming),
 ]
