@@ -8,7 +8,7 @@ from django.db import models
 from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion,
-    QRCodeClick
+    QRCodeClick, AgendamentoExibicao
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -35,16 +35,15 @@ class UserViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
+        qs = User.objects.all()
         if user.is_owner():
-            return User.objects.all()
+            return qs
         elif user.is_franchisee():
-            # Franqueado vê seus clientes e a si mesmo
-            return User.objects.filter(
+            return qs.filter(
                 Q(id=user.id) | Q(created_by=user) | Q(cliente_profile__franqueado=user)
             ).distinct()
         else:
-            # Cliente vê apenas a si mesmo
-            return User.objects.filter(id=user.id)
+            return qs.filter(id=user.id)
     
     @action(detail=False, methods=['get'])
     def me(self, request):
@@ -65,16 +64,17 @@ class MunicipioViewSet(viewsets.ModelViewSet):
     ViewSet para gerenciar municípios
     Apenas franqueados e dono podem gerenciar
     """
-    queryset = Municipio.objects.all()
+    queryset = Municipio.objects.select_related('franqueado').all()
     serializer_class = MunicipioSerializer
     permission_classes = [IsFranchiseeOrOwner]
     
     def get_queryset(self):
         user = self.request.user
+        qs = Municipio.objects.select_related('franqueado')
         if user.is_owner():
-            return Municipio.objects.all()
+            return qs
         elif user.is_franchisee():
-            return Municipio.objects.filter(franqueado=user)
+            return qs.filter(franqueado=user)
         return Municipio.objects.none()
     
     def perform_create(self, serializer):
@@ -89,7 +89,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
     """
     ViewSet para gerenciar clientes
     """
-    queryset = Cliente.objects.all()
+    queryset = Cliente.objects.select_related('user', 'franqueado', 'segmento').all()
     permission_classes = [CanManageClients]
     
     def get_serializer_class(self):
@@ -99,10 +99,11 @@ class ClienteViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
+        qs = Cliente.objects.select_related('user', 'franqueado', 'segmento').prefetch_related('municipios')
         if user.is_owner():
-            return Cliente.objects.all()
+            return qs
         elif user.is_franchisee():
-            return Cliente.objects.filter(franqueado=user)
+            return qs.filter(franqueado=user)
         return Cliente.objects.none()
     
     def perform_create(self, serializer):
@@ -125,20 +126,21 @@ class VideoViewSet(viewsets.ModelViewSet):
     """
     ViewSet para gerenciar vídeos
     """
-    queryset = Video.objects.all()
+    queryset = Video.objects.select_related('cliente', 'cliente__user').all()
     serializer_class = VideoSerializer
     permission_classes = [CanManageVideos, IsOwnerOfObject]
     
     def get_queryset(self):
         user = self.request.user
+        qs = Video.objects.select_related('cliente', 'cliente__user', 'cliente__segmento')
         if user.is_owner():
-            return Video.objects.all()
+            return qs
         elif user.is_franchisee():
-            return Video.objects.filter(cliente__franqueado=user)
+            return qs.filter(cliente__franqueado=user)
         elif user.is_client():
             try:
                 cliente = user.cliente_profile
-                return Video.objects.filter(cliente=cliente)
+                return qs.filter(cliente=cliente)
             except Cliente.DoesNotExist:
                 return Video.objects.none()
         return Video.objects.none()
@@ -176,16 +178,19 @@ class PlaylistViewSet(viewsets.ModelViewSet):
     """
     ViewSet para gerenciar playlists
     """
-    queryset = Playlist.objects.all()
+    queryset = Playlist.objects.select_related('municipio', 'franqueado').all()
     serializer_class = PlaylistSerializer
     permission_classes = [CanManagePlaylists, IsOwnerOfObject]
     
     def get_queryset(self):
         user = self.request.user
+        qs = Playlist.objects.select_related('municipio', 'franqueado').prefetch_related(
+            'items__video'
+        )
         if user.is_owner():
-            return Playlist.objects.all()
+            return qs
         elif user.is_franchisee():
-            return Playlist.objects.filter(franqueado=user)
+            return qs.filter(franqueado=user)
         return Playlist.objects.none()
     
     def perform_create(self, serializer):
@@ -265,16 +270,17 @@ class PlaylistItemViewSet(viewsets.ModelViewSet):
     """
     ViewSet para gerenciar itens de playlist
     """
-    queryset = PlaylistItem.objects.all()
+    queryset = PlaylistItem.objects.select_related('playlist', 'video').all()
     serializer_class = PlaylistItemSerializer
     permission_classes = [CanManagePlaylists]
     
     def get_queryset(self):
         user = self.request.user
+        qs = PlaylistItem.objects.select_related('playlist', 'video', 'video__cliente')
         if user.is_owner():
-            return PlaylistItem.objects.all()
+            return qs
         elif user.is_franchisee():
-            return PlaylistItem.objects.filter(playlist__franqueado=user)
+            return qs.filter(playlist__franqueado=user)
         return PlaylistItem.objects.none()
 
 
@@ -282,16 +288,17 @@ class DispositivoTVViewSet(viewsets.ModelViewSet):
     """
     ViewSet para gerenciar dispositivos de TV
     """
-    queryset = DispositivoTV.objects.all()
+    queryset = DispositivoTV.objects.select_related('municipio', 'playlist_atual').all()
     serializer_class = DispositivoTVSerializer
     permission_classes = [IsFranchiseeOrOwner]
     
     def get_queryset(self):
         user = self.request.user
+        qs = DispositivoTV.objects.select_related('municipio', 'municipio__franqueado', 'playlist_atual')
         if user.is_owner():
-            return DispositivoTV.objects.all()
+            return qs
         elif user.is_franchisee():
-            return DispositivoTV.objects.filter(municipio__franqueado=user)
+            return qs.filter(municipio__franqueado=user)
         return DispositivoTV.objects.none()
 
 
@@ -299,17 +306,18 @@ class LogExibicaoViewSet(viewsets.ModelViewSet):
     """
     ViewSet para logs de exibição (somente leitura para usuários)
     """
-    queryset = LogExibicao.objects.all()
+    queryset = LogExibicao.objects.select_related('dispositivo', 'video', 'playlist').all()
     serializer_class = LogExibicaoSerializer
     permission_classes = [IsFranchiseeOrOwner]
     http_method_names = ['get', 'post']  # Apenas leitura e criação
     
     def get_queryset(self):
         user = self.request.user
+        qs = LogExibicao.objects.select_related('dispositivo', 'video', 'playlist')
         if user.is_owner():
-            return LogExibicao.objects.all()
+            return qs
         elif user.is_franchisee():
-            return LogExibicao.objects.filter(dispositivo__municipio__franqueado=user)
+            return qs.filter(dispositivo__municipio__franqueado=user)
         return LogExibicao.objects.none()
     
     @action(detail=False, methods=['get'])
@@ -575,10 +583,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
 from django.urls import reverse
-from django.db.models import Count, Sum, Q
+from django.db.models import Count, Sum, Q, Avg, Prefetch
+from django.db.models.functions import TruncDate
 from django.utils import timezone
-from django.http import JsonResponse
-from datetime import timedelta
+from django.http import JsonResponse, Http404
+from django.core.paginator import Paginator
+from datetime import timedelta, datetime, time
+import calendar
+import os
 from .forms import VideoForm, PlaylistForm, DispositivoTVForm, SegmentoForm, AppVersionForm
 
 
@@ -631,7 +643,7 @@ def dashboard_view(request):
     }
 
     if user.is_owner():
-        # Estatísticas para proprietário
+        # Estatísticas para proprietário - consultas otimizadas
         context.update({
             'total_franchisees': User.objects.filter(role='FRANCHISEE').count(),
             'total_municipios': Municipio.objects.count(),
@@ -639,53 +651,68 @@ def dashboard_view(request):
             'total_devices': DispositivoTV.objects.count(),
         })
         
-        # Visão hierárquica de franqueados
+        # Pré-carregar dados dos municípios com anotações (evita N+1)
+        municipios_annotated = Municipio.objects.select_related('franqueado').annotate(
+            publico_total=Sum('dispositivos__publico_estimado_mes'),
+            dispositivos_count=Count('dispositivos')
+        ).order_by('nome')
+        
+        # Indexar por franqueado_id
+        municipios_by_franqueado = {}
+        for mun in municipios_annotated:
+            municipios_by_franqueado.setdefault(mun.franqueado_id, []).append({
+                'municipio': mun,
+                'publico_total': mun.publico_total or 0,
+                'dispositivos_count': mun.dispositivos_count or 0,
+            })
+        
+        # Pré-carregar clientes por franqueado
+        all_clientes = Cliente.objects.select_related('user', 'segmento').order_by('empresa')
+        clientes_by_franqueado = {}
+        for cli in all_clientes:
+            clientes_by_franqueado.setdefault(cli.franqueado_id, []).append(cli)
+        
+        # Pré-carregar playlists por franqueado
+        all_playlists = Playlist.objects.select_related('municipio').order_by('nome')
+        playlists_by_franqueado = {}
+        for pl in all_playlists:
+            playlists_by_franqueado.setdefault(pl.franqueado_id, []).append(pl)
+        
+        # Pré-carregar contagens de dispositivos por franqueado
+        dispositivos_por_franqueado = dict(
+            DispositivoTV.objects.values_list('municipio__franqueado').annotate(
+                total=Count('id')
+            ).values_list('municipio__franqueado', 'total')
+        )
+        
+        # Pré-carregar público total por franqueado
+        publico_por_franqueado = dict(
+            DispositivoTV.objects.values('municipio__franqueado').annotate(
+                total=Sum('publico_estimado_mes')
+            ).values_list('municipio__franqueado', 'total')
+        )
+        
+        # Montar visão hierárquica sem queries adicionais
         franqueados = User.objects.filter(role='FRANCHISEE').order_by('username')
         franqueados_data = []
         
         for franqueado in franqueados:
-            # Municípios do franqueado
-            municipios = Municipio.objects.filter(franqueado=franqueado).order_by('nome')
-            
-            # Para cada município, calcular o público total
-            municipios_com_publico = []
-            for municipio in municipios:
-                publico_total = DispositivoTV.objects.filter(
-                    municipio=municipio
-                ).aggregate(
-                    total=models.Sum('publico_estimado_mes')
-                )['total'] or 0
-                
-                municipios_com_publico.append({
-                    'municipio': municipio,
-                    'publico_total': publico_total,
-                    'dispositivos_count': DispositivoTV.objects.filter(municipio=municipio).count()
-                })
-            
-            # Clientes do franqueado
-            clientes = Cliente.objects.filter(franqueado=franqueado).select_related('user').order_by('empresa')
-            
-            # Playlists do franqueado com municípios
-            playlists = Playlist.objects.filter(franqueado=franqueado).select_related('municipio').order_by('nome')
-            
-            # Calcular público total do franqueado
-            publico_total_franqueado = DispositivoTV.objects.filter(
-                municipio__franqueado=franqueado
-            ).aggregate(
-                total=models.Sum('publico_estimado_mes')
-            )['total'] or 0
+            fid = franqueado.id
+            muns = municipios_by_franqueado.get(fid, [])
+            clis = clientes_by_franqueado.get(fid, [])
+            pls = playlists_by_franqueado.get(fid, [])
             
             franqueados_data.append({
                 'franqueado': franqueado,
-                'municipios': municipios_com_publico,
-                'clientes': clientes,
-                'playlists': playlists,
+                'municipios': muns,
+                'clientes': clis,
+                'playlists': pls,
                 'stats': {
-                    'total_municipios': municipios.count(),
-                    'total_clientes': clientes.count(),
-                    'total_playlists': playlists.count(),
-                    'total_dispositivos': DispositivoTV.objects.filter(municipio__franqueado=franqueado).count(),
-                    'publico_total': publico_total_franqueado,
+                    'total_municipios': len(muns),
+                    'total_clientes': len(clis),
+                    'total_playlists': len(pls),
+                    'total_dispositivos': dispositivos_por_franqueado.get(fid, 0),
+                    'publico_total': publico_por_franqueado.get(fid, 0) or 0,
                 }
             })
         
@@ -711,28 +738,20 @@ def dashboard_view(request):
             # Informações do franqueado
             franqueado = cliente.franqueado
             
-            # Municípios do franqueado com público
-            municipios = Municipio.objects.filter(franqueado=franqueado).order_by('nome')
-            municipios_com_publico = []
-            for municipio in municipios:
-                publico_total = DispositivoTV.objects.filter(
-                    municipio=municipio
-                ).aggregate(
-                    total=models.Sum('publico_estimado_mes')
-                )['total'] or 0
-                
-                municipios_com_publico.append({
-                    'municipio': municipio,
-                    'publico_total': publico_total,
-                    'dispositivos_count': DispositivoTV.objects.filter(municipio=municipio).count()
-                })
+            # Municípios do franqueado com público - query otimizada com anotações
+            municipios = Municipio.objects.filter(franqueado=franqueado).annotate(
+                publico_total=Sum('dispositivos__publico_estimado_mes'),
+                dispositivos_count=Count('dispositivos')
+            ).order_by('nome')
+            
+            municipios_com_publico = [{
+                'municipio': m,
+                'publico_total': m.publico_total or 0,
+                'dispositivos_count': m.dispositivos_count or 0,
+            } for m in municipios]
             
             # Público total do franqueado
-            publico_total_franqueado = DispositivoTV.objects.filter(
-                municipio__franqueado=franqueado
-            ).aggregate(
-                total=models.Sum('publico_estimado_mes')
-            )['total'] or 0
+            publico_total_franqueado = sum(m['publico_total'] for m in municipios_com_publico)
             
             context.update({
                 'total_videos': videos.count(),
@@ -754,7 +773,9 @@ def dashboard_view(request):
 
     if user.is_owner():
         # Atividades de todos
-        recent_videos = Video.objects.filter(created_at__gte=cutoff_date).order_by('-created_at')[:5]
+        recent_videos = Video.objects.filter(
+            created_at__gte=cutoff_date
+        ).select_related('cliente').order_by('-created_at')[:5]
         for video in recent_videos:
             recent_activities.append({
                 'description': f'Novo vídeo "{video.titulo}" enviado por {video.cliente.empresa}',
@@ -762,11 +783,10 @@ def dashboard_view(request):
             })
     elif user.is_franchisee():
         # Atividades dos clientes do franqueado
-        clientes_ids = Cliente.objects.filter(franqueado=user).values_list('id', flat=True)
         recent_videos = Video.objects.filter(
-            cliente_id__in=clientes_ids,
+            cliente__franqueado=user,
             created_at__gte=cutoff_date
-        ).order_by('-created_at')[:5]
+        ).select_related('cliente').order_by('-created_at')[:5]
         for video in recent_videos:
             recent_activities.append({
                 'description': f'Novo vídeo "{video.titulo}" enviado por {video.cliente.empresa}',
@@ -838,10 +858,12 @@ def cliente_metricas_view(request):
     
     playlists = Playlist.objects.filter(id__in=playlist_ids, ativa=True)
     
-    # Dispositivos que usam essas playlists
+    # Dispositivos que usam essas playlists - prefetch agendamentos para evitar N+1
     dispositivos = DispositivoTV.objects.filter(
         playlist_atual__in=playlists,
         ativo=True
+    ).select_related('municipio').prefetch_related(
+        Prefetch('agendamentos', queryset=AgendamentoExibicao.objects.filter(ativo=True))
     ).distinct()
     
     # Métricas básicas
@@ -849,22 +871,19 @@ def cliente_metricas_view(request):
     
     # Público impactado (soma do público estimado de todos os dispositivos)
     publico_impactado = dispositivos.aggregate(
-        total=models.Sum('publico_estimado_mes')
+        total=Sum('publico_estimado_mes')
     )['total'] or 0
     
     # Calcular tempo total de exibição baseado nos agendamentos
     tempo_total_segundos = 0
     dispositivos_detalhes = []
     
-    from datetime import datetime, time
-    import calendar
-    
     # Dias úteis no mês atual
     now = timezone.now()
     _, dias_no_mes = calendar.monthrange(now.year, now.month)
     
     for dispositivo in dispositivos:
-        agendamentos = dispositivo.agendamentos.filter(ativo=True)
+        agendamentos = dispositivo.agendamentos.all()  # já prefetched
         
         horas_dia = 0
         if agendamentos.exists():
@@ -900,7 +919,7 @@ def cliente_metricas_view(request):
     
     # Duração média dos vídeos do cliente (em segundos)
     duracao_media_video = videos_cliente.aggregate(
-        media=models.Avg('duracao_segundos')
+        media=Avg('duracao_segundos')
     )['media'] or 15  # Default 15 segundos
     
     # Total de vídeos em todas as playlists relevantes
@@ -998,7 +1017,9 @@ def cliente_metricas_view(request):
 def video_list_view(request):
     """Lista de vídeos"""
     user = request.user
-    videos = Video.objects.all().annotate(
+    videos = Video.objects.select_related(
+        'cliente', 'cliente__user', 'cliente__segmento'
+    ).annotate(
         qrcode_clicks_count=Count('qrcode_clicks')
     )
 
@@ -1019,10 +1040,9 @@ def video_list_view(request):
     
     # Filtro para arquivos órfãos (apenas para OWNER)
     if orphaned_filter == 'true' and user.is_owner():
-        import os
         orphaned_ids = []
-        for video in videos:
-            if not video.arquivo or not os.path.exists(video.arquivo.path):
+        for video in videos.only('id', 'arquivo'):
+            if not video.arquivo_existe():
                 orphaned_ids.append(video.id)
         videos = videos.filter(id__in=orphaned_ids)
 
@@ -1038,13 +1058,12 @@ def video_list_view(request):
             videos = Video.objects.none()
 
     # Paginação
-    from django.core.paginator import Paginator
     paginator = Paginator(videos.order_by('-created_at'), 12)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     # Clientes para filtro (se aplicável)
-    clientes = Cliente.objects.all()
+    clientes = Cliente.objects.only('id', 'empresa')
     if user.is_franchisee():
         clientes = clientes.filter(franqueado=user)
 
@@ -1260,9 +1279,6 @@ def video_qrcode_metricas_view(request, pk):
     total_clicks = clicks.count()
     
     # Cliques por dia (últimos 30 dias)
-    from datetime import timedelta
-    from django.db.models.functions import TruncDate
-    
     hoje = timezone.now().date()
     inicio_periodo = hoje - timedelta(days=30)
     
@@ -1279,32 +1295,33 @@ def video_qrcode_metricas_view(request, pk):
     dias_valores = []
     clicks_dict = {item['data']: item['count'] for item in clicks_por_dia}
     
-    for i in range(30):
+    for i in range(31):  # 31 dias para incluir hoje
         dia = inicio_periodo + timedelta(days=i)
         dias_labels.append(dia.strftime('%d/%m'))
         dias_valores.append(clicks_dict.get(dia, 0))
     
     # Top IPs (para detectar possível fraude)
-    from django.db.models import Count as DjCount
     top_ips = (
         clicks.exclude(ip_address__isnull=True)
         .values('ip_address')
-        .annotate(total=DjCount('id'))
+        .annotate(total=Count('id'))
         .order_by('-total')[:10]
     )
     
     # Paginação dos cliques
-    from django.core.paginator import Paginator
     paginator = Paginator(clicks, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+    
+    # Converter listas para JSON para o gráfico (JavaScript precisa de JSON válido)
+    import json
     
     context = {
         'video': video,
         'clicks': page_obj,
         'total_clicks': total_clicks,
-        'dias_labels': dias_labels,
-        'dias_valores': dias_valores,
+        'dias_labels': json.dumps(dias_labels),
+        'dias_valores': json.dumps(dias_valores),
         'top_ips': top_ips,
     }
     
@@ -1316,7 +1333,14 @@ def video_qrcode_metricas_view(request, pk):
 def playlist_list_view(request):
     """Lista de playlists"""
     user = request.user
-    playlists = Playlist.objects.all().prefetch_related('items', 'items__video', 'dispositivos')
+    playlists = Playlist.objects.select_related(
+        'municipio', 'franqueado'
+    ).prefetch_related(
+        Prefetch('items', queryset=PlaylistItem.objects.filter(ativo=True).select_related('video').only(
+            'id', 'playlist_id', 'video_id', 'ativo', 'video__titulo'
+        )),
+        'dispositivos'
+    )
 
     # Controle de permissões
     if user.is_franchisee():
@@ -1326,7 +1350,6 @@ def playlist_list_view(request):
         return redirect('dashboard')
 
     # Paginação
-    from django.core.paginator import Paginator
     paginator = Paginator(playlists.order_by('-created_at'), 9)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -1508,7 +1531,11 @@ def playlist_delete_view(request, pk):
 def dispositivo_list_view(request):
     """Lista de dispositivos TV"""
     user = request.user
-    dispositivos = DispositivoTV.objects.all()
+    dispositivos = DispositivoTV.objects.select_related(
+        'municipio', 'municipio__franqueado', 'playlist_atual'
+    ).annotate(
+        total_exibicoes=Count('logs_exibicao')
+    )
 
     # Filtros
     search = request.GET.get('search', '')
@@ -1537,24 +1564,34 @@ def dispositivo_list_view(request):
         messages.error(request, 'Você não tem permissão para ver dispositivos.')
         return redirect('dashboard')
 
-    # Estatísticas
+    # Estatísticas - baseadas no queryset filtrado
+    # Total de exibições: contar logs dos dispositivos filtrados
+    total_exibicoes = LogExibicao.objects.filter(
+        dispositivo__in=dispositivos
+    ).count()
+    
     context = {
-        'dispositivos_ativos': DispositivoTV.objects.filter(ativo=True).count(),
-        'dispositivos_inativos': DispositivoTV.objects.filter(ativo=False).count(),
-        'total_exibicoes': LogExibicao.objects.count(),
-        'tempo_total_exibicao': '0h',  # TODO: calcular tempo total
+        'dispositivos_ativos': dispositivos.filter(ativo=True).count(),
+        'dispositivos_inativos': dispositivos.filter(ativo=False).count(),
+        'total_exibicoes': total_exibicoes,
+        'tempo_total_exibicao': '0h',
     }
 
     # Paginação
-    from django.core.paginator import Paginator
     paginator = Paginator(dispositivos.order_by('-created_at'), 9)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    # Municipios e playlists para filtro (scoped)
+    if user.is_owner():
+        filter_municipios = Municipio.objects.only('id', 'nome', 'estado')
+    else:
+        filter_municipios = Municipio.objects.filter(franqueado=user).only('id', 'nome', 'estado')
+    
     context.update({
         'dispositivos': page_obj,
-        'municipios': Municipio.objects.all() if user.is_owner() else Municipio.objects.filter(franqueado=user),
-        'playlists': Playlist.objects.filter(ativa=True),
+        'municipios': filter_municipios,
+        'playlists': Playlist.objects.filter(ativa=True).only('id', 'nome'),
     })
 
     return render(request, 'dispositivos/dispositivo_list.html', context)
@@ -2130,7 +2167,6 @@ def segmento_list_view(request):
         segmentos = segmentos.filter(ativo=False)
     
     # Paginação
-    from django.core.paginator import Paginator
     paginator = Paginator(segmentos, 15)
     page_number = request.GET.get('page')
     segmentos_page = paginator.get_page(page_number)
@@ -2283,10 +2319,9 @@ def cliente_list_view(request):
         messages.error(request, 'Acesso negado.')
         return redirect('dashboard')
     
-    clientes = Cliente.objects.all().select_related('user', 'franqueado').prefetch_related('municipios').order_by('-created_at')
-    
-    # Debug: mostrar total antes dos filtros
-    total_geral = clientes.count()
+    clientes = Cliente.objects.select_related(
+        'user', 'franqueado', 'segmento'
+    ).prefetch_related('municipios').order_by('-created_at')
     
     # Franqueados veem apenas seus clientes
     if user.is_franchisee():
@@ -2311,12 +2346,6 @@ def cliente_list_view(request):
     
     if municipio_filter:
         clientes = clientes.filter(municipios__id=municipio_filter).distinct()
-    
-    # Debug: mostrar info
-    if user.is_franchisee():
-        messages.info(request, f'Total de clientes no sistema: {total_geral}. Seus clientes: {clientes.count()}')
-    else:
-        messages.info(request, f'Total de clientes: {clientes.count()}')
     
     # Lista de franqueados e municípios para filtros
     franqueados = User.objects.filter(role='FRANCHISEE').order_by('username') if user.is_owner() else []

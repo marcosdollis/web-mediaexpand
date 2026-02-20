@@ -155,8 +155,8 @@ class Video(models.Model):
     )
     duracao_segundos = models.IntegerField(default=0, help_text='Duração em segundos')
     thumbnail = models.ImageField(upload_to='thumbnails/', blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
-    ativo = models.BooleanField(default=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING', db_index=True)
+    ativo = models.BooleanField(default=True, db_index=True)
     
     # QR Code para rastreamento de conversão
     qrcode_url_destino = models.URLField(
@@ -234,7 +234,7 @@ class Playlist(models.Model):
         null=True,
         blank=True
     )
-    ativa = models.BooleanField(default=True)
+    ativa = models.BooleanField(default=True, db_index=True)
     duracao_total_segundos = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -249,9 +249,11 @@ class Playlist(models.Model):
     
     def calcular_duracao_total(self):
         """Calcula a duração total da playlist"""
-        total = sum([item.video.duracao_segundos for item in self.items.all() if item.video.duracao_segundos])
+        total = self.items.filter(ativo=True).aggregate(
+            total=models.Sum('video__duracao_segundos')
+        )['total'] or 0
         self.duracao_total_segundos = total
-        self.save()
+        self.save(update_fields=['duracao_total_segundos'])
         return total
     
     @property
@@ -310,7 +312,7 @@ class DispositivoTV(models.Model):
         default=0,
         help_text='Estimativa de pessoas que visualizarão os anúncios por mês'
     )
-    ativo = models.BooleanField(default=True)
+    ativo = models.BooleanField(default=True, db_index=True)
     ultima_sincronizacao = models.DateTimeField(null=True, blank=True)
     versao_app = models.CharField(max_length=20, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

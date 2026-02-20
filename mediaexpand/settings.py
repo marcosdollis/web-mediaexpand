@@ -60,6 +60,16 @@ TEMPLATES = [
     },
 ]
 
+# Template caching in production (loaded via APP_DIRS + cached loader override)
+if not config('DEBUG', default=True, cast=bool):
+    TEMPLATES[0]['APP_DIRS'] = False
+    TEMPLATES[0]['OPTIONS']['loaders'] = [
+        ('django.template.loaders.cached.Loader', [
+            'django.template.loaders.filesystem.Loader',
+            'django.template.loaders.app_directories.Loader',
+        ]),
+    ]
+
 WSGI_APPLICATION = 'mediaexpand.wsgi.application'
 
 # Database
@@ -68,6 +78,9 @@ DATABASE_URL = config('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite
 DATABASES = {
     'default': dj_database_url.parse(DATABASE_URL)
 }
+
+# Connection pooling / persistent connections (reduce overhead per request)
+DATABASES['default']['CONN_MAX_AGE'] = 600  # 10 minutes
 
 # Custom User Model
 AUTH_USER_MODEL = 'core.User'
@@ -103,7 +116,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # WhiteNoise - configuração mais simples e robusta
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage' if not DEBUG else 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # WhiteNoise settings
 WHITENOISE_USE_FINDERS = True
@@ -121,6 +134,18 @@ else:
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Cache configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'mediaexpand-cache',
+        'TIMEOUT': 300,
+    }
+}
+
+# Use cached sessions for better performance
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 
 # REST Framework
 REST_FRAMEWORK = {
