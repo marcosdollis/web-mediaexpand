@@ -2815,14 +2815,14 @@ def serve_media_streaming(request, path):
     Permite streaming progressivo de vídeos grandes sem carregar tudo na memória.
     
     - Suporta Range requests (HTTP 206 Partial Content)
-    - Chunked streaming via FileResponse
+    - Streaming em chunks de 8MB para não sobrecarregar memória
     - Headers corretos para players de vídeo (Accept-Ranges, Content-Range)
-    - Fallback para resposta completa quando Range não é solicitado
+    - Serve o range COMPLETO solicitado pelo player (não limita a 8MB)
+    - Fallback para resposta completa com streaming quando Range não é solicitado
     """
     import os
-    import re as re_module
     import mimetypes
-    from django.http import FileResponse, HttpResponse, Http404, StreamingHttpResponse
+    from django.http import StreamingHttpResponse, HttpResponse, Http404
     from django.conf import settings
     
     # Construir caminho completo e validar contra path traversal
@@ -2843,68 +2843,50 @@ def serve_media_streaming(request, path):
     
     file_size = os.path.getsize(full_path)
     
+    # Iterator que lê o arquivo em chunks de 8MB (não carrega tudo na memória)
+    def file_iterator(file_path, start, end, chunk_size=8 * 1024 * 1024):
+        with open(file_path, 'rb') as f:
+            f.seek(start)
+            remaining = end - start + 1
+            while remaining > 0:
+                data = f.read(min(chunk_size, remaining))
+                if not data:
+                    break
+                remaining -= len(data)
+                yield data
+    
     # Verificar se é um Range request
-    range_header = request.META.get('HTTP_RANGE', '')
+    range_header = request.META.get('HTTP_RANGE', '').strip()
     
-    if range_header:
-        # Parse do Range header: "bytes=start-end"
-        range_match = re_module.match(r'bytes=(\d*)-(\d*)', range_header)
-        if range_match:
-            start = range_match.group(1)
-            end = range_match.group(2)
-            
-            if start:
-                start = int(start)
-            else:
-                # Range: bytes=-500 (últimos 500 bytes)
-                start = max(0, file_size - int(end))
-                end = file_size - 1
-            
-            if end:
-                end = int(end)
-            else:
-                # Servir em chunks de no máximo 8MB para evitar sobrecarga
-                end = min(start + (8 * 1024 * 1024), file_size - 1)
-            
-            # Validar range
-            if start >= file_size:
-                response = HttpResponse(status=416)  # Range Not Satisfiable
-                response['Content-Range'] = f'bytes */{file_size}'
-                return response
-            
-            end = min(end, file_size - 1)
-            content_length = end - start + 1
-            
-            # Streaming com range
-            def file_range_iterator(path, start, end, chunk_size=8192):
-                with open(path, 'rb') as f:
-                    f.seek(start)
-                    remaining = end - start + 1
-                    while remaining > 0:
-                        read_size = min(chunk_size, remaining)
-                        data = f.read(read_size)
-                        if not data:
-                            break
-                        remaining -= len(data)
-                        yield data
-            
-            response = StreamingHttpResponse(
-                file_range_iterator(full_path, start, end),
-                status=206,
-                content_type=content_type,
-            )
-            response['Content-Length'] = content_length
-            response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
-            response['Accept-Ranges'] = 'bytes'
-            response['Cache-Control'] = 'public, max-age=86400'
+    if range_header.startswith('bytes='):
+        range_val = range_header[6:].split('-')
+        start = int(range_val[0]) if range_val[0] else 0
+        end = int(range_val[1]) if range_val[1] else file_size - 1
+        end = min(end, file_size - 1)
+        
+        # Validar range
+        if start >= file_size:
+            response = HttpResponse(status=416)  # Range Not Satisfiable
+            response['Content-Range'] = f'bytes */{file_size}'
             return response
+        
+        content_length = end - start + 1
+        
+        response = StreamingHttpResponse(
+            file_iterator(full_path, start, end),
+            status=206,
+            content_type=content_type,
+        )
+        response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+        response['Content-Length'] = content_length
+    else:
+        # Sem Range header - resposta completa com streaming
+        response = StreamingHttpResponse(
+            file_iterator(full_path, 0, file_size - 1),
+            content_type=content_type,
+        )
+        response['Content-Length'] = file_size
     
-    # Sem Range header - resposta completa com streaming
-    response = FileResponse(
-        open(full_path, 'rb'),
-        content_type=content_type,
-    )
-    response['Content-Length'] = file_size
     response['Accept-Ranges'] = 'bytes'
     response['Cache-Control'] = 'public, max-age=86400'
     return response
