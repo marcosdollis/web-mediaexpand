@@ -24,18 +24,30 @@
     <div class="col-xl-3 col-md-6 mb-3">
         <div class="card border-success">
             <div class="card-body text-center">
-                <i class="fas fa-tv fa-2x text-success mb-2"></i>
-                <h4 class="card-title text-success">{{ dispositivos_ativos|default:0 }}</h4>
-                <p class="card-text">TVs Ativas</p>
+                <i class="fas fa-broadcast-tower fa-2x text-success mb-2"></i>
+                <h4 class="card-title text-success">{{ count_transmitindo|default:0 }}</h4>
+                <p class="card-text">Transmitindo</p>
+                <small class="text-muted">App consumindo API agora</small>
             </div>
         </div>
     </div>
     <div class="col-xl-3 col-md-6 mb-3">
         <div class="card border-warning">
             <div class="card-body text-center">
-                <i class="fas fa-tv fa-2x text-warning mb-2"></i>
-                <h4 class="card-title text-warning">{{ dispositivos_inativos|default:0 }}</h4>
-                <p class="card-text">TVs Inativas</p>
+                <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                <h4 class="card-title text-warning">{{ count_fora_horario|default:0 }}</h4>
+                <p class="card-text">Fora do Horário</p>
+                <small class="text-muted">Conectado mas fora do agendamento</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card border-danger">
+            <div class="card-body text-center">
+                <i class="fas fa-plug fa-2x text-danger mb-2"></i>
+                <h4 class="card-title text-danger">{{ count_desconectado|default:0 }}</h4>
+                <p class="card-text">Desconectado</p>
+                <small class="text-muted">Sem consumo de API (&gt;10 min)</small>
             </div>
         </div>
     </div>
@@ -45,15 +57,6 @@
                 <i class="fas fa-play-circle fa-2x text-info mb-2"></i>
                 <h4 class="card-title text-info">{{ total_exibicoes|default:0 }}</h4>
                 <p class="card-text">Total de Exibições</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card border-primary">
-            <div class="card-body text-center">
-                <i class="fas fa-clock fa-2x text-primary mb-2"></i>
-                <h4 class="card-title text-primary">{{ tempo_total_exibicao|default:"0h" }}</h4>
-                <p class="card-text">Tempo de Exibição</p>
             </div>
         </div>
     </div>
@@ -134,11 +137,21 @@
                         <p class="card-subtitle text-muted small mb-2">{{ dispositivo.localizacao }}</p>
                     </div>
                     <div class="text-end">
-                        {% if dispositivo.ativo %}
-                        <span class="badge bg-success status-badge">Online</span>
+                        {% with st=dispositivo.status_conexao %}
+                        {% if st == 'transmitindo' %}
+                        <span class="badge bg-success status-badge">
+                            <i class="fas fa-circle me-1" style="font-size:.6em;vertical-align:middle;"></i>Transmitindo
+                        </span>
+                        {% elif st == 'fora_horario' %}
+                        <span class="badge bg-warning text-dark status-badge">
+                            <i class="fas fa-clock me-1"></i>Fora do Horário
+                        </span>
                         {% else %}
-                        <span class="badge bg-secondary status-badge">Offline</span>
+                        <span class="badge bg-danger status-badge">
+                            <i class="fas fa-plug me-1"></i>Desconectado
+                        </span>
                         {% endif %}
+                        {% endwith %}
                     </div>
                 </div>
 
@@ -185,10 +198,10 @@
                 {% endif %}
 
                 <!-- Last Activity -->
-                {% if dispositivo.ultima_atividade %}
+                {% if dispositivo.ultima_sincronizacao %}
                 <div class="mb-3">
                     <small class="text-muted">
-                        <i class="fas fa-history me-1"></i>Última atividade: {{ dispositivo.ultima_atividade|timesince }}
+                        <i class="fas fa-history me-1"></i>Última atividade: {{ dispositivo.ultima_sincronizacao|timesince }} atrás
                     </small>
                 </div>
                 {% endif %}
@@ -243,8 +256,10 @@
             <div class="card-footer bg-light">
                 <small class="text-muted">
                     <i class="fas fa-calendar me-1"></i>Cadastrado em {{ dispositivo.created_at|date:"d/m/Y" }}
-                    {% if dispositivo.data_ultima_conexao %}
-                    <br><i class="fas fa-wifi me-1"></i>Última conexão: {{ dispositivo.data_ultima_conexao|date:"d/m/Y H:i" }}
+                    {% if dispositivo.ultima_sincronizacao %}
+                    <br><i class="fas fa-wifi me-1"></i>Último consumo de API: {{ dispositivo.ultima_sincronizacao|timesince }} atrás
+                    {% else %}
+                    <br><i class="fas fa-wifi me-1 text-danger"></i><span class="text-danger">Nunca sincronizou</span>
                     {% endif %}
                 </small>
             </div>

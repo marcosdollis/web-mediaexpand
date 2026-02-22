@@ -357,6 +357,37 @@ class DispositivoTV(models.Model):
         
         return False
 
+    def status_conexao(self):
+        """
+        Retorna o status real de conexão baseado no consumo da API:
+          - 'transmitindo': app consumiu a API nos últimos 10 min e está no horário de exibição
+          - 'fora_horario': app consumiu a API recentemente mas fora do horário agendado
+          - 'desconectado': nenhum consumo de API nos últimos 10 min (ou nunca)
+        """
+        from django.utils import timezone
+        import datetime
+
+        if not self.ultima_sincronizacao:
+            return 'desconectado'
+
+        delta = timezone.now() - self.ultima_sincronizacao
+        if delta.total_seconds() > 600:  # 10 minutos sem consumo
+            return 'desconectado'
+
+        # App está ativo — verificar se está no horário de exibição
+        if self.esta_no_horario_exibicao():
+            return 'transmitindo'
+        return 'fora_horario'
+
+    def status_conexao_display(self):
+        """Retorna rótulo legível para o status de conexão"""
+        labels = {
+            'transmitindo': 'Transmitindo',
+            'fora_horario': 'Fora do Horário',
+            'desconectado': 'Desconectado',
+        }
+        return labels.get(self.status_conexao(), 'Desconectado')
+
 
 class AgendamentoExibicao(models.Model):
     """Agendamento de horários de exibição para dispositivos"""

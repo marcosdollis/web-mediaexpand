@@ -1571,12 +1571,29 @@ def dispositivo_list_view(request):
     total_exibicoes = LogExibicao.objects.filter(
         dispositivo__in=dispositivos
     ).count()
-    
+
+    # Status real de conexão (requer avaliação Python por dispositivo)
+    all_dispositivos_list = list(dispositivos.prefetch_related('agendamentos'))
+    count_transmitindo = 0
+    count_fora_horario = 0
+    count_desconectado = 0
+    for _d in all_dispositivos_list:
+        _st = _d.status_conexao()
+        if _st == 'transmitindo':
+            count_transmitindo += 1
+        elif _st == 'fora_horario':
+            count_fora_horario += 1
+        else:
+            count_desconectado += 1
+
     context = {
         'dispositivos_ativos': dispositivos.filter(ativo=True).count(),
         'dispositivos_inativos': dispositivos.filter(ativo=False).count(),
         'total_exibicoes': total_exibicoes,
         'tempo_total_exibicao': '0h',
+        'count_transmitindo': count_transmitindo,
+        'count_fora_horario': count_fora_horario,
+        'count_desconectado': count_desconectado,
     }
 
     # Paginação

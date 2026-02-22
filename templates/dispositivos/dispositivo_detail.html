@@ -40,7 +40,7 @@
                                 </span>
                                 {% endif %}
                                 {% if dispositivo.ativo %}
-                                <span class="badge bg-success">
+                                <span class="badge bg-secondary">
                                     <i class="fas fa-check-circle me-1"></i>Ativo
                                 </span>
                                 {% else %}
@@ -48,6 +48,21 @@
                                     <i class="fas fa-pause-circle me-1"></i>Inativo
                                 </span>
                                 {% endif %}
+                                {% with st=dispositivo.status_conexao %}
+                                {% if st == 'transmitindo' %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-circle me-1" style="font-size:.6em;vertical-align:middle;"></i>Transmitindo
+                                </span>
+                                {% elif st == 'fora_horario' %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-clock me-1"></i>Fora do Horário
+                                </span>
+                                {% else %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-plug me-1"></i>Desconectado
+                                </span>
+                                {% endif %}
+                                {% endwith %}
                             </div>
                         </div>
                         <div class="d-flex gap-2">
@@ -282,6 +297,48 @@
 
         <!-- Right Column -->
         <div class="col-lg-4">
+            <!-- Connection Status Card -->
+            <div class="card shadow mb-4">
+                <div class="card-header {% with st=dispositivo.status_conexao %}{% if st == 'transmitindo' %}bg-success text-white{% elif st == 'fora_horario' %}bg-warning text-dark{% else %}bg-danger text-white{% endif %}{% endwith %}">
+                    <h5 class="mb-0"><i class="fas fa-signal me-2"></i>Status de Conexão</h5>
+                </div>
+                <div class="card-body">
+                    {% with st=dispositivo.status_conexao %}
+                    <div class="d-flex align-items-center mb-3">
+                        {% if st == 'transmitindo' %}
+                        <span class="badge bg-success fs-6 me-3"><i class="fas fa-circle me-1" style="font-size:.65em;vertical-align:middle;"></i>Transmitindo</span>
+                        <small class="text-muted">App consumindo a API agora</small>
+                        {% elif st == 'fora_horario' %}
+                        <span class="badge bg-warning text-dark fs-6 me-3"><i class="fas fa-clock me-1"></i>Fora do Horário</span>
+                        <small class="text-muted">Conectado mas fora do agendamento</small>
+                        {% else %}
+                        <span class="badge bg-danger fs-6 me-3"><i class="fas fa-plug me-1"></i>Desconectado</span>
+                        <small class="text-muted">Nenhum consumo de API nos últimos 10 min</small>
+                        {% endif %}
+                    </div>
+                    {% endwith %}
+                    <table class="table table-sm table-borderless mb-0">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted">Última sincronização</td>
+                                <td class="text-end">
+                                    {% if dispositivo.ultima_sincronizacao %}
+                                    <strong>{{ dispositivo.ultima_sincronizacao|date:"d/m/Y H:i:s" }}</strong>
+                                    <br><small class="text-muted">({{ dispositivo.ultima_sincronizacao|timesince }} atrás)</small>
+                                    {% else %}
+                                    <span class="text-danger">Nunca sincronizou</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Versão do app</td>
+                                <td class="text-end"><strong>{{ dispositivo.versao_app|default:"-" }}</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- QR Code -->
             <div class="card shadow mb-4">
                 <div class="card-header bg-dark text-white">
@@ -339,8 +396,8 @@
                     </div>
                     <div class="mb-3 pb-3 border-bottom">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted">Última Atualização</span>
-                            <strong>{{ dispositivo.updated_at|date:"d/m/Y H:i" }}</strong>
+                            <span class="text-muted">Última sincronização API</span>
+                            <strong>{{ dispositivo.ultima_sincronizacao|date:"d/m/Y H:i"|default:"-" }}</strong>
                         </div>
                     </div>
                     <div class="mb-0">
