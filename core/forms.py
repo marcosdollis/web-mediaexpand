@@ -125,7 +125,7 @@ class VideoForm(forms.ModelForm):
 
     class Meta:
         model = Video
-        fields = ['titulo', 'descricao', 'arquivo', 'qrcode_url_destino', 'qrcode_descricao']
+        fields = ['titulo', 'descricao', 'arquivo', 'qrcode_url_destino', 'qrcode_descricao', 'texto_tarja']
         widgets = {
             'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título do vídeo'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descrição do vídeo'}),
@@ -137,6 +137,11 @@ class VideoForm(forms.ModelForm):
             'qrcode_descricao': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Ex: Resgate seu desconto!'
+            }),
+            'texto_tarja': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ex: Faça um storie com #media123 e ganhe uma lavagem grátis!',
+                'maxlength': '300'
             }),
         }
 

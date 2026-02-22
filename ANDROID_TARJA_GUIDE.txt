@@ -1,0 +1,265 @@
+================================================================================
+INSTRUÇÕES PARA APP ANDROID TV - TARJA INFERIOR (ESTILO CNN)
+================================================================================
+
+DATA: 21/02/2026
+RECURSO: Texto promocional exibido em tarja na parte inferior da tela
+
+O backend agora envia um campo "texto_tarja" para cada vídeo na playlist.
+Quando preenchido, o app deve exibir uma barra semi-transparente na parte 
+inferior da tela com o texto durante a reprodução do vídeo.
+
+
+1. ALTERAÇÃO NA API
+================================================================================
+
+A resposta de POST /api/tv/auth/ agora inclui "texto_tarja" em cada vídeo:
+
+{
+  "videos": [
+    {
+      "id": 10,
+      "titulo": "Promo Pizzaria",
+      "arquivo_url": "https://domain/media/videos/cliente_1/promo.mp4",
+      "duracao_segundos": 30,
+      "ativo": true,
+      "texto_tarja": "Faça um storie com #media123lavo e ganhe uma lavagem grátis!",
+      "qrcode": {
+        "tracking_url": "https://domain/r/uuid.../",
+        "descricao": "Resgate 10% de desconto!"
+      }
+    },
+    {
+      "id": 11,
+      "titulo": "Loja de Roupas",
+      "arquivo_url": "https://domain/media/videos/cliente_2/loja.mp4",
+      "duracao_segundos": 20,
+      "ativo": true,
+      "texto_tarja": null,
+      "qrcode": null
+    }
+  ]
+}
+
+REGRAS:
+- texto_tarja = null  → NÃO exibir tarja
+- texto_tarja = "..."  → Exibir tarja com o texto
+- Máximo 300 caracteres
+- Pode existir junto com QR Code (ambos ao mesmo tempo)
+
+
+2. ALTERAÇÃO NO MODELO DE DADOS
+================================================================================
+
+// Adicionar campo ao data class existente
+data class VideoItem(
+    val id: Int,
+    val titulo: String,
+    val arquivo_url: String,
+    val duracao_segundos: Int,
+    val ativo: Boolean,
+    val qrcode: QRCodeData?,
+    val texto_tarja: String?      // NOVO - texto da tarja inferior
+)
+
+
+3. IMPLEMENTAÇÃO DO LAYOUT DA TARJA
+================================================================================
+
+Adicionar no layout do player (ex: activity_player.xml ou fragment_player.xml):
+
+```xml
+<!-- Tarja inferior sobre o vídeo -->
+<FrameLayout
+    android:id="@+id/tarjaContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="bottom"
+    android:visibility="gone">
+    
+    <!-- Fundo semi-transparente -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC000000" />
+    
+    <!-- Texto da tarja -->
+    <TextView
+        android:id="@+id/tarjaTexto"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="12dp"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:fontFamily="sans-serif-medium"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:gravity="center" />
+</FrameLayout>
+```
+
+IMPORTANTE: A tarja deve ficar ACIMA do player na hierarquia de views 
+para sobrepor o vídeo.
+
+
+4. LÓGICA DE EXIBIÇÃO
+================================================================================
+
+```kotlin
+// No callback de troca de vídeo
+fun onVideoStarted(video: VideoItem) {
+    // Tarja inferior
+    if (video.texto_tarja != null) {
+        showTarja(video.texto_tarja)
+    } else {
+        hideTarja()
+    }
+    
+    // QR Code (já existente)
+    if (video.qrcode != null) {
+        showQRCode(video.qrcode)
+    } else {
+        hideQRCode()
+    }
+}
+
+fun showTarja(texto: String) {
+    tarjaContainer.visibility = View.VISIBLE
+    tarjaTexto.text = texto
+    
+    // Animação de entrada (slide de baixo para cima)
+    tarjaContainer.translationY = tarjaContainer.height.toFloat()
+    tarjaContainer.animate()
+        .translationY(0f)
+        .setDuration(500)
+        .setStartDelay(1000)  // Espera 1s após início do vídeo
+        .start()
+}
+
+fun hideTarja() {
+    tarjaContainer.animate()
+        .translationY(tarjaContainer.height.toFloat())
+        .setDuration(300)
+        .withEndAction { tarjaContainer.visibility = View.GONE }
+        .start()
+}
+```
+
+
+5. OPÇÃO AVANÇADA: TARJA COM SCROLL (TICKER)
+================================================================================
+
+Para textos longos, pode-se usar scroll horizontal automático (marquee):
+
+```xml
+<TextView
+    android:id="@+id/tarjaTexto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="24dp"
+    android:paddingVertical="12dp"
+    android:textColor="#FFFFFF"
+    android:textSize="18sp"
+    android:fontFamily="sans-serif-medium"
+    android:singleLine="true"
+    android:ellipsize="marquee"
+    android:marqueeRepeatLimit="marquee_forever"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
+    android:scrollHorizontally="true" />
+```
+
+E no código:
+```kotlin
+fun showTarja(texto: String) {
+    tarjaContainer.visibility = View.VISIBLE
+    tarjaTexto.text = texto
+    tarjaTexto.isSelected = true  // Ativa o marquee
+}
+```
+
+
+6. CONSIDERAÇÕES DE POSICIONAMENTO COM QR CODE
+================================================================================
+
+Quando AMBOS tarja e QR Code estão ativos no mesmo vídeo:
+
+┌────────────────────────────────────────────────┐
+│                                                │
+│                   VÍDEO                        │
+│                                                │
+│                                   ┌──────┐     │
+│                                   │  QR  │     │
+│                                   │ CODE │     │
+│                                   └──────┘     │
+│                                   Resgate!     │
+│                                                │
+│ ┌────────────────────────────────────────────┐ │
+│ │ Faça um storie com #media123 e ganhe...    │ │
+│ └────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────┘
+
+Recomendação de posicionamento:
+- QR Code: canto inferior DIREITO, acima da tarja
+- Tarja: barra FULL WIDTH na parte inferior
+
+Se ambos estiverem presentes, ajuste o QR Code para ficar acima da tarja:
+```kotlin
+fun adjustQRCodePosition(hasTarja: Boolean) {
+    val qrParams = qrCodeContainer.layoutParams as FrameLayout.LayoutParams
+    if (hasTarja) {
+        // Sobe o QR para ficar acima da tarja (ex: +60dp)
+        qrParams.bottomMargin = dpToPx(80)
+    } else {
+        qrParams.bottomMargin = dpToPx(16)
+    }
+    qrCodeContainer.layoutParams = qrParams
+}
+```
+
+
+7. COMPATIBILIDADE
+================================================================================
+
+┌──────────────────────┬────────────────────────────────────────────┐
+│ Campo                │ Comportamento                              │
+├──────────────────────┼────────────────────────────────────────────┤
+│ texto_tarja = null   │ Não exibir tarja (padrão)                 │
+│ texto_tarja = "..."  │ Exibir tarja com o texto                  │
+│ Campo ausente        │ Tratar como null (backward compat)        │
+└──────────────────────┴────────────────────────────────────────────┘
+
+Para backward compatibility, se o app ainda não reconhecer o campo,
+ele será simplesmente ignorado pelo parser JSON (não vai quebrar).
+
+
+8. PARSE JSON (GSON / Moshi)
+================================================================================
+
+Se estiver usando Gson:
+```kotlin
+// Gson ignora campos null automaticamente
+val gson = Gson()
+val video = gson.fromJson(jsonString, VideoItem::class.java)
+// video.texto_tarja será null se não existir ou for null no JSON
+```
+
+Se estiver usando Moshi:
+```kotlin
+@JsonClass(generateAdapter = true)
+data class VideoItem(
+    val id: Int,
+    val titulo: String,
+    val arquivo_url: String,
+    val duracao_segundos: Int,
+    val ativo: Boolean,
+    val qrcode: QRCodeData?,
+    val texto_tarja: String? = null  // default null para backward compat
+)
+```
+
+
+================================================================================
+FIM DAS INSTRUÇÕES
+================================================================================

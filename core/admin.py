@@ -61,6 +61,11 @@ class VideoAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
             'description': 'Configure um QR Code interativo para exibir junto ao vídeo na TV.'
         }),
+        ('Tarja Inferior', {
+            'fields': ('texto_tarja',),
+            'classes': ('collapse',),
+            'description': 'Texto exibido em tarja na parte inferior da TV durante o vídeo (estilo CNN).'
+        }),
         ('Informações', {
             'fields': ('created_at', 'updated_at', 'get_thumbnail_preview'),
         }),

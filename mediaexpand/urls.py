@@ -50,7 +50,8 @@ Autentica o dispositivo TV e retorna a playlist atual.
       "qrcode": {
         "tracking_url": "https://domain/r/uuid-tracking/",
         "descricao": "Resgate seu desconto!"
-      }
+      },
+      "texto_tarja": "Faça um storie com #media123 e ganhe uma lavagem grátis!"
     }
   ]
 }
@@ -61,7 +62,11 @@ Autentica o dispositivo TV e retorna a playlist atual.
   - `tracking_url`: URL de rastreamento para gerar o QR Code na TV
   - `descricao`: Texto para exibir junto ao QR Code (ex: "Acesse nosso site!")
 
+**Campo Tarja Inferior:**
+- `texto_tarja`: Texto exibido em tarja na parte inferior da tela durante o vídeo, estilo CNN (ou `null` se não configurado). Máximo 300 caracteres.
+
 **Comportamento:** Se `qrcode` for `null`, o app NÃO exibe QR Code. Se presente, o app deve gerar um QR Code a partir de `tracking_url` e exibi-lo no canto do vídeo com o texto da `descricao`.
+Se `texto_tarja` for `null`, o app NÃO exibe tarja. Se presente, exibir o texto em uma barra semi-transparente na parte inferior da tela.
 
 ### 2. Registrar Log de Exibição
 **POST** `/api/tv/log-exibicao/`
@@ -111,6 +116,7 @@ URL pública que registra o clique e redireciona ao destino configurado.
 - `qrcode_tracking_code`: UUID único de rastreamento (read-only)
 - `qrcode_tracking_url`: URL completa de rastreamento (read-only, gerada automaticamente)
 - `qrcode_total_clicks`: Total de cliques registrados (read-only)
+- `texto_tarja`: Texto da tarja inferior estilo CNN (máx. 300 caracteres)
 
 ## Endpoints REST
 

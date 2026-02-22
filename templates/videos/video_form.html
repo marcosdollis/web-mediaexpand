@@ -209,6 +209,50 @@
                             </div>
                         </div>
 
+                        <!-- Tarja Inferior Section -->
+                        <div class="mb-4 mt-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <h6 class="mb-0"><i class="fas fa-closed-captioning text-info me-2"></i>Tarja Inferior (Estilo CNN)</h6>
+                                <span class="badge bg-info ms-2">Opcional</span>
+                            </div>
+                            <div class="card bg-light border-0">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-3">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Adicione um texto que será exibido em uma tarja na parte inferior da tela durante a reprodução do vídeo.
+                                        Ideal para promoções, hashtags e chamadas para ação.
+                                    </p>
+                                    <div class="mb-2">
+                                        <label for="{% if form %}{{ form.texto_tarja.id_for_label }}{% else %}texto_tarja{% endif %}" class="form-label">
+                                            <i class="fas fa-align-left text-info me-2"></i>Texto da Tarja
+                                        </label>
+                                        {% if form %}
+                                            {{ form.texto_tarja }}
+                                        {% else %}
+                                            <input type="text" name="texto_tarja" id="texto_tarja" class="form-control" placeholder="Ex: Faça um storie com #media123 e ganhe uma lavagem grátis!" maxlength="300">
+                                        {% endif %}
+                                        {% if form.texto_tarja.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.texto_tarja.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <small class="text-muted">Texto exibido na tarja inferior da TV durante o vídeo (máx. 300 caracteres)</small>
+                                        </div>
+                                    </div>
+                                    <!-- Preview da tarja -->
+                                    <div class="mt-3">
+                                        <small class="text-muted d-block mb-1">Preview:</small>
+                                        <div id="tarjaPreview" style="background: rgba(0,0,0,0.8); color: #fff; padding: 8px 16px; border-radius: 4px; font-size: 14px; min-height: 36px; display: flex; align-items: center;">
+                                            <span id="tarjaPreviewText" class="text-muted" style="color: #999 !important;">O texto da tarja aparecerá aqui...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Submit Buttons -->
                         <div class="d-flex justify-content-between align-items-center mt-4">
                             <a href="{% url 'video_list' %}" class="btn btn-outline-secondary">
@@ -523,6 +567,27 @@ function showAlert(message, type = 'info') {
         </div>
     `;
     alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+}
+
+// Live preview da tarja inferior
+const tarjaInput = document.getElementById('id_texto_tarja') || document.getElementById('texto_tarja');
+const tarjaPreviewText = document.getElementById('tarjaPreviewText');
+if (tarjaInput && tarjaPreviewText) {
+    function updateTarjaPreview() {
+        const text = tarjaInput.value.trim();
+        if (text) {
+            tarjaPreviewText.textContent = text;
+            tarjaPreviewText.style.color = '#fff';
+            tarjaPreviewText.classList.remove('text-muted');
+        } else {
+            tarjaPreviewText.textContent = 'O texto da tarja aparecerá aqui...';
+            tarjaPreviewText.style.color = '#999';
+            tarjaPreviewText.classList.add('text-muted');
+        }
+    }
+    tarjaInput.addEventListener('input', updateTarjaPreview);
+    // Inicializar preview se já tiver valor (modo edição)
+    updateTarjaPreview();
 }
 </script>
 {% endblock %}

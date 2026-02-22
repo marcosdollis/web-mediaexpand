@@ -181,6 +181,15 @@ class Video(models.Model):
         help_text='Código único para rastrear acessos via QR Code'
     )
     
+    # Tarja inferior estilo CNN
+    texto_tarja = models.CharField(
+        max_length=300,
+        blank=True,
+        null=True,
+        verbose_name='Texto da Tarja Inferior',
+        help_text='Texto exibido em tarja na parte inferior da tela durante o vídeo (estilo CNN). Ex: "Faça um storie com #media123 e ganhe um desconto!"'
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

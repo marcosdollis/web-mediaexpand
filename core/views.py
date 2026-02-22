@@ -1116,6 +1116,7 @@ def video_create_view(request):
             arquivo = request.FILES.get('arquivo')
             qrcode_url_destino = request.POST.get('qrcode_url_destino', '').strip() or None
             qrcode_descricao = request.POST.get('qrcode_descricao', '').strip() or None
+            texto_tarja = request.POST.get('texto_tarja', '').strip() or None
             
             if not cliente_id or not titulo or not arquivo:
                 messages.error(request, 'Cliente, título e arquivo de vídeo são obrigatórios.')
@@ -1135,6 +1136,7 @@ def video_create_view(request):
                         arquivo=arquivo,
                         qrcode_url_destino=qrcode_url_destino,
                         qrcode_descricao=qrcode_descricao,
+                        texto_tarja=texto_tarja,
                         status='PENDING'
                     )
                     messages.success(request, f'Vídeo enviado com sucesso para {cliente.empresa}!')

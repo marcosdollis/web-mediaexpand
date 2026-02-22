@@ -127,6 +127,7 @@ class VideoSerializer(serializers.ModelSerializer):
             'arquivo_url', 'duracao_segundos', 'thumbnail', 'status', 'ativo',
             'tamanho_mb', 'qrcode_url_destino', 'qrcode_descricao',
             'qrcode_tracking_code', 'qrcode_tracking_url', 'qrcode_total_clicks',
+            'texto_tarja',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'qrcode_tracking_code', 'created_at', 'updated_at']
@@ -248,6 +249,7 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                     'arquivo_url': arquivo_url,
                     'duracao_segundos': item.video.duracao_segundos,
                     'ativo': item.video.ativo,
+                    'texto_tarja': item.video.texto_tarja,
                 }
                 
                 # QR Code data (opcional - só enviado se configurado)
