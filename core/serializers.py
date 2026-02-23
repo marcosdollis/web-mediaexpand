@@ -230,6 +230,7 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
     
     def get_videos(self, obj):
         from .services import buscar_dados_corporativos
+        from .video_generator import gerar_video_corporativo
         items = obj.items.filter(ativo=True).select_related('video', 'conteudo_corporativo').order_by('ordem')
         result = []
         for item in items:
@@ -239,6 +240,21 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                 if not cc.ativo:
                     continue
                 dados = buscar_dados_corporativos(cc.tipo, municipio=obj.municipio)
+
+                # Gerar vídeo MP4 a partir dos dados corporativos
+                video_rel_url = gerar_video_corporativo(
+                    tipo=cc.tipo,
+                    dados=dados,
+                    playlist_id=obj.id,
+                    duracao_segundos=cc.duracao_segundos,
+                )
+                # Montar URL absoluta se o vídeo foi gerado
+                arquivo_url = None
+                if video_rel_url:
+                    arquivo_url = self.context['request'].build_absolute_uri(video_rel_url)
+                    if 'railway.app' in arquivo_url:
+                        arquivo_url = arquivo_url.replace('http://', 'https://')
+
                 for _ in range(item.repeticoes):
                     result.append({
                         'id': 900000 + cc.id,
@@ -249,8 +265,7 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                         'ativo': True,
                         'texto_tarja': None,
                         'qrcode': None,
-                        'arquivo_url': None,
-                        'dados': dados,
+                        'arquivo_url': arquivo_url,
                     })
                 continue
 
