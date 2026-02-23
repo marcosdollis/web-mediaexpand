@@ -70,4 +70,12 @@ urlpatterns = [
     path('app/version/<int:pk>/toggle/', views.app_version_toggle_view, name='app_version_toggle'),
     path('app/version/<int:pk>/delete/', views.app_version_delete_view, name='app_version_delete'),
     path('app/download/', views.app_download_view, name='app_download'),
+
+    # Conteúdos Corporativos
+    path('corporativo/', views.conteudo_corporativo_list_view, name='conteudo_corporativo_list'),
+    path('corporativo/create/', views.conteudo_corporativo_create_view, name='conteudo_corporativo_create'),
+    path('corporativo/<int:pk>/update/', views.conteudo_corporativo_update_view, name='conteudo_corporativo_update'),
+    path('corporativo/<int:pk>/delete/', views.conteudo_corporativo_delete_view, name='conteudo_corporativo_delete'),
+    path('corporativo/<int:pk>/preview/', views.conteudo_corporativo_preview_view, name='conteudo_corporativo_preview'),
+    path('corporativo/configuracao/', views.configuracao_api_view, name='configuracao_api'),
 ]

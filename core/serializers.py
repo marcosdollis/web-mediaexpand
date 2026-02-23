@@ -2,7 +2,8 @@ from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from .models import (
     User, Municipio, Cliente, Video,
-    Playlist, PlaylistItem, DispositivoTV, LogExibicao
+    Playlist, PlaylistItem, DispositivoTV, LogExibicao,
+    ConteudoCorporativo, ConfiguracaoAPI
 )
 
 
@@ -228,9 +229,34 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
         fields = ['id', 'nome', 'duracao_total_segundos', 'videos']
     
     def get_videos(self, obj):
-        items = obj.items.filter(ativo=True).select_related('video').order_by('ordem')
+        from .services import buscar_dados_corporativos
+        items = obj.items.filter(ativo=True).select_related('video', 'conteudo_corporativo').order_by('ordem')
         result = []
         for item in items:
+            # ── Conteúdo corporativo ──
+            if item.conteudo_corporativo:
+                cc = item.conteudo_corporativo
+                if not cc.ativo:
+                    continue
+                dados = buscar_dados_corporativos(cc.tipo, municipio=obj.municipio)
+                for _ in range(item.repeticoes):
+                    result.append({
+                        'id': f'corp_{cc.id}',
+                        'titulo': cc.titulo,
+                        'tipo': 'corporativo',
+                        'subtipo': cc.tipo,
+                        'duracao_segundos': cc.duracao_segundos,
+                        'ativo': True,
+                        'texto_tarja': None,
+                        'qrcode': None,
+                        'arquivo_url': None,
+                        'dados': dados,
+                    })
+                continue
+
+            # ── Vídeo normal ──
+            if not item.video:
+                continue
             # Pula vídeos sem arquivo ou inativos
             if not item.video.arquivo or not item.video.ativo or item.video.status != 'APPROVED':
                 continue

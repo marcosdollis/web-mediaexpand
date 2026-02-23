@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 import os
 import uuid
+import json
 
 
 class User(AbstractUser):
@@ -59,6 +60,14 @@ class Municipio(models.Model):
         on_delete=models.CASCADE,
         limit_choices_to={'role': 'FRANCHISEE'},
         related_name='municipios'
+    )
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True,
+        help_text='Latitude do município (ex: -23.550520)'
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True,
+        help_text='Longitude do município (ex: -46.633308)'
     )
     ativo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -286,11 +295,15 @@ class Playlist(models.Model):
 
 
 class PlaylistItem(models.Model):
-    """Item de uma playlist (vínculo entre playlist e vídeo)"""
+    """Item de uma playlist (vínculo entre playlist e vídeo OU conteúdo corporativo)"""
     playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE, related_name='items')
-    video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name='playlist_items')
+    video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name='playlist_items', null=True, blank=True)
+    conteudo_corporativo = models.ForeignKey(
+        'ConteudoCorporativo', on_delete=models.CASCADE,
+        related_name='playlist_items', null=True, blank=True
+    )
     ordem = models.IntegerField(default=0)
-    repeticoes = models.IntegerField(default=1, help_text='Quantas vezes o vídeo será exibido')
+    repeticoes = models.IntegerField(default=1, help_text='Quantas vezes o item será exibido')
     ativo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -298,10 +311,30 @@ class PlaylistItem(models.Model):
         verbose_name = 'Item da Playlist'
         verbose_name_plural = 'Itens das Playlists'
         ordering = ['playlist', 'ordem']
-        unique_together = ['playlist', 'video']
     
     def __str__(self):
-        return f"{self.playlist.nome} - {self.video.titulo} (Ordem: {self.ordem})"
+        label = self.video.titulo if self.video else (self.conteudo_corporativo.titulo if self.conteudo_corporativo else '?')
+        return f"{self.playlist.nome} - {label} (Ordem: {self.ordem})"
+
+    @property
+    def is_corporativo(self):
+        return self.conteudo_corporativo_id is not None
+
+    @property
+    def titulo_display(self):
+        if self.video:
+            return self.video.titulo
+        if self.conteudo_corporativo:
+            return self.conteudo_corporativo.titulo
+        return '—'
+
+    @property
+    def duracao_display(self):
+        if self.video:
+            return self.video.duracao_segundos
+        if self.conteudo_corporativo:
+            return self.conteudo_corporativo.duracao_segundos
+        return 0
 
 
 class DispositivoTV(models.Model):
@@ -525,3 +558,165 @@ class QRCodeClick(models.Model):
     
     def __str__(self):
         return f"Click em {self.video.titulo} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"
+
+
+class ConteudoCorporativo(models.Model):
+    """
+    Conteúdo estilo TV corporativa que pode ser adicionado a playlists.
+    Funciona como um 'vídeo virtual' — o app renderiza o conteúdo em vez de reproduzir um arquivo.
+    """
+    TIPO_CHOICES = [
+        ('PREVISAO_TEMPO', 'Previsão do Tempo'),
+        ('COTACOES', 'Cotações (Moedas, Cripto, Commodities)'),
+        ('NOTICIAS', 'Notícias'),
+    ]
+
+    titulo = models.CharField(max_length=200, help_text='Nome de exibição do conteúdo')
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, db_index=True)
+    duracao_segundos = models.IntegerField(
+        default=15,
+        help_text='Tempo de exibição na tela (segundos)'
+    )
+    ativo = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Conteúdo Corporativo'
+        verbose_name_plural = 'Conteúdos Corporativos'
+        ordering = ['tipo', 'titulo']
+
+    def __str__(self):
+        return f"{self.titulo} ({self.get_tipo_display()})"
+
+    def get_icone(self):
+        icones = {
+            'PREVISAO_TEMPO': 'fas fa-cloud-sun',
+            'COTACOES': 'fas fa-chart-line',
+            'NOTICIAS': 'fas fa-newspaper',
+        }
+        return icones.get(self.tipo, 'fas fa-tv')
+
+    def get_cor_badge(self):
+        cores = {
+            'PREVISAO_TEMPO': 'info',
+            'COTACOES': 'success',
+            'NOTICIAS': 'warning',
+        }
+        return cores.get(self.tipo, 'secondary')
+
+
+class ConfiguracaoAPI(models.Model):
+    """
+    Configurações globais para as APIs externas (singleton).
+    Controla chaves de API e limites de requisições por dia.
+    """
+    # Previsão do tempo - Open-Meteo (grátis, sem chave)
+    weather_max_requests_dia = models.IntegerField(
+        default=100,
+        help_text='Máximo de requisições/dia para API de previsão do tempo (Open-Meteo, grátis)'
+    )
+    weather_requests_hoje = models.IntegerField(default=0)
+    weather_ultimo_reset = models.DateField(auto_now_add=True)
+
+    # Cotações - AwesomeAPI (grátis, sem chave)
+    cotacoes_max_requests_dia = models.IntegerField(
+        default=100,
+        help_text='Máximo de requisições/dia para API de cotações (AwesomeAPI, grátis)'
+    )
+    cotacoes_requests_hoje = models.IntegerField(default=0)
+    cotacoes_ultimo_reset = models.DateField(auto_now_add=True)
+
+    # Notícias - NewsAPI
+    noticias_api_key = models.CharField(
+        max_length=100, blank=True, null=True,
+        help_text='Chave da API NewsAPI.org (grátis até 100 req/dia)'
+    )
+    noticias_max_requests_dia = models.IntegerField(
+        default=50,
+        help_text='Máximo de requisições/dia para API de notícias'
+    )
+    noticias_requests_hoje = models.IntegerField(default=0)
+    noticias_ultimo_reset = models.DateField(auto_now_add=True)
+
+    # Cache (minutos)
+    cache_weather_minutos = models.IntegerField(
+        default=30,
+        help_text='Tempo de cache para previsão do tempo (minutos)'
+    )
+    cache_cotacoes_minutos = models.IntegerField(
+        default=15,
+        help_text='Tempo de cache para cotações (minutos)'
+    )
+    cache_noticias_minutos = models.IntegerField(
+        default=60,
+        help_text='Tempo de cache para notícias (minutos)'
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Configuração de API'
+        verbose_name_plural = 'Configurações de API'
+
+    def __str__(self):
+        return 'Configurações de APIs Externas'
+
+    def save(self, *args, **kwargs):
+        # Singleton – força pk=1
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_config(cls):
+        config, _ = cls.objects.get_or_create(pk=1)
+        return config
+
+    def resetar_contadores_se_necessario(self):
+        """Reseta contadores diários se o dia mudou"""
+        from django.utils import timezone
+        hoje = timezone.localdate()
+        changed = False
+        if self.weather_ultimo_reset != hoje:
+            self.weather_requests_hoje = 0
+            self.weather_ultimo_reset = hoje
+            changed = True
+        if self.cotacoes_ultimo_reset != hoje:
+            self.cotacoes_requests_hoje = 0
+            self.cotacoes_ultimo_reset = hoje
+            changed = True
+        if self.noticias_ultimo_reset != hoje:
+            self.noticias_requests_hoje = 0
+            self.noticias_ultimo_reset = hoje
+            changed = True
+        if changed:
+            self.save()
+
+    def pode_requisitar(self, tipo):
+        """Verifica se ainda pode fazer requisição para o tipo dado"""
+        self.resetar_contadores_se_necessario()
+        if tipo == 'PREVISAO_TEMPO':
+            return self.weather_requests_hoje < self.weather_max_requests_dia
+        elif tipo == 'COTACOES':
+            return self.cotacoes_requests_hoje < self.cotacoes_max_requests_dia
+        elif tipo == 'NOTICIAS':
+            return self.noticias_requests_hoje < self.noticias_max_requests_dia
+        return False
+
+    def registrar_requisicao(self, tipo):
+        """Incrementa o contador de requisições"""
+        if tipo == 'PREVISAO_TEMPO':
+            self.weather_requests_hoje += 1
+        elif tipo == 'COTACOES':
+            self.cotacoes_requests_hoje += 1
+        elif tipo == 'NOTICIAS':
+            self.noticias_requests_hoje += 1
+        self.save(update_fields=[self._get_counter_field(tipo), 'updated_at'])
+
+    def _get_counter_field(self, tipo):
+        fields = {
+            'PREVISAO_TEMPO': 'weather_requests_hoje',
+            'COTACOES': 'cotacoes_requests_hoje',
+            'NOTICIAS': 'noticias_requests_hoje',
+        }
+        return fields.get(tipo, 'weather_requests_hoje')

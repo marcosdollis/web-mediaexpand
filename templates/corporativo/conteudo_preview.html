@@ -1,0 +1,278 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Preview — {{ conteudo.titulo }} - MediaExpand{% endblock %}
+
+{% block extra_css %}
+<style>
+    .preview-frame {
+        width: 100%;
+        max-width: 960px;
+        aspect-ratio: 16/9;
+        border-radius: 12px;
+        overflow: hidden;
+        margin: 0 auto;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    }
+
+    /* ── Previsão do Tempo ── */
+    .weather-bg {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        padding: 2rem;
+    }
+    .weather-temp { font-size: 5rem; font-weight: 700; line-height: 1; }
+    .weather-desc { font-size: 1.6rem; margin-top: .5rem; }
+    .weather-city { font-size: 1.3rem; opacity: .85; margin-bottom: 1rem; }
+    .weather-details { display: flex; gap: 2rem; font-size: 1rem; opacity: .9; margin-top: .5rem; }
+    .forecast-row { display: flex; gap: 1.5rem; margin-top: 1.5rem; }
+    .forecast-day {
+        background: rgba(255,255,255,0.15);
+        backdrop-filter: blur(4px);
+        border-radius: 10px;
+        padding: .8rem 1.2rem;
+        text-align: center;
+        min-width: 120px;
+    }
+    .forecast-day .date { font-size: .85rem; opacity: .8; }
+    .forecast-day .temps { font-size: 1.1rem; font-weight: 600; }
+    .forecast-day .desc { font-size: .75rem; opacity: .8; }
+
+    /* ── Cotações ── */
+    .quotes-bg {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 2rem 3rem;
+        color: #fff;
+    }
+    .quotes-title { font-size: 1.4rem; font-weight: 600; margin-bottom: 1.5rem; text-align: center; }
+    .quote-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .quote-card {
+        background: rgba(255,255,255,0.08);
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+    }
+    .quote-card .code { font-size: .9rem; opacity: .7; }
+    .quote-card .name { font-size: 1.05rem; font-weight: 600; }
+    .quote-card .value { font-size: 1.5rem; font-weight: 700; margin: .3rem 0; }
+    .quote-card .change { font-size: .95rem; font-weight: 600; }
+    .change.up { color: #2ecc71; }
+    .change.down { color: #e74c3c; }
+    .change.stable { color: #95a5a6; }
+
+    /* ── Notícias ── */
+    .news-bg {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 2rem 3rem;
+        color: #fff;
+    }
+    .news-title { font-size: 1.4rem; font-weight: 600; margin-bottom: 1rem; text-align: center; }
+    .news-item {
+        background: rgba(255,255,255,0.06);
+        border-left: 3px solid #e74c3c;
+        border-radius: 6px;
+        padding: .8rem 1rem;
+        margin-bottom: .8rem;
+    }
+    .news-item .headline { font-size: 1.05rem; font-weight: 500; }
+    .news-item .source { font-size: .8rem; opacity: .6; margin-top: .3rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'conteudo_corporativo_list' %}">Conteúdos Corporativos</a></li>
+            <li class="breadcrumb-item active">Preview</li>
+        </ol>
+    </nav>
+
+    <div class="text-center mb-3">
+        <h4>
+            <span class="badge bg-{{ conteudo.get_cor_badge }} me-2">
+                <i class="fas fa-{{ conteudo.get_icone }}"></i>
+            </span>
+            {{ conteudo.titulo }}
+            <small class="text-muted ms-2">{{ conteudo.duracao_segundos }}s</small>
+        </h4>
+    </div>
+
+    {% if dados.erro %}
+    <div class="alert alert-warning text-center mb-3">
+        <i class="fas fa-exclamation-triangle me-1"></i>{{ dados.erro }}
+    </div>
+    {% endif %}
+
+    <!-- ═══ FRAME DE PREVIEW ═══ -->
+    <div class="preview-frame">
+
+        {% if conteudo.tipo == 'PREVISAO_TEMPO' %}
+        <!-- ── PREVISÃO DO TEMPO ── -->
+        <div class="weather-bg" style="background: linear-gradient(135deg, {{ dados.background.gradient_start }}, {{ dados.background.gradient_end }});">
+            {% if municipio %}
+            <div class="weather-city">
+                <i class="fas fa-map-marker-alt me-1"></i>{{ municipio.nome }}{% if municipio.estado %} — {{ municipio.estado }}{% endif %}
+            </div>
+            {% endif %}
+
+            {% if dados.atual.temperatura is not None %}
+            <div class="weather-temp">{{ dados.atual.temperatura }}°C</div>
+            {% else %}
+            <div class="weather-temp">--°C</div>
+            {% endif %}
+            <div class="weather-desc">{{ dados.atual.descricao }}</div>
+
+            {% if dados.atual.umidade is not None %}
+            <div class="weather-details">
+                <span><i class="fas fa-tint me-1"></i>{{ dados.atual.umidade }}%</span>
+                <span><i class="fas fa-wind me-1"></i>{{ dados.atual.vento_kmh }} km/h</span>
+            </div>
+            {% endif %}
+
+            {% if dados.previsao %}
+            <div class="forecast-row">
+                {% for dia in dados.previsao %}
+                <div class="forecast-day">
+                    <div class="date">{{ dia.data }}</div>
+                    <div class="temps">{{ dia.min }}° / {{ dia.max }}°</div>
+                    <div class="desc">{{ dia.descricao }}</div>
+                    {% if dia.precipitacao_pct %}<div class="desc"><i class="fas fa-umbrella"></i> {{ dia.precipitacao_pct }}%</div>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        {% elif conteudo.tipo == 'COTACOES' %}
+        <!-- ── COTAÇÕES ── -->
+        <div class="quotes-bg">
+            <div class="quotes-title"><i class="fas fa-chart-line me-2"></i>Cotações em Tempo Real</div>
+            <div class="quote-grid">
+                {% for moeda in dados.moedas %}
+                <div class="quote-card">
+                    <div class="code">{{ moeda.codigo }}/BRL</div>
+                    <div class="name">{{ moeda.nome }}</div>
+                    <div class="value">R$ {{ moeda.valor|floatformat:2 }}</div>
+                    {% if moeda.variacao_pct is not None %}
+                    <div class="change {{ moeda.direcao }}">
+                        <i class="fas fa-caret-{% if moeda.direcao == 'up' %}up{% elif moeda.direcao == 'down' %}down{% else %}right{% endif %} me-1"></i>
+                        {{ moeda.variacao_pct }}%
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% for cripto in dados.cripto %}
+                <div class="quote-card">
+                    <div class="code">{{ cripto.codigo }}/BRL</div>
+                    <div class="name">{{ cripto.nome }}</div>
+                    <div class="value">R$ {{ cripto.valor|floatformat:2 }}</div>
+                    {% if cripto.variacao_pct is not None %}
+                    <div class="change {{ cripto.direcao }}">
+                        <i class="fas fa-caret-{% if cripto.direcao == 'up' %}up{% elif cripto.direcao == 'down' %}down{% else %}right{% endif %} me-1"></i>
+                        {{ cripto.variacao_pct }}%
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% for idx in dados.indices %}
+                <div class="quote-card">
+                    <div class="code">{{ idx.codigo }}</div>
+                    <div class="name">{{ idx.nome }}</div>
+                    <div class="value">{% if idx.valor %}{{ idx.valor|floatformat:0 }}{% else %}—{% endif %}</div>
+                    <div class="change stable">
+                        {% if idx.nota %}<small>{{ idx.nota }}</small>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% for comm in dados.commodities %}
+                <div class="quote-card">
+                    <div class="code">{{ comm.codigo }}</div>
+                    <div class="name">{{ comm.nome }}</div>
+                    <div class="value">{% if comm.valor %}R$ {{ comm.valor|floatformat:2 }}{% else %}—{% endif %}</div>
+                    {% if comm.variacao_pct is not None %}
+                    <div class="change {{ comm.direcao }}">
+                        <i class="fas fa-caret-{% if comm.direcao == 'up' %}up{% elif comm.direcao == 'down' %}down{% else %}right{% endif %} me-1"></i>
+                        {{ comm.variacao_pct }}%
+                    </div>
+                    {% else %}
+                    <div class="change stable">—</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% elif conteudo.tipo == 'NOTICIAS' %}
+        <!-- ── NOTÍCIAS ── -->
+        <div class="news-bg">
+            <div class="news-title"><i class="fas fa-newspaper me-2"></i>Notícias do Brasil</div>
+            {% if dados.noticias %}
+                {% for noticia in dados.noticias|slice:":5" %}
+                <div class="news-item">
+                    <div class="headline">{{ noticia.titulo }}</div>
+                    <div class="source">{{ noticia.fonte }}{% if noticia.data %} — {{ noticia.data }}{% endif %}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="text-center py-4" style="opacity:.6;">
+                <i class="fas fa-satellite-dish" style="font-size: 2rem;"></i>
+                <p class="mt-2">Nenhuma notícia disponível no momento</p>
+            </div>
+            {% endif %}
+        </div>
+
+        {% endif %}
+    </div>
+
+    <!-- Info / status -->
+    <div class="row mt-4 justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Os dados exibidos são buscados em tempo real das APIs configuradas.
+                                {% if conteudo.tipo == 'PREVISAO_TEMPO' and municipio %}
+                                    Município: <strong>{{ municipio.nome }}</strong>
+                                    ({{ municipio.latitude }}, {{ municipio.longitude }}).
+                                {% elif conteudo.tipo == 'PREVISAO_TEMPO' and not municipio %}
+                                    <span class="text-warning">Nenhum município com lat/long encontrado.</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div>
+                            <a href="{% url 'conteudo_corporativo_list' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-arrow-left me-1"></i>Voltar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

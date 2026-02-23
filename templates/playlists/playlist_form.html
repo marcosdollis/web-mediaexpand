@@ -93,34 +93,76 @@
                                 </div>
                             </div>
 
-                            <!-- Video Selection -->
+                            <!-- Video / Corporate Content Selection -->
                             <div class="col-lg-6">
-                                <h5 class="mb-3"><i class="fas fa-video text-primary me-2"></i>Selecionar Vídeos</h5>
+                                <h5 class="mb-3"><i class="fas fa-video text-primary me-2"></i>Selecionar Itens</h5>
 
-                                <!-- Video Search -->
-                                <div class="mb-3">
-                                    <label for="videoSearch" class="form-label">Buscar Vídeos</label>
-                                    <input type="text" class="form-control" id="videoSearch"
-                                           placeholder="Digite para buscar vídeos...">
-                                </div>
+                                <!-- Tab nav for Videos vs Corporate -->
+                                <ul class="nav nav-tabs nav-fill mb-3" id="itemTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="videosTab" data-bs-toggle="tab" data-bs-target="#videosPane" type="button" role="tab">
+                                            <i class="fas fa-video me-1"></i>Vídeos <span class="badge bg-secondary ms-1">{{ available_videos|length }}</span>
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="corpTab" data-bs-toggle="tab" data-bs-target="#corpPane" type="button" role="tab">
+                                            <i class="fas fa-tv me-1"></i>Corporativo <span class="badge bg-secondary ms-1">{{ conteudos_corporativos|length }}</span>
+                                        </button>
+                                    </li>
+                                </ul>
 
-                                <!-- Available Videos -->
-                                <div class="mb-3">
-                                    <label class="form-label">Vídeos Disponíveis</label>
-                                    <div class="video-list border rounded p-3" style="height: 300px; overflow-y: auto;">
-                                        {% for video in available_videos %}
-                                        <div class="video-item d-flex align-items-center p-2 border-bottom"
-                                             data-video-id="{{ video.id }}"
-                                             data-video-title="{{ video.titulo }}">
-                                            <div class="flex-grow-1">
-                                                <div class="fw-bold small">{{ video.titulo }}</div>
-                                                <small class="text-muted">{{ video.cliente.nome }} • {{ video.duracao|time:"i:s" }}</small>
-                                            </div>
-                                            <button type="button" class="btn btn-sm btn-outline-success add-video-btn">
-                                                <i class="fas fa-plus"></i>
-                                            </button>
+                                <div class="tab-content" id="itemTabsContent">
+                                    <!-- Videos Tab -->
+                                    <div class="tab-pane fade show active" id="videosPane" role="tabpanel">
+                                        <div class="mb-2">
+                                            <input type="text" class="form-control form-control-sm" id="videoSearch"
+                                                   placeholder="Buscar vídeos...">
                                         </div>
-                                        {% endfor %}
+                                        <div class="video-list border rounded p-3" style="height: 280px; overflow-y: auto;">
+                                            {% for video in available_videos %}
+                                            <div class="video-item d-flex align-items-center p-2 border-bottom"
+                                                 data-video-id="{{ video.id }}"
+                                                 data-video-title="{{ video.titulo }}">
+                                                <div class="flex-grow-1">
+                                                    <div class="fw-bold small">{{ video.titulo }}</div>
+                                                    <small class="text-muted">{{ video.cliente.nome }} • {{ video.duracao|time:"i:s" }}</small>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-success add-video-btn">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+
+                                    <!-- Corporate Content Tab -->
+                                    <div class="tab-pane fade" id="corpPane" role="tabpanel">
+                                        <div class="video-list border rounded p-3" style="height: 310px; overflow-y: auto;">
+                                            {% for cc in conteudos_corporativos %}
+                                            <div class="video-item d-flex align-items-center p-2 border-bottom"
+                                                 data-video-id="corp_{{ cc.id }}"
+                                                 data-video-title="{{ cc.titulo }}">
+                                                <div class="flex-grow-1">
+                                                    <div class="fw-bold small">
+                                                        <i class="fas fa-{{ cc.get_icone }} text-{{ cc.get_cor_badge }} me-1"></i>{{ cc.titulo }}
+                                                    </div>
+                                                    <small class="text-muted">{{ cc.get_tipo_display }} • {{ cc.duracao_segundos }}s</small>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-success add-video-btn">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endfor %}
+                                            {% if not conteudos_corporativos %}
+                                            <div class="text-center text-muted py-4">
+                                                <i class="fas fa-tv mb-2" style="font-size: 1.5rem;"></i>
+                                                <p class="small mb-1">Nenhum conteúdo corporativo cadastrado</p>
+                                                <a href="{% url 'conteudo_corporativo_create' %}" class="btn btn-outline-primary btn-sm">
+                                                    <i class="fas fa-plus me-1"></i>Criar Conteúdo
+                                                </a>
+                                            </div>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -128,13 +170,13 @@
 
                         <!-- Selected Videos -->
                         <div class="mt-4">
-                            <h5 class="mb-3"><i class="fas fa-list text-primary me-2"></i>Vídeos Selecionados</h5>
+                            <h5 class="mb-3"><i class="fas fa-list text-primary me-2"></i>Itens Selecionados</h5>
                             <div id="selectedVideos" class="playlist-items">
-                                <!-- Videos will be added here dynamically -->
+                                <!-- Items will be added here dynamically -->
                                 <div class="text-center text-muted py-4">
                                     <i class="fas fa-info-circle fa-2x mb-2"></i>
-                                    <p>Nenhum vídeo selecionado</p>
-                                    <small>Você pode criar uma playlist vazia e adicionar vídeos depois, ou adicionar agora clicando em "Adicionar"</small>
+                                    <p>Nenhum item selecionado</p>
+                                    <small>Adicione vídeos ou conteúdos corporativos clicando em <i class="fas fa-plus"></i></small>
                                 </div>
                             </div>
                         </div>
@@ -289,14 +331,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const videoSearchInput = document.getElementById('videoSearch');
     const submitBtn = document.getElementById('submitBtn');
 
-    // Pre-populate selected videos if editing
+    // Pre-populate selected items if editing
     {% if current_items %}
     {% for item in current_items %}
+    {% if item.conteudo_corporativo %}
     selectedVideos.push({
-        id: {{ item.video.id }},
-        title: "{{ item.video.titulo|escapejs }}",
-        order: {{ item.ordem }}
+        id: "corp_{{ item.conteudo_corporativo.id }}",
+        title: "{{ item.conteudo_corporativo.titulo|escapejs }}",
+        order: {{ item.ordem }},
+        isCorp: true,
+        corpType: "{{ item.conteudo_corporativo.get_tipo_display|escapejs }}",
+        corpIcon: "{{ item.conteudo_corporativo.get_icone }}",
+        corpBadge: "{{ item.conteudo_corporativo.get_cor_badge }}"
     });
+    {% elif item.video %}
+    selectedVideos.push({
+        id: "{{ item.video.id }}",
+        title: "{{ item.video.titulo|escapejs }}",
+        order: {{ item.ordem }},
+        isCorp: false
+    });
+    {% endif %}
     {% endfor %}
     updateSelectedVideosDisplay();
     updateSelectedVideosInput();
@@ -305,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Video search functionality
     videoSearchInput.addEventListener('input', function() {
         const searchTerm = this.value.toLowerCase();
-        const videoItems = document.querySelectorAll('.video-item');
+        const videoItems = document.querySelectorAll('#videosPane .video-item');
 
         videoItems.forEach(item => {
             const title = item.dataset.videoTitle.toLowerCase();
@@ -317,38 +372,61 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Add video to playlist
+    // Add item to playlist
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('add-video-btn') || e.target.closest('.add-video-btn')) {
             const videoItem = e.target.closest('.video-item');
-            const videoId = parseInt(videoItem.dataset.videoId);
+            const videoId = videoItem.dataset.videoId;
             const videoTitle = videoItem.dataset.videoTitle;
+            const isCorp = videoId.startsWith('corp_');
 
-            // Check if video is already selected
-            if (selectedVideos.some(v => v.id === videoId)) {
+            // Check if item is already selected (corporate can be added multiple times to a playlist)
+            if (!isCorp && selectedVideos.some(v => v.id === videoId)) {
                 showAlert('Este vídeo já foi adicionado à playlist', 'warning');
                 return;
             }
 
-            // Add to selected videos
-            selectedVideos.push({
+            const newItem = {
                 id: videoId,
                 title: videoTitle,
-                order: selectedVideos.length + 1
-            });
+                order: selectedVideos.length + 1,
+                isCorp: isCorp
+            };
 
+            // Copy corporate metadata from DOM
+            if (isCorp) {
+                const iconEl = videoItem.querySelector('.fas');
+                if (iconEl) {
+                    // Extract icon and badge from the element classes
+                    const classStr = iconEl.className;
+                    const iconMatch = classStr.match(/fa-(\S+)/);
+                    newItem.corpIcon = iconMatch ? iconMatch[1] : 'tv';
+                    const badgeMatch = classStr.match(/text-(\S+)/);
+                    newItem.corpBadge = badgeMatch ? badgeMatch[1] : 'primary';
+                }
+                const metaEl = videoItem.querySelector('.text-muted');
+                if (metaEl) {
+                    newItem.corpType = metaEl.textContent.split('•')[0].trim();
+                }
+            }
+
+            selectedVideos.push(newItem);
             updateSelectedVideosDisplay();
             updateSelectedVideosInput();
         }
     });
 
-    // Remove video from playlist
+    // Remove item from playlist
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('remove-video-btn') || e.target.closest('.remove-video-btn')) {
             const playlistItem = e.target.closest('.playlist-item');
-            const videoId = parseInt(playlistItem.dataset.videoId);
+            const videoId = playlistItem.dataset.videoId;
+            const idx = parseInt(playlistItem.dataset.itemIndex);
 
-            selectedVideos = selectedVideos.filter(v => v.id !== videoId);
+            // Remove by index to handle duplicates (corp items can repeat)
+            selectedVideos.splice(idx, 1);
+            // Reorder
+            selectedVideos.forEach((v, i) => v.order = i + 1);
             updateSelectedVideosDisplay();
             updateSelectedVideosInput();
         }
@@ -392,14 +470,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateVideoOrder() {
         const playlistItems = document.querySelectorAll('.playlist-item');
+        // Rebuild selectedVideos array based on current DOM order
+        const newOrder = [];
         playlistItems.forEach((item, index) => {
-            const videoId = parseInt(item.dataset.videoId);
-            const video = selectedVideos.find(v => v.id === videoId);
+            const idx = parseInt(item.dataset.itemIndex);
+            const video = selectedVideos[idx];
             if (video) {
                 video.order = index + 1;
-                item.querySelector('.item-order').textContent = video.order;
+                newOrder.push(video);
             }
         });
+        selectedVideos = newOrder;
+        updateSelectedVideosDisplay();
         updateSelectedVideosInput();
     }
 
@@ -408,8 +490,8 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedVideosContainer.innerHTML = `
                 <div class="text-center text-muted py-4">
                     <i class="fas fa-info-circle fa-2x mb-2"></i>
-                    <p>Nenhum vídeo selecionado</p>
-                    <small>Você pode criar uma playlist vazia e adicionar vídeos depois, ou adicionar agora clicando em "Adicionar"</small>
+                    <p>Nenhum item selecionado</p>
+                    <small>Adicione vídeos ou conteúdos corporativos clicando em <i class="fas fa-plus"></i></small>
                 </div>
             `;
             return;
@@ -417,11 +499,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
         selectedVideos.sort((a, b) => a.order - b.order);
 
-        const html = selectedVideos.map(video => `
-            <div class="playlist-item" data-video-id="${video.id}" draggable="true">
+        const html = selectedVideos.map((video, idx) => {
+            const badgeHtml = video.isCorp
+                ? `<span class="badge bg-${video.corpBadge || 'primary'} me-2"><i class="fas fa-${video.corpIcon || 'tv'} me-1"></i>${video.corpType || 'Corp'}</span>`
+                : '<span class="badge bg-secondary me-2"><i class="fas fa-video me-1"></i>Vídeo</span>';
+            return `
+            <div class="playlist-item" data-video-id="${video.id}" data-item-index="${idx}" draggable="true">
                 <div class="item-order">${video.order}</div>
                 <div class="item-content">
-                    <div class="item-title">${video.title}</div>
+                    <div class="item-title">${badgeHtml}${video.title}</div>
                     <div class="item-meta">
                         <i class="fas fa-grip-vertical me-2"></i>Arraste para reordenar
                     </div>
@@ -432,7 +518,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </button>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
 
         selectedVideosContainer.innerHTML = html;
     }
@@ -443,7 +529,7 @@ document.addEventListener('DOMContentLoaded', function() {
             input.remove();
         });
 
-        // Add a hidden input for each selected video (only if there are videos)
+        // Add a hidden input for each selected item
         if (selectedVideos.length > 0) {
             const form = document.querySelector('form');
             selectedVideos.forEach(video => {
@@ -487,7 +573,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Show loading state
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Criando...';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
     });
 });
 </script>

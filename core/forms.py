@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
-from .models import User, Municipio, Cliente, Video, Playlist, DispositivoTV, AgendamentoExibicao, Segmento, AppVersion
+from .models import User, Municipio, Cliente, Video, Playlist, DispositivoTV, AgendamentoExibicao, Segmento, AppVersion, ConteudoCorporativo, ConfiguracaoAPI
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -34,11 +34,13 @@ class MunicipioForm(forms.ModelForm):
 
     class Meta:
         model = Municipio
-        fields = ['nome', 'estado', 'franqueado']
+        fields = ['nome', 'estado', 'franqueado', 'latitude', 'longitude']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome do município'}),
             'estado': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Estado (UF)'}),
             'franqueado': forms.Select(attrs={'class': 'form-select'}),
+            'latitude': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ex: -23.550520', 'step': '0.000001'}),
+            'longitude': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ex: -46.633308', 'step': '0.000001'}),
         }
 
 
@@ -327,3 +329,42 @@ class AppVersionForm(forms.ModelForm):
                 raise forms.ValidationError('Formato inválido. Use: X.Y.Z (ex: 1.0.0, 1.2.5)')
         
         return versao
+
+
+class ConteudoCorporativoForm(forms.ModelForm):
+    """Formulário para criar/editar conteúdo corporativo"""
+
+    class Meta:
+        model = ConteudoCorporativo
+        fields = ['titulo', 'tipo', 'duracao_segundos', 'ativo']
+        widgets = {
+            'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Previsão do Tempo SP'}),
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'duracao_segundos': forms.NumberInput(attrs={'class': 'form-control', 'min': '5', 'max': '120'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class ConfiguracaoAPIForm(forms.ModelForm):
+    """Formulário para configuração das APIs externas"""
+
+    class Meta:
+        model = ConfiguracaoAPI
+        fields = [
+            'weather_max_requests_dia',
+            'cotacoes_max_requests_dia',
+            'noticias_api_key',
+            'noticias_max_requests_dia',
+            'cache_weather_minutos',
+            'cache_cotacoes_minutos',
+            'cache_noticias_minutos',
+        ]
+        widgets = {
+            'weather_max_requests_dia': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'cotacoes_max_requests_dia': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'noticias_api_key': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Cole sua chave da NewsAPI.org aqui'}),
+            'noticias_max_requests_dia': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'cache_weather_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '5'}),
+            'cache_cotacoes_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '5'}),
+            'cache_noticias_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '5'}),
+        }

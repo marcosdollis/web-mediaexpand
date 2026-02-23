@@ -1,0 +1,134 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Conteúdos Corporativos - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-tv me-2 text-primary"></i>Conteúdos Corporativos
+                    </h1>
+                    <p class="text-muted mb-0">Previsão do tempo, cotações e notícias para suas playlists</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'configuracao_api' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-cog me-1"></i>Config. APIs
+                    </a>
+                    <a href="{% url 'conteudo_corporativo_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Novo Conteúdo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card border-info h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-cloud-sun fa-2x text-info mb-2"></i>
+                    <h5 class="card-title">Previsão do Tempo</h5>
+                    <p class="card-text small text-muted">Previsão em tempo real baseada no município da playlist. Fundo muda conforme clima.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-success h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-chart-line fa-2x text-success mb-2"></i>
+                    <h5 class="card-title">Cotações</h5>
+                    <p class="card-text small text-muted">Dólar, Euro, Bitcoin, Ethereum, Ibovespa, Soja, Milho e Trigo em tempo real.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-warning h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-newspaper fa-2x text-warning mb-2"></i>
+                    <h5 class="card-title">Notícias</h5>
+                    <p class="card-text small text-muted">Manchetes do Brasil em tempo real. Fonte: NewsAPI ou Google News RSS.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white d-flex justify-content-between">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Conteúdos Cadastrados</h5>
+                </div>
+                <div class="card-body">
+                    {% if conteudos %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Título</th>
+                                    <th>Tipo</th>
+                                    <th>Duração</th>
+                                    <th>Status</th>
+                                    <th>Em Playlists</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in conteudos %}
+                                <tr>
+                                    <td>
+                                        <i class="{{ c.get_icone }} me-2 text-{{ c.get_cor_badge }}"></i>
+                                        <strong>{{ c.titulo }}</strong>
+                                    </td>
+                                    <td><span class="badge bg-{{ c.get_cor_badge }}">{{ c.get_tipo_display }}</span></td>
+                                    <td>{{ c.duracao_segundos }}s</td>
+                                    <td>
+                                        {% if c.ativo %}
+                                        <span class="badge bg-success">Ativo</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inativo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ c.playlist_items.count }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-1">
+                                            <a href="{% url 'conteudo_corporativo_preview' c.pk %}" class="btn btn-sm btn-outline-info" title="Preview">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'conteudo_corporativo_update' c.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'conteudo_corporativo_delete' c.pk %}" class="btn btn-sm btn-outline-danger" title="Deletar">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-tv fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">Nenhum conteúdo corporativo cadastrado</h5>
+                        <p class="text-muted mb-4">Crie conteúdos de previsão do tempo, cotações ou notícias para adicionar às playlists.</p>
+                        <a href="{% url 'conteudo_corporativo_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Criar Primeiro Conteúdo
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -8,7 +8,7 @@ from django.db import models
 from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion,
-    QRCodeClick, AgendamentoExibicao
+    QRCodeClick, AgendamentoExibicao, ConteudoCorporativo, ConfiguracaoAPI
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -591,7 +591,7 @@ from django.core.paginator import Paginator
 from datetime import timedelta, datetime, time
 import calendar
 import os
-from .forms import VideoForm, PlaylistForm, DispositivoTVForm, SegmentoForm, AppVersionForm
+from .forms import VideoForm, PlaylistForm, DispositivoTVForm, SegmentoForm, AppVersionForm, ConteudoCorporativoForm, ConfiguracaoAPIForm
 
 
 def home_view(request):
@@ -1379,6 +1379,9 @@ def playlist_create_view(request):
         clientes_ids = Cliente.objects.filter(franqueado=user).values_list('id', flat=True)
         available_videos = available_videos.filter(cliente_id__in=clientes_ids)
 
+    # Conteúdos corporativos disponíveis
+    conteudos_corporativos = ConteudoCorporativo.objects.filter(ativo=True)
+
     if request.method == 'POST':
         form = PlaylistForm(request.POST, user=user)
         selected_videos = request.POST.getlist('selected_videos')
@@ -1394,17 +1397,25 @@ def playlist_create_view(request):
                 playlist.franqueado = playlist.municipio.franqueado
             playlist.save()
 
-            # Adicionar vídeos selecionados (se houver)
+            # Adicionar itens selecionados (vídeos + corporativos)
             if selected_videos:
-                for order, video_id in enumerate(selected_videos, 1):
-                    PlaylistItem.objects.create(
-                        playlist=playlist,
-                        video_id=video_id,
-                        ordem=order
-                    )
-                messages.success(request, f'Playlist criada com sucesso com {len(selected_videos)} vídeo(s)!')
+                for order, item_id in enumerate(selected_videos, 1):
+                    if item_id.startswith('corp_'):
+                        corp_id = int(item_id.replace('corp_', ''))
+                        PlaylistItem.objects.create(
+                            playlist=playlist,
+                            conteudo_corporativo_id=corp_id,
+                            ordem=order
+                        )
+                    else:
+                        PlaylistItem.objects.create(
+                            playlist=playlist,
+                            video_id=int(item_id),
+                            ordem=order
+                        )
+                messages.success(request, f'Playlist criada com sucesso com {len(selected_videos)} item(ns)!')
             else:
-                messages.success(request, 'Playlist criada com sucesso! Você pode adicionar vídeos depois.')
+                messages.success(request, 'Playlist criada com sucesso! Você pode adicionar itens depois.')
 
             return redirect('playlist_list')
     else:
@@ -1413,6 +1424,7 @@ def playlist_create_view(request):
     context = {
         'form': form,
         'available_videos': available_videos,
+        'conteudos_corporativos': conteudos_corporativos,
     }
 
     return render(request, 'playlists/playlist_form.html', context)
@@ -1430,7 +1442,7 @@ def playlist_detail_view(request, pk):
         return redirect('playlist_list')
     
     # Obter itens da playlist ordenados
-    items = playlist.items.all().select_related('video', 'video__cliente').order_by('ordem')
+    items = playlist.items.all().select_related('video', 'video__cliente', 'conteudo_corporativo').order_by('ordem')
     
     context = {
         'playlist': playlist,
@@ -1456,6 +1468,9 @@ def playlist_update_view(request, pk):
     if user.is_franchisee():
         clientes_ids = Cliente.objects.filter(franqueado=user).values_list('id', flat=True)
         available_videos = available_videos.filter(cliente_id__in=clientes_ids)
+
+    # Conteúdos corporativos disponíveis
+    conteudos_corporativos = ConteudoCorporativo.objects.filter(ativo=True)
     
     if request.method == 'POST':
         form = PlaylistForm(request.POST, instance=playlist, user=user)
@@ -1475,15 +1490,23 @@ def playlist_update_view(request, pk):
             # Remover itens antigos
             playlist.items.all().delete()
             
-            # Adicionar vídeos selecionados (se houver)
+            # Adicionar itens selecionados (vídeos + corporativos)
             if selected_videos:
-                for order, video_id in enumerate(selected_videos, 1):
-                    PlaylistItem.objects.create(
-                        playlist=playlist,
-                        video_id=video_id,
-                        ordem=order
-                    )
-                messages.success(request, f'Playlist atualizada com sucesso com {len(selected_videos)} vídeo(s)!')
+                for order, item_id in enumerate(selected_videos, 1):
+                    if item_id.startswith('corp_'):
+                        corp_id = int(item_id.replace('corp_', ''))
+                        PlaylistItem.objects.create(
+                            playlist=playlist,
+                            conteudo_corporativo_id=corp_id,
+                            ordem=order
+                        )
+                    else:
+                        PlaylistItem.objects.create(
+                            playlist=playlist,
+                            video_id=int(item_id),
+                            ordem=order
+                        )
+                messages.success(request, f'Playlist atualizada com sucesso com {len(selected_videos)} item(ns)!')
             else:
                 messages.success(request, 'Playlist atualizada com sucesso!')
             
@@ -1492,12 +1515,13 @@ def playlist_update_view(request, pk):
         form = PlaylistForm(instance=playlist, user=user)
     
     # Obter itens atuais da playlist
-    current_items = playlist.items.all().select_related('video').order_by('ordem')
+    current_items = playlist.items.all().select_related('video', 'conteudo_corporativo').order_by('ordem')
     
     context = {
         'form': form,
         'playlist': playlist,
         'available_videos': available_videos,
+        'conteudos_corporativos': conteudos_corporativos,
         'current_items': current_items,
     }
     
@@ -2909,4 +2933,147 @@ def serve_media_streaming(request, path):
     response['Accept-Ranges'] = 'bytes'
     response['Cache-Control'] = 'public, max-age=86400'
     return response
+
+
+# ══════════════════════════════════════════════════════════
+#  VIEWS: Conteúdo Corporativo & Configuração de API
+# ══════════════════════════════════════════════════════════
+
+@login_required
+def conteudo_corporativo_list_view(request):
+    """Lista de conteúdos corporativos"""
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Você não tem permissão para acessar esta página.')
+        return redirect('dashboard')
+
+    conteudos = ConteudoCorporativo.objects.all()
+    search = request.GET.get('search', '')
+    tipo_filter = request.GET.get('tipo', '')
+    if search:
+        conteudos = conteudos.filter(titulo__icontains=search)
+    if tipo_filter:
+        conteudos = conteudos.filter(tipo=tipo_filter)
+
+    context = {
+        'conteudos': conteudos,
+        'tipos': ConteudoCorporativo.TIPO_CHOICES,
+    }
+    return render(request, 'corporativo/conteudo_list.html', context)
+
+
+@login_required
+def conteudo_corporativo_create_view(request):
+    """Criar novo conteúdo corporativo"""
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Você não tem permissão para criar conteúdo corporativo.')
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        form = ConteudoCorporativoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Conteúdo corporativo criado com sucesso!')
+            return redirect('conteudo_corporativo_list')
+    else:
+        form = ConteudoCorporativoForm()
+
+    return render(request, 'corporativo/conteudo_form.html', {'form': form})
+
+
+@login_required
+def conteudo_corporativo_update_view(request, pk):
+    """Editar conteúdo corporativo"""
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Sem permissão.')
+        return redirect('dashboard')
+
+    conteudo = get_object_or_404(ConteudoCorporativo, pk=pk)
+    if request.method == 'POST':
+        form = ConteudoCorporativoForm(request.POST, instance=conteudo)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Conteúdo corporativo atualizado!')
+            return redirect('conteudo_corporativo_list')
+    else:
+        form = ConteudoCorporativoForm(instance=conteudo)
+
+    return render(request, 'corporativo/conteudo_form.html', {'form': form, 'conteudo': conteudo})
+
+
+@login_required
+def conteudo_corporativo_delete_view(request, pk):
+    """Deletar conteúdo corporativo"""
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Sem permissão.')
+        return redirect('dashboard')
+
+    conteudo = get_object_or_404(ConteudoCorporativo, pk=pk)
+    if request.method == 'POST':
+        conteudo.delete()
+        messages.success(request, 'Conteúdo corporativo deletado!')
+        return redirect('conteudo_corporativo_list')
+
+    return render(request, 'corporativo/conteudo_confirm_delete.html', {'conteudo': conteudo})
+
+
+@login_required
+def conteudo_corporativo_preview_view(request, pk):
+    """Preview de dados ao vivo de um conteúdo corporativo"""
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Sem permissão.')
+        return redirect('dashboard')
+
+    conteudo = get_object_or_404(ConteudoCorporativo, pk=pk)
+    from .services import buscar_dados_corporativos
+
+    # Para previsão do tempo, usar primeiro município disponível ou default
+    municipio = None
+    if conteudo.tipo == 'PREVISAO_TEMPO':
+        if user.is_franchisee():
+            municipio = Municipio.objects.filter(franqueado=user).first()
+        else:
+            municipio = Municipio.objects.first()
+
+    dados = buscar_dados_corporativos(conteudo.tipo, municipio=municipio)
+    config = ConfiguracaoAPI.get_config()
+
+    context = {
+        'conteudo': conteudo,
+        'dados': dados,
+        'config': config,
+        'municipio': municipio,
+    }
+    return render(request, 'corporativo/conteudo_preview.html', context)
+
+
+@login_required
+def configuracao_api_view(request):
+    """Configuração das APIs externas (apenas OWNER)"""
+    user = request.user
+    if not user.is_owner():
+        messages.error(request, 'Apenas o administrador pode configurar as APIs.')
+        return redirect('dashboard')
+
+    config = ConfiguracaoAPI.get_config()
+    config.resetar_contadores_se_necessario()
+
+    if request.method == 'POST':
+        form = ConfiguracaoAPIForm(request.POST, instance=config)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Configurações de API atualizadas!')
+            return redirect('configuracao_api')
+    else:
+        form = ConfiguracaoAPIForm(instance=config)
+
+    context = {
+        'form': form,
+        'config': config,
+    }
+    return render(request, 'corporativo/configuracao_api.html', context)
 

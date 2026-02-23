@@ -1,0 +1,188 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Configuração de APIs - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'conteudo_corporativo_list' %}">Conteúdos Corporativos</a></li>
+                    <li class="breadcrumb-item active">Configuração de APIs</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>Configuração de APIs Externas
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Corrija os erros abaixo.
+                        </div>
+                        {% endif %}
+
+                        <!-- ─── Limites de Requisições ─── -->
+                        <h6 class="text-primary border-bottom pb-2 mb-3">
+                            <i class="fas fa-tachometer-alt me-1"></i>Limites de Requisições por Dia
+                        </h6>
+
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-cloud-sun text-info" style="font-size: 2rem;"></i>
+                                        <h6 class="mt-2">Previsão do Tempo</h6>
+                                        <label class="form-label small">Máx. requisições/dia</label>
+                                        {{ form.weather_max_requests_dia }}
+                                        <div class="mt-2">
+                                            <span class="badge bg-info">
+                                                Usadas hoje: {{ config.weather_requests_hoje }}
+                                            </span>
+                                        </div>
+                                        <small class="text-muted">Open-Meteo (ilimitado)</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-chart-line text-success" style="font-size: 2rem;"></i>
+                                        <h6 class="mt-2">Cotações</h6>
+                                        <label class="form-label small">Máx. requisições/dia</label>
+                                        {{ form.cotacoes_max_requests_dia }}
+                                        <div class="mt-2">
+                                            <span class="badge bg-success">
+                                                Usadas hoje: {{ config.cotacoes_requests_hoje }}
+                                            </span>
+                                        </div>
+                                        <small class="text-muted">AwesomeAPI (ilimitado)</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-newspaper text-warning" style="font-size: 2rem;"></i>
+                                        <h6 class="mt-2">Notícias</h6>
+                                        <label class="form-label small">Máx. requisições/dia</label>
+                                        {{ form.noticias_max_requests_dia }}
+                                        <div class="mt-2">
+                                            <span class="badge bg-warning text-dark">
+                                                Usadas hoje: {{ config.noticias_requests_hoje }}
+                                            </span>
+                                        </div>
+                                        <small class="text-muted">NewsAPI (100/dia free) + RSS</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ─── Cache ─── -->
+                        <h6 class="text-primary border-bottom pb-2 mb-3">
+                            <i class="fas fa-database me-1"></i>Tempo de Cache (minutos)
+                        </h6>
+                        <p class="text-muted small mb-3">
+                            Quanto tempo os dados ficam em cache antes de buscar novamente. Valores maiores = menos requisições.
+                        </p>
+
+                        <div class="row mb-4">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-cloud-sun text-info me-1"></i>Cache Previsão (min)
+                                </label>
+                                {{ form.cache_weather_minutos }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-chart-line text-success me-1"></i>Cache Cotações (min)
+                                </label>
+                                {{ form.cache_cotacoes_minutos }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-newspaper text-warning me-1"></i>Cache Notícias (min)
+                                </label>
+                                {{ form.cache_noticias_minutos }}
+                            </div>
+                        </div>
+
+                        <!-- ─── Chave de API ─── -->
+                        <h6 class="text-primary border-bottom pb-2 mb-3">
+                            <i class="fas fa-key me-1"></i>Chaves de API
+                        </h6>
+
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-newspaper text-warning me-1"></i>NewsAPI.org — API Key
+                            </label>
+                            {{ form.noticias_api_key }}
+                            <small class="text-muted">
+                                Opcional. Obtenha gratuitamente em
+                                <a href="https://newsapi.org/register" target="_blank">newsapi.org</a>
+                                (100 req/dia). Sem chave, usa Google News RSS como fallback.
+                            </small>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'conteudo_corporativo_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Voltar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Salvar Configurações
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ─── Sobre as APIs ─── -->
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-1"></i>Sobre as APIs Utilizadas</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6 class="text-info"><i class="fas fa-cloud-sun me-1"></i>Open-Meteo</h6>
+                            <ul class="small text-muted">
+                                <li>100% gratuita, sem necessidade de chave</li>
+                                <li>Dados meteorológicos globais</li>
+                                <li>Atualização a cada hora</li>
+                                <li>Usa latitude/longitude do município</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-success"><i class="fas fa-chart-line me-1"></i>AwesomeAPI</h6>
+                            <ul class="small text-muted">
+                                <li>Gratuita, sem chave</li>
+                                <li>Cotações de moedas e cripto em BRL</li>
+                                <li>Dólar, Euro, Bitcoin, Ethereum</li>
+                                <li>Atualização em tempo real de mercado</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-warning"><i class="fas fa-newspaper me-1"></i>NewsAPI + RSS</h6>
+                            <ul class="small text-muted">
+                                <li>NewsAPI: 100 req/dia (free tier)</li>
+                                <li>Fallback: Google News RSS (sem limite)</li>
+                                <li>Manchetes do Brasil</li>
+                                <li>Cadastre a chave para dados mais ricos</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

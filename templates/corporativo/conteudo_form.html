@@ -1,0 +1,94 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}{% if conteudo %}Editar{% else %}Criar{% endif %} Conteúdo Corporativo - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'conteudo_corporativo_list' %}">Conteúdos Corporativos</a></li>
+                    <li class="breadcrumb-item active">{% if conteudo %}Editar{% else %}Novo{% endif %}</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tv me-2"></i>
+                        {% if conteudo %}Editar Conteúdo Corporativo{% else %}Novo Conteúdo Corporativo{% endif %}
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Corrija os erros abaixo.
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.titulo.id_for_label }}" class="form-label">
+                                <i class="fas fa-heading me-1 text-primary"></i>Título
+                            </label>
+                            {{ form.titulo }}
+                            <small class="text-muted">Nome de identificação (não é exibido na TV)</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.tipo.id_for_label }}" class="form-label">
+                                <i class="fas fa-layer-group me-1 text-primary"></i>Tipo de Conteúdo
+                            </label>
+                            {{ form.tipo }}
+                            <div class="form-text">
+                                <div class="row mt-2">
+                                    <div class="col-md-4">
+                                        <small><i class="fas fa-cloud-sun text-info me-1"></i><strong>Previsão do Tempo</strong> — Usa a localização do município da playlist (precisa lat/long cadastrado)</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <small><i class="fas fa-chart-line text-success me-1"></i><strong>Cotações</strong> — Dólar, Euro, BTC, ETH, Ibovespa, Soja, Milho, Trigo</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <small><i class="fas fa-newspaper text-warning me-1"></i><strong>Notícias</strong> — Manchetes do Brasil em tempo real</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.duracao_segundos.id_for_label }}" class="form-label">
+                                <i class="fas fa-clock me-1 text-primary"></i>Duração na Tela (segundos)
+                            </label>
+                            {{ form.duracao_segundos }}
+                            <small class="text-muted">Tempo que ficará exibido na TV antes de passar para o próximo item</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.ativo }}
+                                <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                                    <i class="fas fa-toggle-on text-success me-1"></i>Ativo
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'conteudo_corporativo_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>{% if conteudo %}Atualizar{% else %}Criar{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

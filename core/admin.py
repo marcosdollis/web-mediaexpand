@@ -4,7 +4,7 @@ from django.utils.html import format_html
 from .models import (
     User, Municipio, Cliente, Video, 
     Playlist, PlaylistItem, DispositivoTV, AgendamentoExibicao, LogExibicao, AppVersion,
-    QRCodeClick
+    QRCodeClick, ConteudoCorporativo, ConfiguracaoAPI
 )
 
 
@@ -98,7 +98,7 @@ class VideoAdmin(admin.ModelAdmin):
 class PlaylistItemInline(admin.TabularInline):
     model = PlaylistItem
     extra = 1
-    fields = ('video', 'ordem', 'repeticoes', 'ativo')
+    fields = ('video', 'conteudo_corporativo', 'ordem', 'repeticoes', 'ativo')
     ordering = ('ordem',)
 
 
@@ -117,9 +117,9 @@ class PlaylistAdmin(admin.ModelAdmin):
 
 @admin.register(PlaylistItem)
 class PlaylistItemAdmin(admin.ModelAdmin):
-    list_display = ('playlist', 'video', 'ordem', 'repeticoes', 'ativo', 'created_at')
+    list_display = ('playlist', 'video', 'conteudo_corporativo', 'ordem', 'repeticoes', 'ativo', 'created_at')
     list_filter = ('ativo', 'playlist')
-    search_fields = ('playlist__nome', 'video__titulo')
+    search_fields = ('playlist__nome', 'video__titulo', 'conteudo_corporativo__titulo')
     ordering = ('playlist', 'ordem')
 
 
@@ -176,3 +176,37 @@ class QRCodeClickAdmin(admin.ModelAdmin):
     readonly_fields = ('video', 'tracking_code', 'ip_address', 'user_agent', 'referer', 'created_at')
     ordering = ('-created_at',)
     date_hierarchy = 'created_at'
+
+
+@admin.register(ConteudoCorporativo)
+class ConteudoCorporativoAdmin(admin.ModelAdmin):
+    list_display = ('titulo', 'tipo', 'duracao_segundos', 'ativo', 'created_at')
+    list_filter = ('tipo', 'ativo')
+    search_fields = ('titulo',)
+    ordering = ('-created_at',)
+
+
+@admin.register(ConfiguracaoAPI)
+class ConfiguracaoAPIAdmin(admin.ModelAdmin):
+    list_display = ('pk', 'weather_max_requests_dia', 'cotacoes_max_requests_dia', 'noticias_max_requests_dia')
+    fieldsets = (
+        ('Limites de Requisições', {
+            'fields': (
+                'weather_max_requests_dia', 'weather_requests_hoje',
+                'cotacoes_max_requests_dia', 'cotacoes_requests_hoje',
+                'noticias_max_requests_dia', 'noticias_requests_hoje',
+            )
+        }),
+        ('Cache (minutos)', {
+            'fields': ('cache_weather_minutos', 'cache_cotacoes_minutos', 'cache_noticias_minutos')
+        }),
+        ('Chaves de API', {
+            'fields': ('noticias_api_key',)
+        }),
+    )
+
+    def has_add_permission(self, request):
+        return not ConfiguracaoAPI.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
