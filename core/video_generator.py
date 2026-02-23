@@ -1,7 +1,7 @@
 """
 Gerador de vídeos para conteúdos corporativos (previsão do tempo, cotações, notícias).
 
-Gera imagens com Pillow e converte para MP4 com imageio-ffmpeg.
+Gera imagens com Pillow e converte para MP4 com imageio-ffmpeg (ffmpeg embutido).
 Cada playlist pode ter sua própria versão do vídeo (ex: clima específico do município).
 Os vídeos são gerenciados com TTL baseado nas configurações de cache da ConfiguracaoAPI.
 """
@@ -9,11 +9,11 @@ Os vídeos são gerenciados com TTL baseado nas configurações de cache da Conf
 import hashlib
 import logging
 import os
+import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
 
-import imageio.v3 as iio
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -27,46 +27,37 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────
 VIDEO_WIDTH = 1920
 VIDEO_HEIGHT = 1080
-FPS = 1  # 1 frame por segundo — vídeo estático, economiza espaço
+VIDEO_FPS = 30        # FPS padrão — compatível com qualquer player
 CORP_VIDEO_DIR = 'corporativo_videos'
 
-# Cores do tema
-COLOR_BG_DARK = (18, 18, 30)
-COLOR_BG_CARD = (30, 30, 50)
-COLOR_WHITE = (255, 255, 255)
-COLOR_GRAY = (180, 180, 200)
-COLOR_LIGHT_GRAY = (120, 120, 140)
-COLOR_GREEN = (46, 204, 113)
-COLOR_RED = (231, 76, 60)
-COLOR_YELLOW = (241, 196, 15)
-COLOR_BLUE = (52, 152, 219)
-COLOR_CYAN = (26, 188, 156)
-COLOR_ORANGE = (243, 156, 18)
-COLOR_BRAND = (0, 150, 255)
-COLOR_CARD_BORDER = (50, 50, 80)
+# ── Paleta de cores (inspirada no preview web) ──
+WHITE       = (255, 255, 255)
+WHITE_90    = (255, 255, 255, 230)
+WHITE_70    = (255, 255, 255, 178)
+WHITE_50    = (255, 255, 255, 128)
+WHITE_20    = (255, 255, 255, 51)
+WHITE_10    = (255, 255, 255, 26)
+GRAY_TEXT   = (200, 200, 220)
+GRAY_DIM    = (140, 140, 165)
+GREEN       = (46, 204, 113)
+RED         = (231, 76, 60)
+YELLOW      = (241, 196, 15)
+BLUE        = (52, 152, 219)
+CYAN        = (26, 188, 156)
+BRAND       = (0, 120, 255)
+BRAND_LIGHT = (60, 160, 255)
 
-# Gradientes de fundo por tipo
-BG_GRADIENTS = {
-    'PREVISAO_TEMPO': [(15, 32, 65), (25, 60, 120)],
-    'COTACOES': [(15, 25, 35), (20, 40, 55)],
-    'NOTICIAS': [(30, 15, 15), (50, 25, 35)],
-}
+# Setas de variação
+ARROW_UP   = '\u25B2'
+ARROW_DOWN = '\u25BC'
+DOT        = '\u25CF'
 
-# Ícones weather em Unicode/texto
-WEATHER_ICONS = {
-    'ensolarado': '☀',
-    'nublado': '☁',
-    'chuvoso': '🌧',
-    'tempestade': '⛈',
-}
 
-ARROW_UP = '▲'
-ARROW_DOWN = '▼'
-ARROW_STABLE = '●'
-
+# ══════════════════════════════════════════════
+#  UTILITÁRIOS
+# ══════════════════════════════════════════════
 
 def _get_output_dir():
-    """Retorna o diretório de saída para vídeos corporativos."""
     media_root = Path(settings.MEDIA_ROOT)
     output = media_root / CORP_VIDEO_DIR
     output.mkdir(parents=True, exist_ok=True)
@@ -74,120 +65,148 @@ def _get_output_dir():
 
 
 def _get_media_url(filename):
-    """Retorna o path relativo (media URL) do vídeo gerado."""
     return f'{settings.MEDIA_URL}{CORP_VIDEO_DIR}/{filename}'
 
 
 def _video_cache_key(tipo, playlist_id):
-    """Gera nome de arquivo baseado no tipo + playlist."""
     return f'{tipo.lower()}_{playlist_id}'
 
 
-def _load_font(size, bold=False):
-    """Carrega uma fonte TrueType. Tenta várias opções de sistema."""
-    font_candidates = []
-    if bold:
-        font_candidates = [
+_font_cache = {}
+
+def _font(size, bold=False):
+    """Carrega e cacheia fonte TrueType."""
+    key = (size, bold)
+    if key in _font_cache:
+        return _font_cache[key]
+
+    candidates = (
+        [
             'C:/Windows/Fonts/arialbd.ttf',
             'C:/Windows/Fonts/segoeui.ttf',
             '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
             '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
             '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
-        ]
-    else:
-        font_candidates = [
+        ] if bold else [
             'C:/Windows/Fonts/arial.ttf',
             'C:/Windows/Fonts/segoeui.ttf',
             '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
             '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
             '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
         ]
-
-    for path in font_candidates:
+    )
+    for path in candidates:
         if os.path.exists(path):
             try:
-                return ImageFont.truetype(path, size)
+                f = ImageFont.truetype(path, size)
+                _font_cache[key] = f
+                return f
             except Exception:
                 continue
-
-    # Fallback: fonte padrão do Pillow
     try:
-        return ImageFont.truetype("arial.ttf", size)
+        f = ImageFont.truetype('arial.ttf', size)
     except Exception:
-        return ImageFont.load_default()
+        f = ImageFont.load_default()
+    _font_cache[key] = f
+    return f
 
 
-def _draw_gradient_bg(draw, width, height, color_top, color_bottom):
-    """Desenha fundo com gradiente vertical."""
-    for y in range(height):
-        ratio = y / height
-        r = int(color_top[0] + (color_bottom[0] - color_top[0]) * ratio)
-        g = int(color_top[1] + (color_bottom[1] - color_top[1]) * ratio)
-        b = int(color_top[2] + (color_bottom[2] - color_top[2]) * ratio)
-        draw.line([(0, y), (width, y)], fill=(r, g, b))
+def _text_w(draw, text, font):
+    """Largura do texto."""
+    bb = draw.textbbox((0, 0), text, font=font)
+    return bb[2] - bb[0]
 
 
-def _draw_rounded_rect(draw, xy, radius, fill, outline=None):
-    """Desenha retângulo arredondado."""
-    x0, y0, x1, y1 = xy
-    draw.rounded_rectangle(xy, radius=radius, fill=fill, outline=outline)
+def _center_text(draw, text, font, y, fill, x_center=VIDEO_WIDTH // 2):
+    """Desenha texto centralizado horizontalmente."""
+    w = _text_w(draw, text, font)
+    draw.text((x_center - w // 2, y), text, fill=fill, font=font)
 
 
-def _draw_header(draw, titulo, subtitulo, icon_text=''):
-    """Desenha header fixo com logo/brand."""
-    # Barra superior com brand
-    draw.rectangle([(0, 0), (VIDEO_WIDTH, 90)], fill=(10, 10, 20, 220))
-    draw.line([(0, 90), (VIDEO_WIDTH, 90)], fill=COLOR_BRAND, width=3)
+def _right_text(draw, text, font, y, fill, right_margin=60):
+    """Desenha texto alinhado à direita."""
+    w = _text_w(draw, text, font)
+    draw.text((VIDEO_WIDTH - w - right_margin, y), text, fill=fill, font=font)
 
-    font_brand = _load_font(28, bold=True)
-    font_sub = _load_font(18)
 
-    # Brand esquerdo
-    draw.text((40, 18), 'MEDIAEXPAND', fill=COLOR_BRAND, font=font_brand)
-    draw.text((40, 55), subtitulo, fill=COLOR_GRAY, font=font_sub)
+def _gradient_bg(img, color_a, color_b, diagonal=False):
+    """Aplica gradiente no fundo da imagem."""
+    w, h = img.size
+    pixels = img.load()
+    for y in range(h):
+        for x in range(w):
+            ratio = ((x / w) + (y / h)) / 2 if diagonal else y / h
+            r = int(color_a[0] + (color_b[0] - color_a[0]) * ratio)
+            g = int(color_a[1] + (color_b[1] - color_a[1]) * ratio)
+            b = int(color_a[2] + (color_b[2] - color_a[2]) * ratio)
+            pixels[x, y] = (r, g, b)
 
-    # Título direito
-    font_title = _load_font(24, bold=True)
-    bbox = draw.textbbox((0, 0), titulo, font=font_title)
-    tw = bbox[2] - bbox[0]
-    draw.text((VIDEO_WIDTH - tw - 40, 30), titulo, fill=COLOR_WHITE, font=font_title)
 
-    # Horário
+def _glass_rect(base_img, draw, xy, radius=16, opacity=0.12, border_color=None):
+    """Desenha um retângulo com efeito 'glass' semi-transparente."""
+    overlay = Image.new('RGBA', base_img.size, (0, 0, 0, 0))
+    ov_draw = ImageDraw.Draw(overlay)
+    fill = (255, 255, 255, int(255 * opacity))
+    ov_draw.rounded_rectangle(xy, radius=radius, fill=fill)
+    if border_color:
+        ov_draw.rounded_rectangle(xy, radius=radius, outline=border_color, width=1)
+    composite = Image.alpha_composite(base_img.convert('RGBA'), overlay)
+    base_img.paste(composite.convert('RGB'), (0, 0))
+    return ImageDraw.Draw(base_img)
+
+
+def _header_bar(img, draw, subtitle, right_text_str=''):
+    """Barra superior de branding."""
+    draw = _glass_rect(img, draw, (0, 0, VIDEO_WIDTH, 80), radius=0, opacity=0.35)
+    draw.line([(0, 80), (VIDEO_WIDTH, 80)], fill=BRAND, width=3)
+
+    draw.text((50, 16), 'MEDIAEXPAND', fill=BRAND_LIGHT, font=_font(30, bold=True))
+    draw.text((50, 50), subtitle, fill=GRAY_DIM, font=_font(18))
+
     now = timezone.localtime()
-    hora_str = now.strftime('%H:%M')
-    data_str = now.strftime('%d/%m/%Y')
-    font_hora = _load_font(20)
-    draw.text((VIDEO_WIDTH - 140, 58), f'{data_str}  {hora_str}', fill=COLOR_GRAY, font=font_hora)
+    time_str = now.strftime('%d/%m/%Y   %H:%M')
+    _right_text(draw, time_str, _font(20), 28, GRAY_TEXT, 50)
+
+    if right_text_str:
+        _right_text(draw, right_text_str, _font(22, bold=True), 50, WHITE, 50)
+
+    return draw
+
+
+def _footer_bar(draw, text):
+    """Rodapé com fonte de dados."""
+    draw.text((50, VIDEO_HEIGHT - 45), text, fill=GRAY_DIM, font=_font(16))
+
+
+def _var_color_arrow(variacao, direcao):
+    """Retorna (cor, seta) baseado na direção."""
+    if direcao == 'up':
+        return GREEN, ARROW_UP
+    elif direcao == 'down':
+        return RED, ARROW_DOWN
+    return YELLOW, DOT
+
+
+def _format_brl(value, decimals=2):
+    """Formata valor em padrão brasileiro: 1.234,56"""
+    if value is None:
+        return '—'
+    fmt = f'{value:,.{decimals}f}'
+    return fmt.replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
 def _image_to_video(image, duration_seconds, output_path):
-    """Converte imagem PIL em vídeo MP4 usando imageio-ffmpeg."""
-    frame = np.array(image.convert('RGB'))
-
-    try:
-        writer = iio.imopen(str(output_path), 'w', plugin='pyav')
-        writer.write(
-            np.stack([frame] * max(duration_seconds * FPS, 1)),
-            codec='libx264',
-            fps=FPS,
-            out_pixel_format='yuv420p',
-        )
-        writer.close()
-        logger.info(f'Vídeo gerado: {output_path} ({duration_seconds}s)')
-        return True
-    except Exception as e:
-        logger.error(f'Erro ao gerar vídeo com imopen: {e}')
-
-    # Fallback: usar imageio-ffmpeg diretamente
+    """Converte imagem PIL em vídeo MP4 usando ffmpeg embutido do imageio-ffmpeg."""
     try:
         import imageio_ffmpeg
         ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception as e:
+        logger.error(f'imageio-ffmpeg não disponível: {e}')
+        return False
 
-        # Salvar frame temporário como PNG
-        temp_png = str(output_path).replace('.mp4', '_temp.png')
-        image.save(temp_png)
-
-        import subprocess
+    temp_png = str(output_path).replace('.mp4', '_frame.png')
+    try:
+        image.save(temp_png, 'PNG')
         cmd = [
             ffmpeg_path, '-y',
             '-loop', '1',
@@ -195,381 +214,377 @@ def _image_to_video(image, duration_seconds, output_path):
             '-c:v', 'libx264',
             '-t', str(duration_seconds),
             '-pix_fmt', 'yuv420p',
-            '-r', str(FPS),
+            '-r', str(VIDEO_FPS),
+            '-preset', 'ultrafast',
+            '-tune', 'stillimage',
             '-vf', f'scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}',
+            '-movflags', '+faststart',
             str(output_path),
         ]
-        subprocess.run(cmd, capture_output=True, timeout=30)
-
+        result = subprocess.run(cmd, capture_output=True, timeout=60)
+        if result.returncode != 0:
+            logger.error(f'ffmpeg erro: {result.stderr.decode("utf-8", errors="replace")[:500]}')
+            return False
+        logger.info(f'Vídeo gerado: {output_path} ({duration_seconds}s, {VIDEO_FPS}fps)')
+        return True
+    except Exception as e:
+        logger.error(f'Erro ao gerar vídeo: {e}')
+        return False
+    finally:
         if os.path.exists(temp_png):
             os.remove(temp_png)
 
-        if os.path.exists(str(output_path)):
-            logger.info(f'Vídeo gerado (ffmpeg fallback): {output_path}')
-            return True
-    except Exception as e2:
-        logger.error(f'Erro no fallback ffmpeg: {e2}')
 
-    return False
-
-
-# ══════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
 #  PREVISÃO DO TEMPO
-# ══════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
+
+_WEATHER_GRADIENTS = {
+    'ensolarado': ((255, 140, 0),  (255, 215, 0)),
+    'nublado':    ((99, 111, 164), (232, 203, 192)),
+    'chuvoso':    ((44, 62, 80),   (52, 152, 219)),
+    'tempestade': ((15, 32, 39),   (44, 83, 100)),
+}
+
+_DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+
 
 def _gerar_imagem_previsao(dados):
-    """Gera imagem 1920x1080 com dados de previsão do tempo."""
-    img = Image.new('RGB', (VIDEO_WIDTH, VIDEO_HEIGHT))
-    draw = ImageDraw.Draw(img)
+    img = Image.new('RGB', (VIDEO_WIDTH, VIDEO_HEIGHT), (30, 30, 50))
 
-    municipio = dados.get('municipio', 'Cidade')
+    municipio = dados.get('municipio', '')
     atual = dados.get('atual', {})
     previsao = dados.get('previsao', [])
-
-    # Fundo gradiente baseado na condição
     condicao = atual.get('condicao', 'nublado')
-    gradients = {
-        'ensolarado': [(20, 50, 100), (255, 140, 0)],
-        'nublado': [(40, 50, 70), (100, 110, 140)],
-        'chuvoso': [(20, 30, 50), (50, 80, 130)],
-        'tempestade': [(10, 15, 25), (40, 50, 80)],
-    }
-    g = gradients.get(condicao, gradients['nublado'])
-    _draw_gradient_bg(draw, VIDEO_WIDTH, VIDEO_HEIGHT, g[0], g[1])
 
-    # Header
-    _draw_header(draw, municipio, 'PREVISÃO DO TEMPO')
+    grad = _WEATHER_GRADIENTS.get(condicao, _WEATHER_GRADIENTS['nublado'])
+    _gradient_bg(img, grad[0], grad[1], diagonal=True)
+    draw = ImageDraw.Draw(img)
 
-    # Fontes
-    font_temp_big = _load_font(180, bold=True)
-    font_desc = _load_font(36)
-    font_label = _load_font(24)
-    font_detail = _load_font(28)
-    font_day_title = _load_font(26, bold=True)
-    font_day_temp = _load_font(52, bold=True)
-    font_day_desc = _load_font(20)
+    draw = _header_bar(img, draw, 'PREVISÃO DO TEMPO', municipio)
 
-    # ── Painel central: temperatura atual ──
+    # ── Painel central ──
     temp = atual.get('temperatura')
-    temp_str = f'{temp:.0f}°' if temp is not None else '--°'
+    temp_str = f'{temp:.0f}°C' if temp is not None else '--°C'
     desc_str = atual.get('descricao', 'Indisponível')
 
-    # Temperatura grande centralizada
-    bbox_temp = draw.textbbox((0, 0), temp_str, font=font_temp_big)
-    tw = bbox_temp[2] - bbox_temp[0]
-    tx = (VIDEO_WIDTH // 2) - (tw // 2)
-    draw.text((tx, 160), temp_str, fill=COLOR_WHITE, font=font_temp_big)
+    # Área glass atrás da temperatura
+    draw = _glass_rect(img, draw,
+                       (VIDEO_WIDTH // 2 - 250, 120, VIDEO_WIDTH // 2 + 250, 460),
+                       radius=30, opacity=0.10)
 
-    # Descrição abaixo
-    bbox_desc = draw.textbbox((0, 0), desc_str, font=font_desc)
-    dw = bbox_desc[2] - bbox_desc[0]
-    draw.text(((VIDEO_WIDTH // 2) - (dw // 2), 370), desc_str, fill=COLOR_GRAY, font=font_desc)
+    # Cidade
+    if municipio:
+        _center_text(draw, municipio, _font(30, bold=True), 140, WHITE_90)
 
-    # ── Detalhes: umidade + vento ──
-    y_details = 440
+    # Temperatura grande
+    _center_text(draw, temp_str, _font(150, bold=True), 180, WHITE)
+
+    # Descrição
+    _center_text(draw, desc_str, _font(34), 365, GRAY_TEXT)
+
+    # Detalhes (umidade + vento)
     umidade = atual.get('umidade')
     vento = atual.get('vento_kmh')
-
-    details_items = []
+    details = []
     if umidade is not None:
-        details_items.append(f'Umidade: {umidade}%')
+        details.append(f'Umidade  {umidade}%')
     if vento is not None:
-        details_items.append(f'Vento: {vento:.0f} km/h')
-
-    if details_items:
-        details_str = '    |    '.join(details_items)
-        bbox_d = draw.textbbox((0, 0), details_str, font=font_detail)
-        dw2 = bbox_d[2] - bbox_d[0]
-        draw.text(((VIDEO_WIDTH // 2) - (dw2 // 2), y_details), details_str,
-                  fill=COLOR_LIGHT_GRAY, font=font_detail)
+        details.append(f'Vento  {vento:.0f} km/h')
+    if details:
+        _center_text(draw, '     |     '.join(details), _font(24), 420, GRAY_DIM)
 
     # ── Separador ──
-    draw.line([(100, 520), (VIDEO_WIDTH - 100, 520)], fill=COLOR_CARD_BORDER, width=2)
+    sep_y = 490
+    draw.line([(200, sep_y), (VIDEO_WIDTH - 200, sep_y)],
+              fill=(255, 255, 255, 40), width=1)
 
-    # ── Previsão 3 dias ──
+    # ── Previsão 3 dias — cards estilo glass ──
     if previsao:
+        n = min(len(previsao), 3)
         card_w = 480
-        gap = 60
-        total_w = card_w * len(previsao) + gap * (len(previsao) - 1)
-        start_x = (VIDEO_WIDTH - total_w) // 2
-        card_y = 560
-
-        dias_semana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+        card_h = 440
+        gap = 50
+        total = card_w * n + gap * (n - 1)
+        sx = (VIDEO_WIDTH - total) // 2
+        cy_start = sep_y + 30
 
         for i, dia in enumerate(previsao[:3]):
-            cx = start_x + i * (card_w + gap)
+            cx = sx + i * (card_w + gap)
+            cy = cy_start
 
-            # Card background
-            _draw_rounded_rect(draw, (cx, card_y, cx + card_w, card_y + 420),
-                               radius=20, fill=(255, 255, 255, 15),
-                               outline=COLOR_CARD_BORDER)
+            draw = _glass_rect(img, draw,
+                               (cx, cy, cx + card_w, cy + card_h),
+                               radius=20, opacity=0.12,
+                               border_color=(255, 255, 255, 40))
 
-            # Data
-            data_str = dia.get('data', '')
+            # Nome do dia
+            data_raw = dia.get('data', '')
             try:
-                dt = datetime.strptime(data_str, '%Y-%m-%d')
-                dia_nome = dias_semana[dt.weekday()]
+                dt = datetime.strptime(data_raw, '%Y-%m-%d')
+                dia_nome = _DIAS_SEMANA[dt.weekday()]
                 data_fmt = dt.strftime('%d/%m')
                 label = f'{dia_nome}  {data_fmt}'
             except Exception:
-                label = data_str
+                label = data_raw
+            _center_text(draw, label, _font(26, bold=True), cy + 25, CYAN, cx + card_w // 2)
 
-            bbox_l = draw.textbbox((0, 0), label, font=font_day_title)
-            lw = bbox_l[2] - bbox_l[0]
-            draw.text((cx + (card_w - lw) // 2, card_y + 25), label,
-                      fill=COLOR_CYAN, font=font_day_title)
+            # Condição
+            desc_d = dia.get('descricao', '')
+            _center_text(draw, desc_d, _font(24), cy + 70, WHITE, cx + card_w // 2)
 
-            # Ícone condição
-            cond_d = dia.get('condicao', 'nublado')
-            icon = WEATHER_ICONS.get(cond_d, '☁')
-            font_icon = _load_font(64)
-            bbox_i = draw.textbbox((0, 0), icon, font=font_icon)
-            iw = bbox_i[2] - bbox_i[0]
-            draw.text((cx + (card_w - iw) // 2, card_y + 70), icon,
-                      fill=COLOR_WHITE, font=font_icon)
-
-            # Temperaturas
+            # Temperaturas max / min
             tmax = dia.get('max')
             tmin = dia.get('min')
-            max_str = f'{tmax:.0f}°' if tmax is not None else '--°'
-            min_str = f'{tmin:.0f}°' if tmin is not None else '--°'
-            temp_line = f'{max_str}  /  {min_str}'
-            bbox_t = draw.textbbox((0, 0), temp_line, font=font_day_temp)
-            ttw = bbox_t[2] - bbox_t[0]
-            draw.text((cx + (card_w - ttw) // 2, card_y + 160), temp_line,
-                      fill=COLOR_WHITE, font=font_day_temp)
+            max_s = f'{tmax:.0f}°' if tmax is not None else '--°'
+            min_s = f'{tmin:.0f}°' if tmin is not None else '--°'
 
-            # Labels máx/mín
-            draw.text((cx + 85, card_y + 230), 'máx       mín',
-                      fill=COLOR_LIGHT_GRAY, font=font_label)
+            # Máxima em grande
+            _center_text(draw, max_s, _font(80, bold=True), cy + 120, WHITE, cx + card_w // 2 - 60)
+            # Barra separadora
+            draw.text((cx + card_w // 2 - 15, cy + 150), '/', fill=GRAY_DIM, font=_font(50))
+            # Mínima
+            _center_text(draw, min_s, _font(60, bold=True), cy + 145, GRAY_TEXT, cx + card_w // 2 + 70)
 
-            # Descrição
-            desc_d = dia.get('descricao', '')
-            if len(desc_d) > 25:
-                desc_d = desc_d[:23] + '..'
-            bbox_dd = draw.textbbox((0, 0), desc_d, font=font_day_desc)
-            ddw = bbox_dd[2] - bbox_dd[0]
-            draw.text((cx + (card_w - ddw) // 2, card_y + 280), desc_d,
-                      fill=COLOR_GRAY, font=font_day_desc)
+            # Labels
+            _center_text(draw, 'máx', _font(18), cy + 225, GRAY_DIM, cx + card_w // 2 - 60)
+            _center_text(draw, 'mín', _font(18), cy + 225, GRAY_DIM, cx + card_w // 2 + 70)
+
+            # Linha separadora dentro do card
+            draw.line([(cx + 40, cy + 260), (cx + card_w - 40, cy + 260)],
+                      fill=(255, 255, 255, 30), width=1)
 
             # Precipitação
             prec = dia.get('precipitacao_pct', 0)
             if prec:
-                prec_str = f'Chuva: {prec}%'
-                bbox_p = draw.textbbox((0, 0), prec_str, font=font_day_desc)
-                pw = bbox_p[2] - bbox_p[0]
-                draw.text((cx + (card_w - pw) // 2, card_y + 320), prec_str,
-                          fill=COLOR_BLUE, font=font_day_desc)
+                prec_str = f'Chuva  {prec}%'
+                prec_color = BLUE if prec < 50 else RED
+                _center_text(draw, prec_str, _font(24), cy + 280, prec_color, cx + card_w // 2)
 
-    # Rodapé
-    font_footer = _load_font(16)
-    draw.text((40, VIDEO_HEIGHT - 40), 'Dados: Open-Meteo  |  Atualização automática',
-              fill=COLOR_LIGHT_GRAY, font=font_footer)
+            # Condição climática
+            cond_d = dia.get('condicao', '')
+            if cond_d:
+                cond_label = {
+                    'ensolarado': 'Ensolarado',
+                    'nublado': 'Nublado',
+                    'chuvoso': 'Chuvoso',
+                    'tempestade': 'Tempestade',
+                }.get(cond_d, cond_d.title())
+                cond_color = {
+                    'ensolarado': YELLOW,
+                    'nublado': GRAY_TEXT,
+                    'chuvoso': BLUE,
+                    'tempestade': RED,
+                }.get(cond_d, GRAY_TEXT)
+                _center_text(draw, cond_label, _font(22, bold=True), cy + 330, cond_color, cx + card_w // 2)
 
+    _footer_bar(draw, 'Dados: Open-Meteo  |  Atualização automática')
     return img
 
 
-# ══════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
 #  COTAÇÕES
-# ══════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
 
 def _gerar_imagem_cotacoes(dados):
-    """Gera imagem 1920x1080 com cotações de moedas, cripto, índices e commodities."""
-    img = Image.new('RGB', (VIDEO_WIDTH, VIDEO_HEIGHT))
+    img = Image.new('RGB', (VIDEO_WIDTH, VIDEO_HEIGHT), (15, 12, 41))
+
+    _gradient_bg(img, (15, 12, 41), (36, 36, 62), diagonal=True)
     draw = ImageDraw.Draw(img)
 
-    g = BG_GRADIENTS['COTACOES']
-    _draw_gradient_bg(draw, VIDEO_WIDTH, VIDEO_HEIGHT, g[0], g[1])
-    _draw_header(draw, '', 'COTAÇÕES DO MERCADO')
+    draw = _header_bar(img, draw, 'COTAÇÕES EM TEMPO REAL')
 
-    font_section = _load_font(24, bold=True)
-    font_code = _load_font(22, bold=True)
-    font_name = _load_font(20)
-    font_value = _load_font(32, bold=True)
-    font_var = _load_font(20)
-    font_brl = _load_font(16)
+    # Título
+    title_y = 100
+    _center_text(draw, 'Cotações em Tempo Real', _font(38, bold=True), title_y, WHITE)
+    draw.line([(50, title_y + 55), (VIDEO_WIDTH - 50, title_y + 55)],
+              fill=(255, 255, 255, 30), width=1)
 
-    y_start = 120
+    # ── Montar lista unificada ──
+    sections = []
+    for m in dados.get('moedas', []):
+        m['_section'] = 'MOEDA'
+        sections.append(m)
+    for c in dados.get('cripto', []):
+        c['_section'] = 'CRIPTO'
+        sections.append(c)
+    for idx in dados.get('indices', []):
+        idx['_section'] = 'ÍNDICE'
+        sections.append(idx)
+    for cm in dados.get('commodities', []):
+        cm['_section'] = 'COMMODITY'
+        sections.append(cm)
 
-    def _draw_quote_row(x, y, w, item, show_brl=False, is_index=False):
-        """Desenha uma linha de cotação dentro de um card."""
-        # Card background
-        _draw_rounded_rect(draw, (x, y, x + w, y + 100),
-                           radius=12, fill=(35, 35, 60), outline=COLOR_CARD_BORDER)
+    # ── Layout em grid 2 colunas ──
+    margin = 50
+    gap = 24
+    cols = 2
+    usable_w = VIDEO_WIDTH - 2 * margin - (cols - 1) * gap
+    card_w = usable_w // cols
+
+    start_y = title_y + 75
+    card_h = 105
+    vgap = 16
+    max_rows = (VIDEO_HEIGHT - start_y - 80) // (card_h + vgap)
+
+    badge_colors = {
+        'MOEDA': BRAND, 'CRIPTO': CYAN,
+        'ÍNDICE': YELLOW, 'COMMODITY': GREEN,
+    }
+
+    for i, item in enumerate(sections[:max_rows * cols]):
+        col = i % cols
+        row = i // cols
+        cx = margin + col * (card_w + gap)
+        cy = start_y + row * (card_h + vgap)
+
+        is_commodity = item.get('_section') == 'COMMODITY'
+        is_index = item.get('_section') == 'ÍNDICE'
+
+        # Card glass
+        draw = _glass_rect(img, draw,
+                           (cx, cy, cx + card_w, cy + card_h),
+                           radius=14, opacity=0.08,
+                           border_color=(255, 255, 255, 25))
+
+        # Badge da seção
+        badge = item.get('_section', '')
+        badge_col = badge_colors.get(badge, GRAY_DIM)
+        draw.text((cx + 18, cy + 8), badge, fill=badge_col, font=_font(13))
 
         # Código
-        draw.text((x + 20, y + 12), item.get('codigo', ''), fill=COLOR_CYAN, font=font_code)
-        # Nome
-        draw.text((x + 20, y + 42), item.get('nome', ''), fill=COLOR_GRAY, font=font_name)
+        draw.text((cx + 18, cy + 28), item.get('codigo', ''),
+                  fill=WHITE, font=_font(28, bold=True))
 
-        # Valor
+        # Nome
+        draw.text((cx + 18, cy + 65), item.get('nome', ''),
+                  fill=GRAY_DIM, font=_font(18))
+
+        # Valor (alinhado à direita)
         valor = item.get('valor')
         if valor is not None:
             if is_index:
-                val_str = f'{valor:,.0f} pts'
-            elif show_brl:
-                val_str = f'$ {valor:,.2f}'
+                val_str = _format_brl(valor, 0) + ' pts'
+            elif is_commodity:
+                val_str = f'$ {_format_brl(valor, 2)}'
             else:
-                val_str = f'R$ {valor:,.2f}'
-            val_str = val_str.replace(',', 'X').replace('.', ',').replace('X', '.')
+                val_str = f'R$ {_format_brl(valor, 2)}'
         else:
             val_str = '—'
 
-        bbox_v = draw.textbbox((0, 0), val_str, font=font_value)
-        vw = bbox_v[2] - bbox_v[0]
-        draw.text((x + w - vw - 140, y + 15), val_str, fill=COLOR_WHITE, font=font_value)
+        val_font = _font(30, bold=True)
+        val_x = cx + card_w - _text_w(draw, val_str, val_font) - 22
+        draw.text((val_x, cy + 20), val_str, fill=WHITE, font=val_font)
 
-        # BRL equivalente para commodities
-        if show_brl:
-            valor_brl = item.get('valor_brl')
-            if valor_brl:
-                brl_str = f'≈ R$ {valor_brl:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-                bbox_b = draw.textbbox((0, 0), brl_str, font=font_brl)
-                bw = bbox_b[2] - bbox_b[0]
-                draw.text((x + w - bw - 140, y + 55), brl_str, fill=COLOR_LIGHT_GRAY, font=font_brl)
+        # BRL para commodities
+        if is_commodity and item.get('valor_brl'):
+            brl_str = f'≈ R$ {_format_brl(item["valor_brl"], 2)}'
+            brl_font = _font(15)
+            brl_x = cx + card_w - _text_w(draw, brl_str, brl_font) - 22
+            draw.text((brl_x, cy + 56), brl_str, fill=GRAY_DIM, font=brl_font)
 
         # Variação
         var = item.get('variacao_pct')
         direcao = item.get('direcao', 'stable')
         if var is not None:
-            if direcao == 'up':
-                color = COLOR_GREEN
-                arrow = ARROW_UP
-            elif direcao == 'down':
-                color = COLOR_RED
-                arrow = ARROW_DOWN
-            else:
-                color = COLOR_YELLOW
-                arrow = ARROW_STABLE
+            color, arrow = _var_color_arrow(var, direcao)
             var_str = f'{arrow} {abs(var):.2f}%'
         else:
-            color = COLOR_GRAY
+            color = GRAY_DIM
             var_str = '—'
-
-        bbox_vr = draw.textbbox((0, 0), var_str, font=font_var)
-        vrw = bbox_vr[2] - bbox_vr[0]
-        draw.text((x + w - vrw - 20, y + 38), var_str, fill=color, font=font_var)
-
-    # ── Layout: 2 colunas ──
-    col_w = 860
-    col_gap = 60
-    col1_x = (VIDEO_WIDTH - 2 * col_w - col_gap) // 2
-    col2_x = col1_x + col_w + col_gap
-    row_h = 115
-
-    # Coluna 1: Moedas + Índices
-    y = y_start
-    draw.text((col1_x, y), 'MOEDAS', fill=COLOR_BRAND, font=font_section)
-    y += 35
-    for item in dados.get('moedas', []):
-        _draw_quote_row(col1_x, y, col_w, item)
-        y += row_h
-
-    y += 15
-    draw.text((col1_x, y), 'ÍNDICES', fill=COLOR_BRAND, font=font_section)
-    y += 35
-    for item in dados.get('indices', []):
-        _draw_quote_row(col1_x, y, col_w, item, is_index=True)
-        y += row_h
-
-    # Coluna 2: Cripto + Commodities
-    y = y_start
-    draw.text((col2_x, y), 'CRIPTOMOEDAS', fill=COLOR_BRAND, font=font_section)
-    y += 35
-    for item in dados.get('cripto', []):
-        _draw_quote_row(col2_x, y, col_w, item)
-        y += row_h
-
-    y += 15
-    draw.text((col2_x, y), 'COMMODITIES', fill=COLOR_BRAND, font=font_section)
-    y += 35
-    for item in dados.get('commodities', []):
-        _draw_quote_row(col2_x, y, col_w, item, show_brl=True)
-        y += row_h
+        var_font = _font(20, bold=True)
+        var_x = cx + card_w - _text_w(draw, var_str, var_font) - 22
+        draw.text((var_x, cy + 76), var_str, fill=color, font=var_font)
 
     # Rodapé
     atualizado = dados.get('atualizado_em', '')
-    font_footer = _load_font(16)
-    draw.text((40, VIDEO_HEIGHT - 40),
-              f'Fonte: AwesomeAPI / Yahoo Finance  |  {atualizado[:19] if atualizado else ""}',
-              fill=COLOR_LIGHT_GRAY, font=font_footer)
-
+    ts = atualizado[:19].replace('T', '  ') if atualizado else ''
+    _footer_bar(draw, f'Fontes: AwesomeAPI  •  Yahoo Finance     Atualizado: {ts}')
     return img
 
 
-# ══════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
 #  NOTÍCIAS
-# ══════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
 
 def _gerar_imagem_noticias(dados):
-    """Gera imagem 1920x1080 com manchetes de notícias."""
-    img = Image.new('RGB', (VIDEO_WIDTH, VIDEO_HEIGHT))
+    img = Image.new('RGB', (VIDEO_WIDTH, VIDEO_HEIGHT), (26, 26, 46))
+
+    _gradient_bg(img, (26, 26, 46), (15, 52, 96), diagonal=True)
     draw = ImageDraw.Draw(img)
 
-    g = BG_GRADIENTS['NOTICIAS']
-    _draw_gradient_bg(draw, VIDEO_WIDTH, VIDEO_HEIGHT, g[0], g[1])
-    _draw_header(draw, '', 'ÚLTIMAS NOTÍCIAS')
-
-    font_headline = _load_font(30, bold=True)
-    font_fonte = _load_font(18)
-    font_num = _load_font(28, bold=True)
-    font_footer = _load_font(16)
+    draw = _header_bar(img, draw, 'ÚLTIMAS NOTÍCIAS')
 
     manchetes = dados.get('manchetes', [])
-    y = 120
-    card_h = 110
-    card_gap = 12
-    margin_x = 60
 
-    for i, m in enumerate(manchetes[:8]):  # Máximo 8 manchetes cabem na tela
-        card_y = y + i * (card_h + card_gap)
+    # Título
+    title_y = 100
+    _center_text(draw, 'Notícias do Brasil', _font(38, bold=True), title_y, WHITE)
 
-        # Card background
-        _draw_rounded_rect(draw, (margin_x, card_y, VIDEO_WIDTH - margin_x, card_y + card_h),
-                           radius=12, fill=(35, 25, 30), outline=(80, 40, 50))
+    margin = 60
+    start_y = title_y + 60
+    card_h = 108
+    vgap = 12
+    max_news = min(len(manchetes), 8)
+
+    for i, m in enumerate(manchetes[:max_news]):
+        cy = start_y + i * (card_h + vgap)
+
+        # Card glass com borda vermelha
+        draw = _glass_rect(img, draw,
+                           (margin, cy, VIDEO_WIDTH - margin, cy + card_h),
+                           radius=12, opacity=0.06,
+                           border_color=(255, 255, 255, 15))
+
+        # Barra vermelha lateral
+        draw.rounded_rectangle(
+            (margin, cy, margin + 5, cy + card_h),
+            radius=3, fill=RED)
 
         # Número
         num_str = f'{i + 1:02d}'
-        draw.text((margin_x + 20, card_y + 15), num_str,
-                  fill=COLOR_RED, font=font_num)
+        draw.text((margin + 25, cy + 12), num_str,
+                  fill=RED, font=_font(28, bold=True))
 
-        # Título (truncar se muito longo)
+        # Título (truncar dinamicamente)
         titulo = m.get('titulo', '')
-        max_chars = 90
-        if len(titulo) > max_chars:
-            titulo = titulo[:max_chars - 2] + '...'
-        draw.text((margin_x + 80, card_y + 15), titulo,
-                  fill=COLOR_WHITE, font=font_headline)
+        f_headline = _font(28, bold=True)
+        max_w = VIDEO_WIDTH - 2 * margin - 110
+        while _text_w(draw, titulo, f_headline) > max_w and len(titulo) > 10:
+            titulo = titulo[:-4] + '...'
+        draw.text((margin + 80, cy + 10), titulo,
+                  fill=WHITE, font=f_headline)
 
-        # Fonte
+        # Fonte + horário
         fonte = m.get('fonte', '')
         publicado = m.get('publicado_em', '')
-        if publicado and len(publicado) > 10:
+        if publicado:
             try:
-                dt = datetime.fromisoformat(publicado.replace('Z', '+00:00'))
-                publicado = dt.strftime('%H:%M')
+                if 'T' in publicado or '+' in publicado or 'Z' in publicado:
+                    dt = datetime.fromisoformat(publicado.replace('Z', '+00:00'))
+                    publicado = dt.strftime('%H:%M')
+                elif ',' in publicado:
+                    from email.utils import parsedate_to_datetime
+                    dt = parsedate_to_datetime(publicado)
+                    publicado = dt.strftime('%H:%M')
             except Exception:
-                publicado = publicado[:10]
-        meta = f'{fonte}'
+                publicado = ''
+
+        meta = fonte
         if publicado:
             meta += f'  •  {publicado}'
-        draw.text((margin_x + 80, card_y + 60), meta,
-                  fill=COLOR_LIGHT_GRAY, font=font_fonte)
+        draw.text((margin + 80, cy + 55), meta,
+                  fill=GRAY_DIM, font=_font(18))
 
-    # Rodapé
-    draw.text((40, VIDEO_HEIGHT - 40),
-              'Fonte: Google News Brasil  |  Atualização automática',
-              fill=COLOR_LIGHT_GRAY, font=font_footer)
-
+    _footer_bar(draw, 'Fonte: Google News Brasil  |  Atualização automática')
     return img
 
 
 # ══════════════════════════════════════════════
-#  GERENCIAMENTO DE CICLO DE VIDA DOS VÍDEOS
+#  GERENCIAMENTO DE CICLO DE VIDA
 # ══════════════════════════════════════════════
 
 def _get_video_ttl(tipo):
-    """Retorna o TTL em segundos para um tipo de conteúdo corporativo."""
     try:
         from .models import ConfiguracaoAPI
         config = ConfiguracaoAPI.get_config()
@@ -578,27 +593,23 @@ def _get_video_ttl(tipo):
             'COTACOES': config.cache_cotacoes_minutos * 60,
             'NOTICIAS': config.cache_noticias_minutos * 60,
         }
-        return ttl_map.get(tipo, 900)  # 15 min default
+        return ttl_map.get(tipo, 900)
     except Exception:
         return 900
 
 
 def _is_video_fresh(video_path, ttl_seconds):
-    """Verifica se o vídeo ainda está dentro do TTL."""
     if not os.path.exists(video_path):
         return False
-    mtime = os.path.getmtime(video_path)
-    age = time.time() - mtime
-    return age < ttl_seconds
+    return (time.time() - os.path.getmtime(video_path)) < ttl_seconds
 
 
 def limpar_videos_expirados():
-    """Remove vídeos corporativos que ultrapassaram o TTL. Chamado manualmente ou via cron."""
+    """Remove vídeos corporativos expirados."""
     output_dir = _get_output_dir()
     removed = 0
     for f in output_dir.glob('*.mp4'):
-        # Extrair tipo do nome do arquivo
-        name = f.stem  # ex: previsao_tempo_1_abc123
+        name = f.stem
         tipo = None
         if name.startswith('previsao_tempo'):
             tipo = 'PREVISAO_TEMPO'
@@ -615,7 +626,6 @@ def limpar_videos_expirados():
                 logger.info(f'Vídeo expirado removido: {f.name}')
             except Exception as e:
                 logger.error(f'Erro ao remover {f.name}: {e}')
-
     return removed
 
 
@@ -627,18 +637,11 @@ def gerar_video_corporativo(tipo, dados, playlist_id, duracao_segundos=15):
     """
     Gera (ou retorna do cache) o vídeo MP4 para um conteúdo corporativo.
 
-    Args:
-        tipo: 'PREVISAO_TEMPO', 'COTACOES' ou 'NOTICIAS'
-        dados: dict com os dados do serviço (retorno de buscar_dados_corporativos)
-        playlist_id: ID da playlist (para gerar vídeo específico por cidade)
-        duracao_segundos: duração do vídeo
-
     Returns:
         str: path relativo do vídeo (media URL) ou None se falhar
     """
     output_dir = _get_output_dir()
 
-    # Hash dos dados para detectar mudanças no conteúdo
     dados_hash = hashlib.md5(str(dados).encode()).hexdigest()[:8]
     cache_name = _video_cache_key(tipo, playlist_id)
     filename = f'{cache_name}_{dados_hash}.mp4'
@@ -646,21 +649,20 @@ def gerar_video_corporativo(tipo, dados, playlist_id, duracao_segundos=15):
 
     ttl = _get_video_ttl(tipo)
 
-    # Se o vídeo já existe e está fresco, retorna
+    # Se o vídeo ainda está fresco, retorna direto
     if _is_video_fresh(str(video_path), ttl):
         return _get_media_url(filename)
 
-    # Limpar vídeos antigos do mesmo tipo+playlist (diferentes hashes)
-    pattern = f'{cache_name}_*.mp4'
-    for old_file in output_dir.glob(pattern):
-        if old_file.name != filename:
+    # Limpar vídeos antigos do mesmo tipo+playlist
+    for old in output_dir.glob(f'{cache_name}_*.mp4'):
+        if old.name != filename:
             try:
-                old_file.unlink()
-                logger.info(f'Vídeo antigo removido: {old_file.name}')
+                old.unlink()
+                logger.info(f'Vídeo antigo removido: {old.name}')
             except Exception:
                 pass
 
-    # Gerar imagem baseada no tipo
+    # Gerar imagem
     try:
         if tipo == 'PREVISAO_TEMPO':
             image = _gerar_imagem_previsao(dados)
@@ -669,16 +671,14 @@ def gerar_video_corporativo(tipo, dados, playlist_id, duracao_segundos=15):
         elif tipo == 'NOTICIAS':
             image = _gerar_imagem_noticias(dados)
         else:
-            logger.error(f'Tipo de conteúdo corporativo desconhecido: {tipo}')
+            logger.error(f'Tipo desconhecido: {tipo}')
             return None
 
-        # Converter para vídeo
-        success = _image_to_video(image, duracao_segundos, video_path)
-        if success:
+        if _image_to_video(image, duracao_segundos, video_path):
             return _get_media_url(filename)
-        else:
-            logger.error(f'Falha ao converter imagem em vídeo: {filename}')
-            return None
+
+        logger.error(f'Falha ao converter imagem em vídeo: {filename}')
+        return None
 
     except Exception as e:
         logger.error(f'Erro ao gerar vídeo corporativo ({tipo}): {e}')
