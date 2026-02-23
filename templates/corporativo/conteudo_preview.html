@@ -249,6 +249,32 @@
     <!-- Info / status -->
     <div class="row mt-4 justify-content-center">
         <div class="col-lg-8">
+
+            {% if conteudo.tipo == 'PREVISAO_TEMPO' and playlists %}
+            <div class="card mb-3">
+                <div class="card-body py-2">
+                    <form method="get" class="d-flex align-items-center gap-3">
+                        <label class="text-nowrap mb-0 fw-semibold">
+                            <i class="fas fa-list me-1 text-primary"></i>Simular playlist:
+                        </label>
+                        <select name="playlist_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                            {% for pl in playlists %}
+                            <option value="{{ pl.id }}" {% if playlist_selecionada and pl.id == playlist_selecionada.id %}selected{% endif %}>
+                                {{ pl.nome }} — {{ pl.municipio.nome }}/{{ pl.municipio.estado }}
+                                {% if not pl.municipio.latitude %} ⚠ sem coordenadas{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+            </div>
+            {% elif conteudo.tipo == 'PREVISAO_TEMPO' and not playlists %}
+            <div class="alert alert-warning mb-3">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Este conteúdo ainda não está em nenhuma playlist. Adicione-o a uma playlist para que o município seja determinado automaticamente.
+            </div>
+            {% endif %}
+
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -257,10 +283,13 @@
                                 <i class="fas fa-info-circle me-1"></i>
                                 Os dados exibidos são buscados em tempo real das APIs configuradas.
                                 {% if conteudo.tipo == 'PREVISAO_TEMPO' and municipio %}
-                                    Município: <strong>{{ municipio.nome }}</strong>
-                                    ({{ municipio.latitude }}, {{ municipio.longitude }}).
-                                {% elif conteudo.tipo == 'PREVISAO_TEMPO' and not municipio %}
-                                    <span class="text-warning">Nenhum município com lat/long encontrado.</span>
+                                    Município da playlist <strong>{{ playlist_selecionada.nome }}</strong>:
+                                    <strong>{{ municipio.nome }}/{{ municipio.estado }}</strong>
+                                    {% if municipio.latitude %}
+                                        ({{ municipio.latitude }}, {{ municipio.longitude }})
+                                    {% else %}
+                                        <span class="text-warning"> — sem coordenadas cadastradas</span>
+                                    {% endif %}
                                 {% endif %}
                             </small>
                         </div>

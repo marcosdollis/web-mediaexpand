@@ -3044,7 +3044,10 @@ def conteudo_corporativo_delete_view(request, pk):
 
 @login_required
 def conteudo_corporativo_preview_view(request, pk):
-    """Preview de dados ao vivo de um conteúdo corporativo"""
+    """Preview de dados ao vivo de um conteúdo corporativo.
+    Para previsão do tempo, o município é o da playlist vinculada — igual ao que
+    o app Android recebe. O usuário pode escolher qual playlist simular.
+    """
     user = request.user
     if not user.is_owner() and not user.is_franchisee():
         messages.error(request, 'Sem permissão.')
@@ -3053,13 +3056,27 @@ def conteudo_corporativo_preview_view(request, pk):
     conteudo = get_object_or_404(ConteudoCorporativo, pk=pk)
     from .services import buscar_dados_corporativos
 
-    # Para previsão do tempo, usar primeiro município disponível ou default
+    # Playlists que contêm este conteúdo
+    playlists_qs = Playlist.objects.filter(
+        items__conteudo_corporativo=conteudo
+    ).select_related('municipio').distinct()
+    if user.is_franchisee():
+        playlists_qs = playlists_qs.filter(franqueado=user)
+
     municipio = None
+    playlist_selecionada = None
     if conteudo.tipo == 'PREVISAO_TEMPO':
-        if user.is_franchisee():
-            municipio = Municipio.objects.filter(franqueado=user).first()
-        else:
-            municipio = Municipio.objects.first()
+        playlist_id = request.GET.get('playlist_id')
+        if playlist_id:
+            playlist_selecionada = playlists_qs.filter(pk=playlist_id).first()
+        if not playlist_selecionada:
+            # Preferir playlist com município com coordenadas
+            playlist_selecionada = (
+                playlists_qs.exclude(municipio__latitude=None).first()
+                or playlists_qs.first()
+            )
+        if playlist_selecionada:
+            municipio = playlist_selecionada.municipio
 
     dados = buscar_dados_corporativos(conteudo.tipo, municipio=municipio)
     config = ConfiguracaoAPI.get_config()
@@ -3069,6 +3086,8 @@ def conteudo_corporativo_preview_view(request, pk):
         'dados': dados,
         'config': config,
         'municipio': municipio,
+        'playlists': playlists_qs if conteudo.tipo == 'PREVISAO_TEMPO' else [],
+        'playlist_selecionada': playlist_selecionada,
     }
     return render(request, 'corporativo/conteudo_preview.html', context)
 
