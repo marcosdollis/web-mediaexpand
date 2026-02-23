@@ -250,51 +250,57 @@ def buscar_cotacoes():
     except Exception as e:
         logger.error(f'Erro ao buscar cotações AwesomeAPI: {e}')
 
-    try:
-        # AwesomeAPI — Commodities (Soja, Milho, Trigo) e Ibovespa (via variação do IBOV proxy)
-        # AwesomeAPI não tem commodities diretamente, usamos uma abordagem alternativa
-        # Buscar dados de commodities via cotacoes de ativos
-        commodities_url = 'https://economia.awesomeapi.com.br/json/last/SOJ-BRL,CNY-BRL'
+    # ── BRAPI/Yahoo Finance — Ibovespa + Commodities (gratuito) ──
+    _YF_HEADERS = {'User-Agent': 'Mozilla/5.0'}
+    _YF_TICKERS = {
+        '^BVSP': ('Ibovespa', 'IBOV', 'indice'),
+        'ZS=F':  ('Soja',     'SOJ',  'commodity'),
+        'ZC=F':  ('Milho',    'CORN', 'commodity'),
+        'ZW=F':  ('Trigo',    'WHEAT','commodity'),
+    }
+
+    for ticker, (nome, codigo, cat) in _YF_TICKERS.items():
         try:
-            resp_c = requests.get(commodities_url, timeout=8)
-            if resp_c.status_code == 200:
-                data_c = resp_c.json()
-                if 'SOJBRL' in data_c:
-                    d = data_c['SOJBRL']
-                    result['commodities'].append({
-                        'nome': 'Soja', 'codigo': 'SOJ',
-                        'valor': float(d.get('bid', 0)),
-                        'variacao_pct': float(d.get('pctChange', 0)),
-                        'direcao': 'up' if float(d.get('pctChange', 0)) > 0 else 'down',
-                    })
-        except Exception:
-            pass
+            yf_url = f'https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=2d'
+            resp_yf = requests.get(yf_url, headers=_YF_HEADERS, timeout=10)
+            if resp_yf.status_code == 200:
+                meta = resp_yf.json()['chart']['result'][0]['meta']
+                price = meta.get('regularMarketPrice')
+                prev = meta.get('chartPreviousClose') or meta.get('previousClose')
+                var = round(((price - prev) / prev) * 100, 2) if prev and price else None
+                item = {
+                    'nome': nome,
+                    'codigo': codigo,
+                    'valor': price,
+                    'variacao_pct': var,
+                    'direcao': 'up' if (var or 0) > 0 else ('down' if (var or 0) < 0 else 'stable'),
+                }
+                if cat == 'indice':
+                    result['indices'].append(item)
+                else:
+                    # Commodities CBOT são em USD — converter com câmbio já obtido
+                    usd_rate = None
+                    for m in result['moedas']:
+                        if m['codigo'] == 'USD':
+                            usd_rate = m['valor']
+                            break
+                    if usd_rate and price:
+                        item['valor_brl'] = round(price * usd_rate, 2)
+                        item['unidade'] = 'USD/bushel'
+                    result['commodities'].append(item)
+        except Exception as e:
+            logger.error(f'Erro ao buscar {nome} via Yahoo Finance: {e}')
 
-        # Fallback — cotações estáticas de commodities quando não disponíveis via API
-        if not result['commodities']:
-            result['commodities'] = [
-                {'nome': 'Soja', 'codigo': 'SOJ', 'valor': None, 'variacao_pct': None, 'direcao': 'stable'},
-                {'nome': 'Milho', 'codigo': 'CORN', 'valor': None, 'variacao_pct': None, 'direcao': 'stable'},
-                {'nome': 'Trigo', 'codigo': 'WHEAT', 'valor': None, 'variacao_pct': None, 'direcao': 'stable'},
-            ]
-        else:
-            # Adicionar milho e trigo como placeholders se não vieram da API
-            if not any(c['codigo'] == 'CORN' for c in result['commodities']):
-                result['commodities'].append(
-                    {'nome': 'Milho', 'codigo': 'CORN', 'valor': None, 'variacao_pct': None, 'direcao': 'stable'})
-            if not any(c['codigo'] == 'WHEAT' for c in result['commodities']):
-                result['commodities'].append(
-                    {'nome': 'Trigo', 'codigo': 'WHEAT', 'valor': None, 'variacao_pct': None, 'direcao': 'stable'})
-
-        # Ibovespa via AwesomeAPI proxy (não é cotação de moeda, mas pode não estar disponível)
+    # Fallback — adicionar itens faltantes como placeholder
+    if not result['indices']:
         result['indices'].append({
             'nome': 'Ibovespa', 'codigo': 'IBOV',
             'valor': None, 'variacao_pct': None, 'direcao': 'stable',
-            'nota': 'Consulte fonte oficial para Ibovespa atualizado',
         })
-
-    except Exception as e:
-        logger.error(f'Erro ao buscar commodities: {e}')
+    for cod, nome in [('SOJ', 'Soja'), ('CORN', 'Milho'), ('WHEAT', 'Trigo')]:
+        if not any(c['codigo'] == cod for c in result['commodities']):
+            result['commodities'].append(
+                {'nome': nome, 'codigo': cod, 'valor': None, 'variacao_pct': None, 'direcao': 'stable'})
 
     cache_ttl = config.cache_cotacoes_minutos * 60
     cache.set(cache_key, result, cache_ttl)

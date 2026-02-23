@@ -200,17 +200,22 @@
                 <div class="quote-card">
                     <div class="code">{{ idx.codigo }}</div>
                     <div class="name">{{ idx.nome }}</div>
-                    <div class="value">{% if idx.valor %}{{ idx.valor|floatformat:0 }}{% else %}—{% endif %}</div>
-                    <div class="change stable">
-                        {% if idx.nota %}<small>{{ idx.nota }}</small>{% endif %}
+                    <div class="value">{% if idx.valor %}{{ idx.valor|floatformat:0 }} pts{% else %}—{% endif %}</div>
+                    {% if idx.variacao_pct is not None %}
+                    <div class="change {{ idx.direcao }}">
+                        <i class="fas fa-caret-{% if idx.direcao == 'up' %}up{% elif idx.direcao == 'down' %}down{% else %}right{% endif %} me-1"></i>
+                        {{ idx.variacao_pct }}%
                     </div>
+                    {% else %}
+                    <div class="change stable">—</div>
+                    {% endif %}
                 </div>
                 {% endfor %}
                 {% for comm in dados.commodities %}
                 <div class="quote-card">
                     <div class="code">{{ comm.codigo }}</div>
                     <div class="name">{{ comm.nome }}</div>
-                    <div class="value">{% if comm.valor %}R$ {{ comm.valor|floatformat:2 }}{% else %}—{% endif %}</div>
+                    <div class="value">{% if comm.valor %}$ {{ comm.valor|floatformat:2 }}{% else %}—{% endif %}</div>
                     {% if comm.variacao_pct is not None %}
                     <div class="change {{ comm.direcao }}">
                         <i class="fas fa-caret-{% if comm.direcao == 'up' %}up{% elif comm.direcao == 'down' %}down{% else %}right{% endif %} me-1"></i>
@@ -219,6 +224,7 @@
                     {% else %}
                     <div class="change stable">—</div>
                     {% endif %}
+                    {% if comm.valor_brl %}<div class="code" style="font-size:.7rem; margin-top:2px;">≈ R$ {{ comm.valor_brl|floatformat:2 }}</div>{% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -228,11 +234,11 @@
         <!-- ── NOTÍCIAS ── -->
         <div class="news-bg">
             <div class="news-title"><i class="fas fa-newspaper me-2"></i>Notícias do Brasil</div>
-            {% if dados.noticias %}
-                {% for noticia in dados.noticias|slice:":5" %}
+            {% if dados.manchetes %}
+                {% for noticia in dados.manchetes|slice:":5" %}
                 <div class="news-item">
                     <div class="headline">{{ noticia.titulo }}</div>
-                    <div class="source">{{ noticia.fonte }}{% if noticia.data %} — {{ noticia.data }}{% endif %}</div>
+                    <div class="source">{{ noticia.fonte }}{% if noticia.publicado_em %} — {{ noticia.publicado_em }}{% endif %}</div>
                 </div>
                 {% endfor %}
             {% else %}
