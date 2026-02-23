@@ -83,6 +83,37 @@
                         <strong>Importante:</strong> Todo município deve ser atribuído a um franqueado.
                     </div>
                     {% endif %}
+
+                    <hr class="my-4">
+
+                    <h5 class="mb-1">
+                        <i class="bi bi-pin-map me-2"></i>Coordenadas Geográficas
+                    </h5>
+                    <p class="text-muted small mb-3">
+                        Necessárias para exibir a <strong>previsão do tempo</strong> nos conteúdos corporativos desta playlist.
+                        <a href="https://www.google.com/maps" target="_blank" rel="noopener">Encontre no Google Maps</a> clicando com o botão direito no município.
+                    </p>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">
+                                <i class="bi bi-arrow-up-down me-1 text-primary"></i>Latitude
+                            </label>
+                            <input type="number" name="latitude" class="form-control" step="0.000001"
+                                   value="{{ municipio.latitude|default:'' }}"
+                                   placeholder="Ex: -23.550520">
+                            <small class="text-muted">Valor entre -90 e 90 (negativo = Sul do equador)</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">
+                                <i class="bi bi-arrow-left-right me-1 text-primary"></i>Longitude
+                            </label>
+                            <input type="number" name="longitude" class="form-control" step="0.000001"
+                                   value="{{ municipio.longitude|default:'' }}"
+                                   placeholder="Ex: -46.633308">
+                            <small class="text-muted">Valor entre -180 e 180 (negativo = Oeste de Greenwich)</small>
+                        </div>
+                    </div>
                     
                     <div class="d-flex justify-content-between mt-4">
                         <a href="{% url 'municipio_list' %}" class="btn btn-secondary">

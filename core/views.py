@@ -2068,6 +2068,8 @@ def municipio_create_view(request):
         nome = request.POST.get('nome')
         estado = request.POST.get('estado')
         franqueado_id = request.POST.get('franqueado')
+        latitude = request.POST.get('latitude') or None
+        longitude = request.POST.get('longitude') or None
         
         # Validações
         if not nome or not estado:
@@ -2079,7 +2081,9 @@ def municipio_create_view(request):
             municipio = Municipio.objects.create(
                 nome=nome,
                 estado=estado,
-                franqueado_id=franqueado_id
+                franqueado_id=franqueado_id,
+                latitude=latitude,
+                longitude=longitude,
             )
             messages.success(request, f'Município {nome}/{estado} criado com sucesso!')
             return redirect('municipio_list')
@@ -2118,6 +2122,8 @@ def municipio_update_view(request, pk):
         nome = request.POST.get('nome')
         estado = request.POST.get('estado')
         franqueado_id = request.POST.get('franqueado')
+        latitude = request.POST.get('latitude') or None
+        longitude = request.POST.get('longitude') or None
         
         # Validações
         if not nome or not estado:
@@ -2129,6 +2135,8 @@ def municipio_update_view(request, pk):
             municipio.nome = nome
             municipio.estado = estado
             municipio.franqueado_id = franqueado_id
+            municipio.latitude = latitude
+            municipio.longitude = longitude
             municipio.save()
             messages.success(request, f'Município {nome}/{estado} atualizado com sucesso!')
             return redirect('municipio_list')
