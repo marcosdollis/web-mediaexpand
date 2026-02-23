@@ -241,7 +241,7 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                 dados = buscar_dados_corporativos(cc.tipo, municipio=obj.municipio)
                 for _ in range(item.repeticoes):
                     result.append({
-                        'id': f'corp_{cc.id}',
+                        'id': 900000 + cc.id,
                         'titulo': cc.titulo,
                         'tipo': 'corporativo',
                         'subtipo': cc.tipo,
@@ -271,6 +271,7 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                 
                 video_data = {
                     'id': item.video.id,
+                    'tipo': 'video',
                     'titulo': item.video.titulo,
                     'arquivo_url': arquivo_url,
                     'duracao_segundos': item.video.duracao_segundos,
