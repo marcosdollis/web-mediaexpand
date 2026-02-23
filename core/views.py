@@ -2054,6 +2054,20 @@ def municipio_list_view(request):
     return render(request, 'municipios/municipio_list.html', context)
 
 
+def _parse_coord(value):
+    """Converte texto de coordenada (latitude/longitude) para Decimal com 6 casas.
+    Suporta valores com muitas casas decimais vindos do Google Maps."""
+    from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+    if not value or not str(value).strip():
+        return None
+    try:
+        # Converte via float para lidar com notação científica, depois quantiza
+        d = Decimal(str(round(float(value), 6)))
+        return d.quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP)
+    except (ValueError, InvalidOperation):
+        return None
+
+
 @login_required
 def municipio_create_view(request):
     """Criar novo município"""
@@ -2068,8 +2082,8 @@ def municipio_create_view(request):
         nome = request.POST.get('nome')
         estado = request.POST.get('estado')
         franqueado_id = request.POST.get('franqueado')
-        latitude = request.POST.get('latitude') or None
-        longitude = request.POST.get('longitude') or None
+        latitude = _parse_coord(request.POST.get('latitude'))
+        longitude = _parse_coord(request.POST.get('longitude'))
         
         # Validações
         if not nome or not estado:
@@ -2122,8 +2136,8 @@ def municipio_update_view(request, pk):
         nome = request.POST.get('nome')
         estado = request.POST.get('estado')
         franqueado_id = request.POST.get('franqueado')
-        latitude = request.POST.get('latitude') or None
-        longitude = request.POST.get('longitude') or None
+        latitude = _parse_coord(request.POST.get('latitude'))
+        longitude = _parse_coord(request.POST.get('longitude'))
         
         # Validações
         if not nome or not estado:
