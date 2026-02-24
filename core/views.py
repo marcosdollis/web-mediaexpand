@@ -500,8 +500,8 @@ class TVCheckScheduleView(APIView):
                     {
                         'nome': ag.nome,
                         'dias_semana': ag.dias_semana,
-                        'hora_inicio': ag.hora_inicio.strftime('%H:%M'),
-                        'hora_fim': ag.hora_fim.strftime('%H:%M'),
+                        'hora_inicio': ag.hora_inicio.strftime('%H:%M') if ag.hora_inicio else None,
+                        'hora_fim': ag.hora_fim.strftime('%H:%M') if ag.hora_fim else None,
                         'playlist_id': ag.playlist_id,
                         'playlist_nome': ag.playlist.nome if ag.playlist else None,
                         'prioridade': ag.prioridade,
@@ -1720,7 +1720,14 @@ def dispositivo_detail_view(request, pk):
         return redirect('dispositivo_list')
     
     # Contar agendamentos ativos
-    agendamentos_ativos_count = dispositivo.agendamentos.filter(ativo=True).count()
+    agendamentos_ativos = dispositivo.agendamentos.filter(ativo=True).select_related('playlist')
+    agendamentos_ativos_count = agendamentos_ativos.count()
+    
+    # Simulação de desligamento: verifica se há agendamentos com horário definido
+    agendamentos_com_horario = [ag for ag in agendamentos_ativos if not ag.is_fulltime]
+    agendamentos_fulltime = [ag for ag in agendamentos_ativos if ag.is_fulltime]
+    tem_simulacao_desligamento = len(agendamentos_com_horario) > 0 and len(agendamentos_fulltime) == 0
+    no_horario = dispositivo.esta_no_horario_exibicao()
     
     # Buscar logs recentes com vídeo e thumbnail
     logs_recentes = dispositivo.logs_exibicao.select_related(
@@ -1730,6 +1737,9 @@ def dispositivo_detail_view(request, pk):
     context = {
         'dispositivo': dispositivo,
         'agendamentos_ativos_count': agendamentos_ativos_count,
+        'agendamentos_com_horario': agendamentos_com_horario,
+        'tem_simulacao_desligamento': tem_simulacao_desligamento,
+        'no_horario': no_horario,
         'logs_recentes': logs_recentes,
     }
     
