@@ -98,23 +98,32 @@ NOTAS:
 
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  2. MÚLTIPLAS PLAYLISTS POR TV (agendamento por horário)                   ║
+║  2. MÚLTIPLAS PLAYLISTS POR TV (vinculação com horário opcional)           ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 SITUAÇÃO ANTERIOR:
-- Cada dispositivo tinha UMA playlist (playlist_atual)
-- Agendamentos controlavam apenas ON/OFF do dispositivo
+- Cada dispositivo tinha UMA playlist fixa (playlist_atual)
+- Agendamentos eram separados e confusos na UX
 
-NOVA ABORDAGEM:
-- Cada agendamento de exibição pode ter uma PLAYLIST VINCULADA
-- O servidor já resolve qual playlist entregar baseado no horário atual
-- O app NÃO precisa fazer essa lógica! O endpoint POST /api/tv/auth/
-  já retorna a playlist correta para o momento.
+NOVA ABORDAGEM (Dispositivo → N Playlists):
+- No painel web, na tela de detalhe do dispositivo, o franqueado vincula
+  N playlists ao dispositivo com "Vincular Playlist"
+- Cada vinculação tem horário OPCIONAL:
+  · Se deixar horário vazio → a playlist roda 24/7 (fulltime)
+  · Se definir horário → roda somente naquele período
+- Prioridade resolve conflitos: playlist com horário específico tem
+  prioridade sobre playlist 24/7
+- O servidor resolve tudo — o app NÃO faz essa lógica
 
 EXEMPLO DE USO (configuração no painel web):
-  Agendamento 1: "Manhã Colaboradores"   → 08:00-10:00 → Playlist "Interno"
-  Agendamento 2: "Horário Comercial"     → 10:00-18:00 → Playlist "Clientes"
-  Playlist Padrão do dispositivo         → Fora dos horários → Playlist "Geral"
+  Playlist 1: "Interno"    → 08:00-10:00 (Seg-Sex) → horário comercial matutino
+  Playlist 2: "Clientes"   → 10:00-18:00 (Seg-Sex) → horário comercial principal
+  Playlist 3: "Geral"      → sem horário (24/7)    → roda quando nenhuma outra
+
+LÓGICA DE PRIORIDADE NO SERVIDOR:
+  1º Playlist com horário específico que bate com o momento atual
+  2º Playlist 24/7 (fulltime) como fallback
+  3º playlist_atual do dispositivo (compatibilidade)
 
 IMPACTO NO APP:
 - NENHUMA ALTERAÇÃO necessária no fluxo de autenticação/playlist
@@ -135,21 +144,30 @@ RESPOSTA ATUALIZADA DO endpoint /api/tv/check-schedule/:
     "playlist_nome": "Clientes",
     "agendamentos": [
         {
-            "nome": "Manhã Colaboradores",
+            "nome": "Interno",
             "dias_semana": [0,1,2,3,4],
             "hora_inicio": "08:00",
             "hora_fim": "10:00",
-            "playlist_id": 1,            ← NOVO CAMPO
-            "playlist_nome": "Interno",  ← NOVO CAMPO
-            "prioridade": 0              ← NOVO CAMPO
+            "playlist_id": 1,
+            "playlist_nome": "Interno",
+            "prioridade": 0
         },
         {
-            "nome": "Horário Comercial",
+            "nome": "Clientes",
             "dias_semana": [0,1,2,3,4],
             "hora_inicio": "10:00",
             "hora_fim": "18:00",
             "playlist_id": 2,
             "playlist_nome": "Clientes",
+            "prioridade": 0
+        },
+        {
+            "nome": "Geral",
+            "dias_semana": [],                ← VAZIO = todos os dias
+            "hora_inicio": null,              ← NULL = 24/7
+            "hora_fim": null,                 ← NULL = 24/7
+            "playlist_id": 3,
+            "playlist_nome": "Geral",
             "prioridade": 0
         }
     ]
@@ -157,37 +175,45 @@ RESPOSTA ATUALIZADA DO endpoint /api/tv/check-schedule/:
 
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  3. VÍDEOS AGENDADOS (publicação programada)                               ║
+║  3. VÍDEOS COM PUBLICAÇÃO AGENDADA (via status do vídeo)                   ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 SITUAÇÃO ANTERIOR:
-- Vídeos eram adicionados manualmente à playlist
-- Para remover um vídeo promocional, o franqueado tinha que entrar no painel
+- Existia um model separado "AgendamentoVideo" para agendar publicações
+- UX era confusa — tela separada para gerenciar agendamentos de vídeo
 
-NOVA ABORDAGEM:
-- Franqueado pode agendar data/hora de início e fim para um vídeo
-- O vídeo aparece automaticamente na playlist durante o período agendado
-- Quando expira, desaparece automaticamente
+NOVA ABORDAGEM (status no próprio vídeo):
+- O vídeo agora tem 3 status possíveis:
+  · APPROVED  → vídeo aprovado, exibido normalmente nas TVs
+  · REJECTED  → vídeo rejeitado, nunca aparece nas TVs
+  · SCHEDULED → vídeo agendado para publicação futura
+- Campos novos no model Video:
+  · data_publicacao (datetime, opcional) — quando o vídeo começa a aparecer
+  · data_expiracao  (datetime, opcional) — quando o vídeo para de aparecer
+- Lógica de visibilidade:
+  · APPROVED → sempre visível nas TVs
+  · SCHEDULED → só aparece se now >= data_publicacao E (data_expiracao é
+    nula OU now <= data_expiracao)
+  · REJECTED → nunca visível
+- O vídeo pode estar vinculado a playlists normalmente, mas só aparece
+  nas TVs quando a janela de data bate
 - Tudo resolvido no servidor — o app não precisa mudar nada!
+
+EXEMPLO DE USO (configuração no painel web):
+  1. Franqueado faz upload do vídeo "Promoção Dia das Mães"
+  2. Define status = "Agendado"
+  3. Define data_publicacao = 01/05 00:00
+  4. Define data_expiracao = 12/05 23:59  (opcional)
+  5. Vincula o vídeo na playlist normalmente
+  6. O vídeo só vai aparecer nas TVs entre 01/05 e 12/05
+  7. Após 12/05, desaparece automaticamente
 
 IMPACTO NO APP:
 - NENHUMA ALTERAÇÃO necessária
-- O serializer já injeta os vídeos agendados na lista de "videos" da playlist
+- O serializer já filtra vídeos pela visibilidade (esta_visivel_nas_tvs)
+- Vídeos SCHEDULED fora da janela de data simplesmente não aparecem
+  na resposta da API
 - O app recebe os mesmos campos de sempre
-- Vídeos agendados vêm com um campo extra "agendado": true (informativo)
-
-FORMATO (dentro da lista de "videos" da playlist):
-{
-    "id": 5,
-    "tipo": "video",
-    "titulo": "Promoção Dia das Mães",
-    "arquivo_url": "https://seu-dominio/media/videos/cliente_1/promo.mp4",
-    "duracao_segundos": 30,
-    "ativo": true,
-    "texto_tarja": "Aproveite! Só até domingo!",
-    "qrcode": null,
-    "agendado": true                 ← CAMPO INFORMATIVO (pode ignorar)
-}
 
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -201,11 +227,11 @@ FORMATO (dentro da lista de "videos" da playlist):
 │                                     │                │ conteúdo corporativo │
 │                                     │                │ não funciona         │
 ├─────────────────────────────────────┼────────────────┼──────────────────────┤
-│ Múltiplas playlists por horário     │ NENHUMA*       │ — resolvido no       │
-│                                     │                │ servidor             │
+│ Playlists vinculadas (N por TV)     │ NENHUMA*       │ — resolvido no       │
+│ com horário opcional ou 24/7        │                │ servidor             │
 ├─────────────────────────────────────┼────────────────┼──────────────────────┤
-│ Vídeos agendados                    │ NENHUMA        │ — resolvido no       │
-│                                     │                │ servidor             │
+│ Vídeos com publicação agendada      │ NENHUMA        │ — resolvido no       │
+│ (status SCHEDULED + datas)          │                │ servidor             │
 ├─────────────────────────────────────┼────────────────┼──────────────────────┤
 │ Re-autenticar periodicamente        │ RECOMENDADA    │ MÉDIA — para pegar   │
 │ (a cada 5-10 min)                   │                │ troca de playlist    │
@@ -218,6 +244,7 @@ FORMATO (dentro da lista de "videos" da playlist):
 * O app já busca a playlist via POST /api/tv/auth/ — o servidor retorna
   a playlist correta para o horário. Se o app re-autenticar periodicamente,
   a troca de playlist por horário funciona automaticamente.
+  Playlists vinculadas sem horário (24/7) servem como fallback.
 
 
 ╔══════════════════════════════════════════════════════════════════════════════╗

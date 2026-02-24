@@ -8,8 +8,7 @@ from django.db import models
 from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion,
-    QRCodeClick, AgendamentoExibicao, ConteudoCorporativo, ConfiguracaoAPI,
-    AgendamentoVideo
+    QRCodeClick, AgendamentoExibicao, ConteudoCorporativo, ConfiguracaoAPI
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -633,7 +632,7 @@ from django.core.paginator import Paginator
 from datetime import timedelta, datetime, time
 import calendar
 import os
-from .forms import VideoForm, PlaylistForm, DispositivoTVForm, SegmentoForm, AppVersionForm, ConteudoCorporativoForm, ConfiguracaoAPIForm, AgendamentoVideoForm
+from .forms import VideoForm, PlaylistForm, DispositivoTVForm, SegmentoForm, AppVersionForm, ConteudoCorporativoForm, ConfiguracaoAPIForm
 
 
 def home_view(request):
@@ -1131,7 +1130,7 @@ def video_create_view(request):
             return redirect('video_list')
         
         if request.method == 'POST':
-            form = VideoForm(request.POST, request.FILES)
+            form = VideoForm(request.POST, request.FILES, user=user)
             if form.is_valid():
                 video = form.save(commit=False)
                 video.cliente = cliente
@@ -1139,7 +1138,7 @@ def video_create_view(request):
                 messages.success(request, 'Vídeo enviado com sucesso! Aguarde aprovação.')
                 return redirect('video_list')
         else:
-            form = VideoForm()
+            form = VideoForm(user=user)
         
         return render(request, 'videos/video_form.html', {'form': form})
     
@@ -1210,13 +1209,13 @@ def video_update_view(request, pk):
             return redirect('video_list')
 
     if request.method == 'POST':
-        form = VideoForm(request.POST, request.FILES, instance=video)
+        form = VideoForm(request.POST, request.FILES, instance=video, user=user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Vídeo atualizado com sucesso!')
             return redirect('video_list')
     else:
-        form = VideoForm(instance=video)
+        form = VideoForm(instance=video, user=user)
 
     return render(request, 'videos/video_form.html', {'form': form, 'video': video})
 
@@ -1818,8 +1817,8 @@ def agendamento_create_view(request, dispositivo_pk):
     context = {
         'form': form,
         'dispositivo': dispositivo,
-        'title': 'Novo Agendamento',
-        'button_text': 'Criar Agendamento',
+        'title': 'Vincular Playlist',
+        'button_text': 'Vincular',
     }
     
     return render(request, 'agendamentos/agendamento_form.html', context)
@@ -1827,7 +1826,7 @@ def agendamento_create_view(request, dispositivo_pk):
 
 @login_required
 def agendamento_update_view(request, dispositivo_pk, pk):
-    """Atualizar agendamento de exibição"""
+    """Atualizar vínculo playlist-dispositivo"""
     from .forms import AgendamentoExibicaoForm
     from .models import AgendamentoExibicao
     
@@ -1844,7 +1843,7 @@ def agendamento_update_view(request, dispositivo_pk, pk):
         form = AgendamentoExibicaoForm(request.POST, instance=agendamento)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Agendamento atualizado com sucesso!')
+            messages.success(request, 'Playlist atualizada com sucesso!')
             return redirect('dispositivo_detail', pk=dispositivo_pk)
     else:
         form = AgendamentoExibicaoForm(instance=agendamento)
@@ -1853,7 +1852,7 @@ def agendamento_update_view(request, dispositivo_pk, pk):
         'form': form,
         'dispositivo': dispositivo,
         'agendamento': agendamento,
-        'title': 'Editar Agendamento',
+        'title': 'Editar Playlist Vinculada',
         'button_text': 'Salvar Alterações',
     }
     
@@ -1875,9 +1874,9 @@ def agendamento_delete_view(request, dispositivo_pk, pk):
         return redirect('dispositivo_detail', pk=dispositivo_pk)
     
     if request.method == 'POST':
-        agendamento_nome = agendamento.nome
+        playlist_nome = agendamento.playlist.nome if agendamento.playlist else agendamento.nome
         agendamento.delete()
-        messages.success(request, f'Agendamento "{agendamento_nome}" deletado com sucesso!')
+        messages.success(request, f'Playlist "{playlist_nome}" desvinculada com sucesso!')
         return redirect('dispositivo_detail', pk=dispositivo_pk)
     
     context = {
@@ -1886,99 +1885,6 @@ def agendamento_delete_view(request, dispositivo_pk, pk):
     }
     
     return render(request, 'agendamentos/agendamento_confirm_delete.html', context)
-
-
-# ══════════════════════════════════════════════
-#  AGENDAMENTO DE VÍDEO (publicação agendada)
-# ══════════════════════════════════════════════
-
-@login_required
-def agendamento_video_list_view(request):
-    """Lista de agendamentos de publicação de vídeos"""
-    user = request.user
-    if user.is_client():
-        messages.error(request, 'Acesso negado.')
-        return redirect('dashboard')
-
-    qs = AgendamentoVideo.objects.select_related('video', 'playlist', 'video__cliente').all()
-    if user.is_franchisee():
-        qs = qs.filter(playlist__franqueado=user)
-
-    context = {'agendamentos': qs}
-    return render(request, 'agendamentos/agendamento_video_list.html', context)
-
-
-@login_required
-def agendamento_video_create_view(request):
-    """Criar novo agendamento de publicação de vídeo"""
-    user = request.user
-    if user.is_client():
-        messages.error(request, 'Acesso negado.')
-        return redirect('dashboard')
-
-    if request.method == 'POST':
-        form = AgendamentoVideoForm(request.POST, user=user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Agendamento de vídeo criado com sucesso!')
-            return redirect('agendamento_video_list')
-    else:
-        form = AgendamentoVideoForm(user=user)
-
-    context = {
-        'form': form,
-        'title': 'Agendar Publicação de Vídeo',
-        'button_text': 'Criar Agendamento',
-    }
-    return render(request, 'agendamentos/agendamento_video_form.html', context)
-
-
-@login_required
-def agendamento_video_update_view(request, pk):
-    """Editar agendamento de publicação de vídeo"""
-    user = request.user
-    agendamento = get_object_or_404(AgendamentoVideo, pk=pk)
-
-    if user.is_franchisee() and agendamento.playlist.franqueado != user:
-        messages.error(request, 'Sem permissão.')
-        return redirect('agendamento_video_list')
-
-    if request.method == 'POST':
-        form = AgendamentoVideoForm(request.POST, instance=agendamento, user=user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Agendamento atualizado com sucesso!')
-            return redirect('agendamento_video_list')
-    else:
-        form = AgendamentoVideoForm(instance=agendamento, user=user)
-
-    context = {
-        'form': form,
-        'agendamento': agendamento,
-        'title': 'Editar Agendamento de Vídeo',
-        'button_text': 'Salvar Alterações',
-    }
-    return render(request, 'agendamentos/agendamento_video_form.html', context)
-
-
-@login_required
-def agendamento_video_delete_view(request, pk):
-    """Deletar agendamento de publicação de vídeo"""
-    user = request.user
-    agendamento = get_object_or_404(AgendamentoVideo, pk=pk)
-
-    if user.is_franchisee() and agendamento.playlist.franqueado != user:
-        messages.error(request, 'Sem permissão.')
-        return redirect('agendamento_video_list')
-
-    if request.method == 'POST':
-        titulo = str(agendamento)
-        agendamento.delete()
-        messages.success(request, f'Agendamento "{titulo}" deletado com sucesso!')
-        return redirect('agendamento_video_list')
-
-    context = {'agendamento': agendamento}
-    return render(request, 'agendamentos/agendamento_video_confirm_delete.html', context)
 
 
 # User/Franchisee Views

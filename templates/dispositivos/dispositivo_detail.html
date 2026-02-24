@@ -82,137 +82,86 @@
     <div class="row">
         <!-- Left Column -->
         <div class="col-lg-8">
-            <!-- Current Playlist -->
+            <!-- Playlists Vinculadas -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Playlist Padrão (Fallback)</h5>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-light border mb-3">
-                        <i class="fas fa-info-circle text-primary me-2"></i>
-                        <small>Esta playlist é exibida <strong>fora dos horários agendados</strong>. Para exibir playlists diferentes por horário, crie agendamentos na seção abaixo.</small>
-                    </div>
-                    {% if dispositivo.playlist_atual %}
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <h5 class="mb-1">{{ dispositivo.playlist_atual.nome }}</h5>
-                            {% if dispositivo.playlist_atual.descricao %}
-                            <p class="text-muted mb-0">{{ dispositivo.playlist_atual.descricao }}</p>
-                            {% endif %}
-                        </div>
-                        <a href="{% url 'playlist_detail' dispositivo.playlist_atual.pk %}" class="btn btn-sm btn-outline-primary">
-                            <i class="fas fa-eye me-1"></i>Ver Playlist
-                        </a>
-                    </div>
-                    
-                    <div class="row text-center">
-                        <div class="col-6">
-                            <div class="border rounded p-3">
-                                <h4 class="mb-0">{{ dispositivo.playlist_atual.items.count }}</h4>
-                                <small class="text-muted">Vídeos</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="border rounded p-3">
-                                <h4 class="mb-0">{{ dispositivo.playlist_atual.duracao_total_segundos|floatformat:0 }}s</h4>
-                                <small class="text-muted">Duração Total</small>
-                            </div>
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-list fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">Nenhuma playlist associada a este dispositivo.</p>
-                        <a href="{% url 'dispositivo_update' dispositivo.pk %}" class="btn btn-primary mt-2">
-                            <i class="fas fa-plus-circle me-1"></i>Associar Playlist
-                        </a>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Agendamentos de Exibição -->
-            <div class="card shadow mb-4">
-                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Agendamentos de Exibição (Multi-Playlist)</h5>
-                    <a href="{% url 'agendamento_create' dispositivo.pk %}" class="btn btn-sm btn-dark">
-                        <i class="fas fa-plus me-1"></i>Novo Agendamento
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Playlists Vinculadas</h5>
+                    <a href="{% url 'agendamento_create' dispositivo.pk %}" class="btn btn-sm btn-light">
+                        <i class="fas fa-plus me-1"></i>Vincular Playlist
                     </a>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-warning border mb-3">
-                        <i class="fas fa-lightbulb me-2"></i>
-                        <strong>Como funciona:</strong> Cada agendamento define uma faixa horária + dias da semana + uma playlist específica.
-                        Nos horários configurados, a TV exibe a playlist do agendamento. Fora deles, exibe a Playlist Padrão.
-                        <br><small class="text-muted">Use o campo <strong>Prioridade</strong> para definir qual agendamento prevalece quando há sobreposição de horários (maior número = maior prioridade).</small>
-                    </div>
                     {% if dispositivo.agendamentos.all %}
                     <div class="list-group">
-                        {% for agendamento in dispositivo.agendamentos.all %}
-                        <div class="list-group-item">
+                        {% for ag in dispositivo.agendamentos.all %}
+                        <div class="list-group-item {% if not ag.ativo %}bg-light{% endif %}">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div class="flex-grow-1">
-                                    <div class="d-flex align-items-center mb-2">
-                                        <h6 class="mb-0 me-2">{{ agendamento.nome }}</h6>
-                                        {% if agendamento.ativo %}
+                                    <div class="d-flex align-items-center mb-1">
+                                        <h6 class="mb-0 me-2">
+                                            <i class="fas fa-music me-1 text-primary"></i>
+                                            {{ ag.playlist.nome }}
+                                        </h6>
+                                        {% if ag.ativo %}
                                         <span class="badge bg-success">Ativo</span>
                                         {% else %}
                                         <span class="badge bg-secondary">Inativo</span>
                                         {% endif %}
+                                        {% if ag.is_fulltime %}
+                                        <span class="badge bg-primary ms-1">24/7</span>
+                                        {% endif %}
+                                        {% if ag.prioridade > 0 %}
+                                        <span class="badge bg-info ms-1">Prioridade {{ ag.prioridade }}</span>
+                                        {% endif %}
                                     </div>
-                                    {% if agendamento.playlist %}
-                                    <div class="small text-primary mb-1">
-                                        <i class="fas fa-list me-1"></i>
-                                        Playlist: <strong>{{ agendamento.playlist.nome }}</strong>
+                                    <div class="small text-muted">
+                                        <i class="fas fa-clock me-1"></i>
+                                        {{ ag.get_horario_display }}
+                                        <span class="mx-1">|</span>
+                                        <i class="fas fa-calendar-week me-1"></i>
+                                        {{ ag.get_dias_display }}
                                     </div>
-                                    {% else %}
-                                    <div class="small text-muted mb-1">
-                                        <i class="fas fa-list me-1"></i>
-                                        Usa playlist padrão do dispositivo
+                                    {% if ag.playlist.items.count > 0 %}
+                                    <div class="small text-muted mt-1">
+                                        <i class="fas fa-film me-1"></i>
+                                        {{ ag.playlist.items.count }} itens
+                                        <span class="mx-1">|</span>
+                                        {{ ag.playlist.duracao_total_segundos|floatformat:0 }}s
                                     </div>
                                     {% endif %}
-                                    <div class="small text-muted mb-1">
-                                        <i class="fas fa-calendar-week me-1"></i>
-                                        {{ agendamento.get_dias_display }}
-                                    </div>
-                                    <div class="small">
-                                        <i class="fas fa-clock me-1"></i>
-                                        {{ agendamento.hora_inicio|time:"H:i" }} até {{ agendamento.hora_fim|time:"H:i" }}
-                                        {% if agendamento.prioridade %}<span class="badge bg-info ms-1">Prioridade {{ agendamento.prioridade }}</span>{% endif %}
-                                    </div>
                                 </div>
                                 <div class="d-flex gap-1">
-                                    <a href="{% url 'agendamento_update' dispositivo.pk agendamento.pk %}" class="btn btn-sm btn-outline-warning">
+                                    <a href="{% url 'playlist_detail' ag.playlist.pk %}" class="btn btn-sm btn-outline-primary" title="Ver Playlist">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'agendamento_update' dispositivo.pk ag.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <a href="{% url 'agendamento_delete' dispositivo.pk agendamento.pk %}" class="btn btn-sm btn-outline-danger">
-                                        <i class="fas fa-trash"></i>
+                                    <a href="{% url 'agendamento_delete' dispositivo.pk ag.pk %}" class="btn btn-sm btn-outline-danger" title="Desvincular">
+                                        <i class="fas fa-unlink"></i>
                                     </a>
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
-                    <div class="alert alert-info mt-3 mb-0">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <small>
-                            Cada faixa horária pode ter sua própria playlist.
-                            Fora dos horários agendados, a TV usa a playlist padrão.
-                            {% if agendamentos_ativos_count == 0 %}
-                            <strong>Sem agendamentos ativos: TV exibirá a playlist padrão 24/7.</strong>
-                            {% endif %}
-                        </small>
+                    
+                    {% if agendamentos_ativos_count == 0 %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <small><strong>Nenhuma playlist ativa.</strong> Ative pelo menos uma playlist para que o dispositivo exiba conteúdo.</small>
                     </div>
+                    {% endif %}
                     {% else %}
                     <div class="text-center py-4">
-                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">Nenhum agendamento configurado.</p>
+                        <i class="fas fa-list fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Nenhuma playlist vinculada a este dispositivo.</p>
                         <p class="small text-muted mb-3">
-                            Crie agendamentos para vincular <strong>múltiplas playlists</strong> a este dispositivo,
-                            cada uma exibida em horários e dias da semana específicos.
+                            Vincule playlists para que a TV exiba conteúdo.
+                            Cada playlist pode ter um horário específico ou rodar 24/7.
                         </p>
-                        <a href="{% url 'agendamento_create' dispositivo.pk %}" class="btn btn-warning">
-                            <i class="fas fa-plus-circle me-1"></i>Criar Primeiro Agendamento
+                        <a href="{% url 'agendamento_create' dispositivo.pk %}" class="btn btn-primary">
+                            <i class="fas fa-plus-circle me-1"></i>Vincular Primeira Playlist
                         </a>
                     </div>
                     {% endif %}

@@ -60,16 +60,10 @@ urlpatterns = [
     path('dispositivos/<int:pk>/update/', views.dispositivo_update_view, name='dispositivo_update'),
     path('dispositivos/<int:pk>/delete/', views.dispositivo_delete_view, name='dispositivo_delete'),
     
-    # Agendamentos de Exibição
+    # Agendamentos de Exibição (vinculação playlist → dispositivo)
     path('dispositivos/<int:dispositivo_pk>/agendamentos/create/', views.agendamento_create_view, name='agendamento_create'),
     path('dispositivos/<int:dispositivo_pk>/agendamentos/<int:pk>/update/', views.agendamento_update_view, name='agendamento_update'),
     path('dispositivos/<int:dispositivo_pk>/agendamentos/<int:pk>/delete/', views.agendamento_delete_view, name='agendamento_delete'),
-    
-    # Agendamentos de Publicação de Vídeos
-    path('agendamentos-video/', views.agendamento_video_list_view, name='agendamento_video_list'),
-    path('agendamentos-video/create/', views.agendamento_video_create_view, name='agendamento_video_create'),
-    path('agendamentos-video/<int:pk>/update/', views.agendamento_video_update_view, name='agendamento_video_update'),
-    path('agendamentos-video/<int:pk>/delete/', views.agendamento_video_delete_view, name='agendamento_video_delete'),
     
     # App Management (OWNER ONLY)
     path('app/upload/', views.app_upload_view, name='app_upload'),

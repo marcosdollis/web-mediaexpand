@@ -4,7 +4,7 @@ from django.db import models
 from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao,
-    ConteudoCorporativo, ConfiguracaoAPI, AgendamentoVideo
+    ConteudoCorporativo, ConfiguracaoAPI
 )
 
 
@@ -238,8 +238,6 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
 
     def get_videos(self, obj):
         from django.urls import reverse
-        from .models import AgendamentoVideo
-        from django.utils import timezone
 
         items = obj.items.filter(ativo=True).select_related('video', 'conteudo_corporativo').order_by('ordem')
         result = []
@@ -250,7 +248,6 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                 cc = item.conteudo_corporativo
                 if not cc.ativo:
                     continue
-                # URL da página HTML que o app carrega no WebView
                 html_path = reverse('tv-corporativo-html', kwargs={
                     'tipo': cc.tipo.lower(),
                     'playlist_id': obj.id,
@@ -274,72 +271,35 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
             # ── Vídeo normal ──
             if not item.video:
                 continue
-            # Pula vídeos sem arquivo ou inativos
-            if not item.video.arquivo or not item.video.ativo or item.video.status != 'APPROVED':
+            video = item.video
+            if not video.arquivo or not video.ativo:
+                continue
+            # Verificar visibilidade: APPROVED sempre, SCHEDULED se na janela de datas
+            if not video.esta_visivel_nas_tvs:
                 continue
                 
             for _ in range(item.repeticoes):
-                arquivo_url = self._build_url(item.video.arquivo.url)
+                arquivo_url = self._build_url(video.arquivo.url)
                 
                 video_data = {
-                    'id': item.video.id,
+                    'id': video.id,
                     'tipo': 'video',
-                    'titulo': item.video.titulo,
+                    'titulo': video.titulo,
                     'arquivo_url': arquivo_url,
-                    'duracao_segundos': item.video.duracao_segundos,
-                    'ativo': item.video.ativo,
-                    'texto_tarja': item.video.texto_tarja,
+                    'duracao_segundos': video.duracao_segundos,
+                    'ativo': video.ativo,
+                    'texto_tarja': video.texto_tarja,
                 }
                 
-                # QR Code data (opcional)
-                if item.video.qrcode_url_destino:
-                    tracking_url = self._build_url(f'/r/{item.video.qrcode_tracking_code}/')
+                if video.qrcode_url_destino:
+                    tracking_url = self._build_url(f'/r/{video.qrcode_tracking_code}/')
                     video_data['qrcode'] = {
                         'tracking_url': tracking_url,
-                        'descricao': item.video.qrcode_descricao or '',
+                        'descricao': video.qrcode_descricao or '',
                     }
                 else:
                     video_data['qrcode'] = None
                 
-                result.append(video_data)
-
-        # ── Vídeos agendados para esta playlist & este momento ──
-        now = timezone.now()
-        agendados = AgendamentoVideo.objects.filter(
-            playlist=obj,
-            ativo=True,
-            data_inicio__lte=now,
-        ).filter(
-            models.Q(data_fim__isnull=True) | models.Q(data_fim__gte=now)
-        ).select_related('video').order_by('ordem')
-
-        for ag in agendados:
-            v = ag.video
-            if not v.arquivo or not v.ativo or v.status != 'APPROVED':
-                continue
-            # Evitar duplicata se o vídeo já está na playlist normal
-            if any(item.get('id') == v.id and item.get('tipo') == 'video' for item in result):
-                continue
-            for _ in range(ag.repeticoes):
-                arquivo_url = self._build_url(v.arquivo.url)
-                video_data = {
-                    'id': v.id,
-                    'tipo': 'video',
-                    'titulo': v.titulo,
-                    'arquivo_url': arquivo_url,
-                    'duracao_segundos': v.duracao_segundos,
-                    'ativo': v.ativo,
-                    'texto_tarja': v.texto_tarja,
-                    'agendado': True,
-                }
-                if v.qrcode_url_destino:
-                    tracking_url = self._build_url(f'/r/{v.qrcode_tracking_code}/')
-                    video_data['qrcode'] = {
-                        'tracking_url': tracking_url,
-                        'descricao': v.qrcode_descricao or '',
-                    }
-                else:
-                    video_data['qrcode'] = None
                 result.append(video_data)
 
         return result
