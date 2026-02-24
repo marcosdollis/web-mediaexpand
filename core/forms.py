@@ -207,6 +207,11 @@ class DispositivoTVForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Filtrar apenas playlists ativas
         self.fields['playlist_atual'].queryset = Playlist.objects.filter(ativa=True)
+        self.fields['playlist_atual'].label = 'Playlist Padrão'
+        self.fields['playlist_atual'].help_text = (
+            'Playlist exibida fora dos horários agendados. '
+            'Para vincular playlists diferentes por horário, use os Agendamentos de Exibição na página de detalhes do dispositivo.'
+        )
 
 
 class AgendamentoExibicaoForm(forms.ModelForm):

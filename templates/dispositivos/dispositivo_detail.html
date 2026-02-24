@@ -85,9 +85,13 @@
             <!-- Current Playlist -->
             <div class="card shadow mb-4">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Playlist Atual</h5>
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Playlist Padrão (Fallback)</h5>
                 </div>
                 <div class="card-body">
+                    <div class="alert alert-light border mb-3">
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        <small>Esta playlist é exibida <strong>fora dos horários agendados</strong>. Para exibir playlists diferentes por horário, crie agendamentos na seção abaixo.</small>
+                    </div>
                     {% if dispositivo.playlist_atual %}
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <div>
@@ -130,12 +134,18 @@
             <!-- Agendamentos de Exibição -->
             <div class="card shadow mb-4">
                 <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Agendamentos de Exibição</h5>
+                    <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Agendamentos de Exibição (Multi-Playlist)</h5>
                     <a href="{% url 'agendamento_create' dispositivo.pk %}" class="btn btn-sm btn-dark">
                         <i class="fas fa-plus me-1"></i>Novo Agendamento
                     </a>
                 </div>
                 <div class="card-body">
+                    <div class="alert alert-warning border mb-3">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>Como funciona:</strong> Cada agendamento define uma faixa horária + dias da semana + uma playlist específica.
+                        Nos horários configurados, a TV exibe a playlist do agendamento. Fora deles, exibe a Playlist Padrão.
+                        <br><small class="text-muted">Use o campo <strong>Prioridade</strong> para definir qual agendamento prevalece quando há sobreposição de horários (maior número = maior prioridade).</small>
+                    </div>
                     {% if dispositivo.agendamentos.all %}
                     <div class="list-group">
                         {% for agendamento in dispositivo.agendamentos.all %}
@@ -197,7 +207,10 @@
                     <div class="text-center py-4">
                         <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
                         <p class="text-muted">Nenhum agendamento configurado.</p>
-                        <p class="small text-muted mb-3">Sem agendamentos, a TV exibirá o conteúdo 24 horas por dia.</p>
+                        <p class="small text-muted mb-3">
+                            Crie agendamentos para vincular <strong>múltiplas playlists</strong> a este dispositivo,
+                            cada uma exibida em horários e dias da semana específicos.
+                        </p>
                         <a href="{% url 'agendamento_create' dispositivo.pk %}" class="btn btn-warning">
                             <i class="fas fa-plus-circle me-1"></i>Criar Primeiro Agendamento
                         </a>
