@@ -139,7 +139,23 @@ RECOMENDAÇÃO:
 
 RESPOSTA ATUALIZADA DO endpoint /api/tv/check-schedule/:
 {
-    "should_display": true,
+    "should_display": true,              ← BASEADO NOS HORÁRIOS DE FUNCIONAMENTO
+    "horarios_funcionamento": [          ← LISTA DE HORÁRIOS (pode ter N)
+        {
+            "nome": "Horário Comercial",
+            "hora_inicio": "08:00",
+            "hora_fim": "17:00",
+            "dias_semana": [0,1,2,3,4],
+            "ativo": true
+        },
+        {
+            "nome": "Sábado",
+            "hora_inicio": "09:00",
+            "hora_fim": "13:00",
+            "dias_semana": [5],
+            "ativo": true
+        }
+    ],
     "playlist_id": 2,                    ← PODE MUDAR ao longo do dia
     "playlist_nome": "Clientes",
     "agendamentos": [
@@ -217,6 +233,76 @@ IMPACTO NO APP:
 
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
+║  4. HORÁRIO DE FUNCIONAMENTO DO DISPOSITIVO (ligar/desligar TV)             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+SITUAÇÃO ANTERIOR:
+- O agendamento de ligar/desligar era controlado pelos agendamentos de playlist
+- Confuso: misturava "qual playlist toca" com "TV liga/desliga"
+
+NOVA ABORDAGEM (model HorarioFuncionamento — múltiplos horários por TV):
+- O dispositivo agora tem N horários de funcionamento cadastrados
+  (model separado: HorarioFuncionamento)
+- Cada horário define:
+  · nome — descritivo (ex: "Horário Comercial", "Sábado")
+  · hora_inicio — hora que a TV liga (ex: 08:00)
+  · hora_fim — hora que a TV desliga (ex: 17:00)
+  · dias_semana — dias [0=Seg..6=Dom]. Vazio = todos
+  · ativo — pode desativar sem deletar
+- Se nenhum horário cadastrado → TV fica ligada 24h
+- Se algum horário bate com o momento atual → should_display: true
+- Se nenhum bate → should_display: false (tela preta)
+
+EXEMPLO (2 horários no mesmo dispositivo):
+  1. "Horário Comercial": 08:00-17:00, dias = [0,1,2,3,4] (Seg-Sex)
+  2. "Sábado": 09:00-13:00, dias = [5]
+  → TV liga 08h Seg-Sex e 09h Sáb
+  → TV desliga 17h Seg-Sex e 13h Sáb
+  → Domingo: TV desligada o dia todo
+  → Sáb 14:00: should_display = false → tela preta
+  → Seg 08:00: should_display = true → volta a tocar playlists
+
+IMPACTO NO APP:
+- NENHUMA ALTERAÇÃO necessária
+- O app já trata should_display via onShouldDisplay():
+  · should_display: true  → activateDisplay()
+  · should_display: false → deactivateDisplay() (tela preta)
+- O servidor agora retorna should_display baseado nos horários
+  de funcionamento cadastrados no dispositivo
+
+RESPOSTA DO endpoint /api/tv/check-schedule/ (campo atualizado):
+{
+    "should_display": false,
+    "horarios_funcionamento": [
+        {
+            "nome": "Horário Comercial",
+            "hora_inicio": "08:00",
+            "hora_fim": "17:00",
+            "dias_semana": [0,1,2,3,4],
+            "ativo": true
+        },
+        {
+            "nome": "Sábado",
+            "hora_inicio": "09:00",
+            "hora_fim": "13:00",
+            "dias_semana": [5],
+            "ativo": true
+        }
+    ],
+    ...
+}
+
+FLUXO COMPLETO:
+  1. App chama GET /api/tv/check-schedule/<UUID>/
+  2. Servidor itera os HorarioFuncionamento ativos do dispositivo
+  3. Se algum horário bate com agora → should_display: true
+  4. Se nenhum bate → should_display: false
+  5. App recebe false → deactivateDisplay() → tela preta
+  6. Na próxima verificação (5-10 min), se entrou em algum horário:
+     should_display: true → activateDisplay() → volta a tocar
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
 ║  RESUMO DE ALTERAÇÕES NO APP                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
@@ -233,18 +319,26 @@ IMPACTO NO APP:
 │ Vídeos com publicação agendada      │ NENHUMA        │ — resolvido no       │
 │ (status SCHEDULED + datas)          │                │ servidor             │
 ├─────────────────────────────────────┼────────────────┼──────────────────────┤
+│ Horário de funcionamento da TV      │ NENHUMA**      │ — should_display já  │
+│ (ligar/desligar por horário)        │                │ tratado pelo app     │
+├─────────────────────────────────────┼────────────────┼──────────────────────┤
 │ Re-autenticar periodicamente        │ RECOMENDADA    │ MÉDIA — para pegar   │
 │ (a cada 5-10 min)                   │                │ troca de playlist    │
-│                                     │                │ por horário          │
+│                                     │                │ e ligar/desligar     │
 ├─────────────────────────────────────┼────────────────┼──────────────────────┤
 │ Tratar erro de rede no WebView      │ RECOMENDADA    │ BAIXA — experiência  │
 │                                     │                │ do usuário           │
 └─────────────────────────────────────┴────────────────┴──────────────────────┘
 
-* O app já busca a playlist via POST /api/tv/auth/ — o servidor retorna
-  a playlist correta para o horário. Se o app re-autenticar periodicamente,
-  a troca de playlist por horário funciona automaticamente.
-  Playlists vinculadas sem horário (24/7) servem como fallback.
+*  O app já busca a playlist via POST /api/tv/auth/ — o servidor retorna
+   a playlist correta para o horário. Se o app re-autenticar periodicamente,
+   a troca de playlist por horário funciona automaticamente.
+   Playlists vinculadas sem horário (24/7) servem como fallback.
+
+** O app já trata should_display via onShouldDisplay(). O servidor agora
+   retorna should_display: false quando fora de todos os horários de
+   funcionamento do dispositivo. O app faz deactivateDisplay() (tela preta)
+   e volta a activateDisplay() quando should_display volta a ser true.
 
 
 ╔══════════════════════════════════════════════════════════════════════════════╗

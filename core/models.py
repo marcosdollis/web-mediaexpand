@@ -402,16 +402,6 @@ class PlaylistItem(models.Model):
 
 class DispositivoTV(models.Model):
     """Dispositivos de TV que executarão as playlists"""
-    DIAS_SEMANA_CHOICES = [
-        (0, 'Segunda-feira'),
-        (1, 'Terça-feira'),
-        (2, 'Quarta-feira'),
-        (3, 'Quinta-feira'),
-        (4, 'Sexta-feira'),
-        (5, 'Sábado'),
-        (6, 'Domingo'),
-    ]
-    
     nome = models.CharField(max_length=200)
     identificador_unico = models.CharField(max_length=100, unique=True, help_text='UUID ou código único da TV')
     municipio = models.ForeignKey(Municipio, on_delete=models.CASCADE, related_name='dispositivos')
@@ -426,19 +416,6 @@ class DispositivoTV(models.Model):
     publico_estimado_mes = models.IntegerField(
         default=0,
         help_text='Estimativa de pessoas que visualizarão os anúncios por mês'
-    )
-    # Horário de funcionamento do dispositivo (simulação de ligar/desligar)
-    hora_ligar = models.TimeField(
-        null=True, blank=True,
-        help_text='Hora que a TV liga (ex: 08:00). Vazio = 24h.'
-    )
-    hora_desligar = models.TimeField(
-        null=True, blank=True,
-        help_text='Hora que a TV desliga (ex: 17:00). Vazio = 24h.'
-    )
-    dias_funcionamento = models.JSONField(
-        default=list, blank=True,
-        help_text='Dias da semana que a TV funciona: 0=Seg..6=Dom. Vazio = todos.'
     )
     ativo = models.BooleanField(default=True, db_index=True)
     ultima_sincronizacao = models.DateTimeField(null=True, blank=True)
@@ -456,45 +433,30 @@ class DispositivoTV(models.Model):
     
     def esta_no_horario_exibicao(self):
         """
-        Verifica se o dispositivo deve estar ligado agora baseado no
-        horário de funcionamento do DISPOSITIVO (hora_ligar / hora_desligar).
-        Se não há horário definido, está sempre ligado.
+        Verifica se o dispositivo deve estar ligado agora baseado nos
+        HorarioFuncionamento cadastrados. Se não há nenhum, está sempre ligado.
         """
         from django.utils import timezone
 
-        # Sem horário de funcionamento = 24/7
-        if not self.hora_ligar or not self.hora_desligar:
-            return True
+        horarios = self.horarios_funcionamento.filter(ativo=True)
+        if not horarios.exists():
+            return True  # sem horário de funcionamento = 24/7
 
         now = timezone.localtime(timezone.now())
         dia_semana = now.weekday()
         hora_atual = now.time()
 
-        # Verificar dia da semana
-        dias = self.dias_funcionamento if self.dias_funcionamento else list(range(7))
-        if dia_semana not in dias:
-            return False
+        for h in horarios:
+            dias = h.dias_semana if h.dias_semana else list(range(7))
+            if dia_semana in dias and h.hora_inicio <= hora_atual <= h.hora_fim:
+                return True
 
-        return self.hora_ligar <= hora_atual <= self.hora_desligar
+        return False
 
     @property
     def tem_horario_funcionamento(self):
-        """Retorna True se o dispositivo tem horário de funcionamento definido"""
-        return bool(self.hora_ligar and self.hora_desligar)
-
-    def get_horario_funcionamento_display(self):
-        """Retorna o horário de funcionamento formatado"""
-        if not self.tem_horario_funcionamento:
-            return "24 horas"
-        return f"{self.hora_ligar.strftime('%H:%M')} até {self.hora_desligar.strftime('%H:%M')}"
-
-    def get_dias_funcionamento_display(self):
-        """Retorna os dias de funcionamento formatados"""
-        dias = self.dias_funcionamento if self.dias_funcionamento else list(range(7))
-        if len(dias) == 7 or not dias:
-            return "Todos os dias"
-        nomes = {0: 'Seg', 1: 'Ter', 2: 'Qua', 3: 'Qui', 4: 'Sex', 5: 'Sáb', 6: 'Dom'}
-        return ', '.join(nomes[d] for d in sorted(dias))
+        """Retorna True se o dispositivo tem horários de funcionamento definidos"""
+        return self.horarios_funcionamento.filter(ativo=True).exists()
 
     def get_playlist_atual_por_horario(self):
         """
@@ -659,6 +621,66 @@ class AgendamentoExibicao(models.Model):
         """Retorna o horário em formato legível"""
         if self.is_fulltime:
             return "24 horas"
+        return f"{self.hora_inicio.strftime('%H:%M')} até {self.hora_fim.strftime('%H:%M')}"
+
+
+class HorarioFuncionamento(models.Model):
+    """
+    Horários de funcionamento (ligar/desligar) de um dispositivo TV.
+    Permite N faixas de horário por dispositivo.
+    Ex: Seg-Sex 08:00-17:00, Sáb 09:00-13:00
+    Fora dos horários cadastrados, a TV simula estar desligada (tela preta).
+    Se nenhum horário for cadastrado, a TV fica ligada 24h.
+    """
+    DIAS_SEMANA_CHOICES = [
+        (0, 'Segunda-feira'),
+        (1, 'Terça-feira'),
+        (2, 'Quarta-feira'),
+        (3, 'Quinta-feira'),
+        (4, 'Sexta-feira'),
+        (5, 'Sábado'),
+        (6, 'Domingo'),
+    ]
+
+    dispositivo = models.ForeignKey(
+        DispositivoTV, on_delete=models.CASCADE,
+        related_name='horarios_funcionamento'
+    )
+    nome = models.CharField(
+        max_length=200, blank=True,
+        help_text='Nome descritivo (ex: Horário Comercial, Sábado)'
+    )
+    dias_semana = models.JSONField(
+        default=list,
+        help_text='Dias da semana: 0=Seg..6=Dom. Vazio = todos os dias.'
+    )
+    hora_inicio = models.TimeField(help_text='Hora que a TV liga')
+    hora_fim = models.TimeField(help_text='Hora que a TV desliga')
+    ativo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Horário de Funcionamento'
+        verbose_name_plural = 'Horários de Funcionamento'
+        ordering = ['dispositivo', 'hora_inicio']
+
+    def __str__(self):
+        return f"{self.nome or 'Horário'} ({self.hora_inicio.strftime('%H:%M')}-{self.hora_fim.strftime('%H:%M')})"
+
+    def save(self, *args, **kwargs):
+        if not self.nome:
+            self.nome = f"{self.hora_inicio.strftime('%H:%M')}-{self.hora_fim.strftime('%H:%M')}"
+        super().save(*args, **kwargs)
+
+    def get_dias_display(self):
+        dias = self.dias_semana if self.dias_semana else list(range(7))
+        if len(dias) == 7 or not dias:
+            return "Todos os dias"
+        nomes = {0: 'Seg', 1: 'Ter', 2: 'Qua', 3: 'Qui', 4: 'Sex', 5: 'Sáb', 6: 'Dom'}
+        return ', '.join(nomes[d] for d in sorted(dias))
+
+    def get_horario_display(self):
         return f"{self.hora_inicio.strftime('%H:%M')} até {self.hora_fim.strftime('%H:%M')}"
 
 

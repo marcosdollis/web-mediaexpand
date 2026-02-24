@@ -1,0 +1,143 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}{% if horario %}Editar{% else %}Novo{% endif %} Horário de Funcionamento - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'dispositivo_list' %}">Dispositivos</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'dispositivo_detail' dispositivo.pk %}">{{ dispositivo.nome }}</a></li>
+                    <li class="breadcrumb-item active">{% if horario %}Editar{% else %}Novo{% endif %} Horário</li>
+                </ol>
+            </nav>
+            <h1 class="h3">
+                <i class="fas fa-clock me-2"></i>
+                {% if horario %}Editar Horário: {{ horario.nome }}{% else %}Novo Horário de Funcionamento{% endif %}
+            </h1>
+            <p class="text-muted">
+                Dispositivo: <strong>{{ dispositivo.nome }}</strong> — {{ dispositivo.localizacao }}
+            </p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Nome -->
+                        <div class="mb-3">
+                            <label for="{{ form.nome.id_for_label }}" class="form-label">
+                                Nome <small class="text-muted">(opcional)</small>
+                            </label>
+                            {{ form.nome }}
+                            <small class="form-text text-muted">
+                                Ex: Horário Comercial, Sábado, etc. Se vazio, será gerado automaticamente.
+                            </small>
+                        </div>
+
+                        <!-- Horários -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.hora_inicio.id_for_label }}" class="form-label">
+                                    <i class="fas fa-sunrise me-1"></i>Hora de Ligar <span class="text-danger">*</span>
+                                </label>
+                                {{ form.hora_inicio }}
+                                <small class="form-text text-muted">Ex: 08:00</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.hora_fim.id_for_label }}" class="form-label">
+                                    <i class="fas fa-sunset me-1"></i>Hora de Desligar <span class="text-danger">*</span>
+                                </label>
+                                {{ form.hora_fim }}
+                                <small class="form-text text-muted">Ex: 17:00</small>
+                            </div>
+                        </div>
+
+                        <!-- Dias da Semana -->
+                        <div class="mb-3">
+                            <label class="form-label">Dias da Semana</label>
+                            <div class="d-flex gap-3 flex-wrap">
+                                <div class="form-check">
+                                    {{ form.seg }}
+                                    <label class="form-check-label" for="{{ form.seg.id_for_label }}">Seg</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.ter }}
+                                    <label class="form-check-label" for="{{ form.ter.id_for_label }}">Ter</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.qua }}
+                                    <label class="form-check-label" for="{{ form.qua.id_for_label }}">Qua</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.qui }}
+                                    <label class="form-check-label" for="{{ form.qui.id_for_label }}">Qui</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.sex }}
+                                    <label class="form-check-label" for="{{ form.sex.id_for_label }}">Sex</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.sab }}
+                                    <label class="form-check-label" for="{{ form.sab.id_for_label }}">Sáb</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.dom }}
+                                    <label class="form-check-label" for="{{ form.dom.id_for_label }}">Dom</label>
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">
+                                Nenhum dia selecionado = todos os dias.
+                            </small>
+                        </div>
+
+                        <!-- Ativo -->
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.ativo }}
+                                <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                                    Ativo
+                                </label>
+                            </div>
+                        </div>
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <small>
+                                Fora dos horários cadastrados, a TV simula estar <strong>desligada</strong> (tela preta).
+                                Você pode criar múltiplos horários (ex: Seg-Sex 08:00-17:00 e Sáb 09:00-13:00).
+                            </small>
+                        </div>
+
+                        <!-- Botões -->
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <a href="{% url 'dispositivo_detail' dispositivo.pk %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save me-1"></i>{% if horario %}Atualizar{% else %}Criar{% endif %} Horário
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

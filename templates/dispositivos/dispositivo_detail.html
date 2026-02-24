@@ -314,10 +314,13 @@
                 </div>
             </div>
 
-            <!-- QR Code -->
+            <!-- Horário de Funcionamento -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-dark text-white">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-moon me-2"></i>Horário de Funcionamento</h5>
+                    <a href="{% url 'horario_create' dispositivo.pk %}" class="btn btn-sm btn-light">
+                        <i class="fas fa-plus me-1"></i>Novo Horário
+                    </a>
                 </div>
                 <div class="card-body">
                     {% if dispositivo.tem_horario_funcionamento %}
@@ -330,20 +333,46 @@
                         <small class="text-muted">Fora do horário — tela preta</small>
                         {% endif %}
                     </div>
-                    <div class="small">
-                        <div class="mb-2">
-                            <i class="fas fa-clock text-primary me-1"></i>
-                            <strong>{{ dispositivo.get_horario_funcionamento_display }}</strong>
+                    <div class="list-group">
+                        {% for h in horarios_funcionamento %}
+                        <div class="list-group-item {% if not h.ativo %}bg-light{% endif %}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <h6 class="mb-0 me-2">
+                                            <i class="fas fa-clock me-1 text-primary"></i>
+                                            {{ h.nome|default:"Horário" }}
+                                        </h6>
+                                        {% if h.ativo %}
+                                        <span class="badge bg-success">Ativo</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inativo</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="small text-muted">
+                                        <i class="fas fa-clock me-1"></i>
+                                        {{ h.get_horario_display }}
+                                        <span class="mx-1">|</span>
+                                        <i class="fas fa-calendar-week me-1"></i>
+                                        {{ h.get_dias_display }}
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <a href="{% url 'horario_update' dispositivo.pk h.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'horario_delete' dispositivo.pk h.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </div>
                         </div>
-                        <div class="mb-2">
-                            <i class="fas fa-calendar-week text-primary me-1"></i>
-                            {{ dispositivo.get_dias_funcionamento_display }}
-                        </div>
-                        <hr class="my-2">
+                        {% endfor %}
+                    </div>
+                    <div class="mt-2">
                         <small class="text-muted">
                             <i class="fas fa-moon me-1"></i>
-                            Fora deste horário a TV simula estar desligada (tela preta).
-                            <a href="{% url 'dispositivo_update' dispositivo.pk %}" class="text-decoration-none">Editar</a>
+                            Fora dos horários cadastrados a TV simula estar desligada (tela preta).
                         </small>
                     </div>
                     {% else %}
@@ -354,7 +383,7 @@
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
                         Nenhum horário de funcionamento definido — a TV fica ligada 24 horas.
-                        <a href="{% url 'dispositivo_update' dispositivo.pk %}" class="text-decoration-none">Definir horário</a>
+                        <a href="{% url 'horario_create' dispositivo.pk %}" class="text-decoration-none">Definir horário</a>
                     </small>
                     {% endif %}
                 </div>

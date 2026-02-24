@@ -4,7 +4,7 @@ from django.utils.html import format_html
 from .models import (
     User, Municipio, Cliente, Video, 
     Playlist, PlaylistItem, DispositivoTV, AgendamentoExibicao, LogExibicao, AppVersion,
-    QRCodeClick, ConteudoCorporativo, ConfiguracaoAPI, Segmento
+    QRCodeClick, ConteudoCorporativo, ConfiguracaoAPI, Segmento, HorarioFuncionamento
 )
 
 
@@ -140,6 +140,19 @@ class AgendamentoExibicaoAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
     ordering = ('dispositivo', 'hora_inicio')
     
+    def get_dias_semana(self, obj):
+        return obj.get_dias_display()
+    get_dias_semana.short_description = 'Dias da Semana'
+
+
+@admin.register(HorarioFuncionamento)
+class HorarioFuncionamentoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'dispositivo', 'get_dias_semana', 'hora_inicio', 'hora_fim', 'ativo', 'created_at')
+    list_filter = ('ativo', 'dispositivo__municipio')
+    search_fields = ('nome', 'dispositivo__nome')
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('dispositivo', 'hora_inicio')
+
     def get_dias_semana(self, obj):
         return obj.get_dias_display()
     get_dias_semana.short_description = 'Dias da Semana'

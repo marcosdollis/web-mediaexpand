@@ -1,0 +1,58 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Excluir Horário - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'dispositivo_list' %}">Dispositivos</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'dispositivo_detail' dispositivo.pk %}">{{ dispositivo.nome }}</a></li>
+                    <li class="breadcrumb-item active">Excluir Horário</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card shadow border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-trash me-2"></i>Confirmar Exclusão</h5>
+                </div>
+                <div class="card-body">
+                    <p>Tem certeza que deseja excluir o horário de funcionamento abaixo?</p>
+                    
+                    <div class="alert alert-warning">
+                        <strong>{{ horario.nome|default:"Horário" }}</strong><br>
+                        <i class="fas fa-clock me-1"></i>{{ horario.get_horario_display }}<br>
+                        <i class="fas fa-calendar-week me-1"></i>{{ horario.get_dias_display }}<br>
+                        <small class="text-muted">Dispositivo: {{ dispositivo.nome }}</small>
+                    </div>
+
+                    <p class="text-muted small">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Ao remover todos os horários, a TV ficará ligada 24 horas.
+                    </p>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'dispositivo_detail' dispositivo.pk %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash me-1"></i>Excluir Horário
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

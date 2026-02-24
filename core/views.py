@@ -8,7 +8,8 @@ from django.db import models
 from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion,
-    QRCodeClick, AgendamentoExibicao, ConteudoCorporativo, ConfiguracaoAPI
+    QRCodeClick, AgendamentoExibicao, ConteudoCorporativo, ConfiguracaoAPI,
+    HorarioFuncionamento
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -485,11 +486,16 @@ class TVCheckScheduleView(APIView):
                 'current_time': timezone.localtime(timezone.now()).isoformat(),
                 'dispositivo_nome': dispositivo.nome,
                 'has_playlist': dispositivo.playlist_atual is not None,
-                'horario_funcionamento': {
-                    'hora_ligar': dispositivo.hora_ligar.strftime('%H:%M') if dispositivo.hora_ligar else None,
-                    'hora_desligar': dispositivo.hora_desligar.strftime('%H:%M') if dispositivo.hora_desligar else None,
-                    'dias_funcionamento': dispositivo.dias_funcionamento or [],
-                },
+                'horarios_funcionamento': [
+                    {
+                        'nome': h.nome,
+                        'hora_inicio': h.hora_inicio.strftime('%H:%M'),
+                        'hora_fim': h.hora_fim.strftime('%H:%M'),
+                        'dias_semana': h.dias_semana or [],
+                        'ativo': h.ativo,
+                    }
+                    for h in dispositivo.horarios_funcionamento.filter(ativo=True)
+                ],
             }
             
             # Playlist ativa pelo horário (pode ser diferente da padrão)
@@ -637,7 +643,7 @@ from django.core.paginator import Paginator
 from datetime import timedelta, datetime, time
 import calendar
 import os
-from .forms import VideoForm, PlaylistForm, DispositivoTVForm, SegmentoForm, AppVersionForm, ConteudoCorporativoForm, ConfiguracaoAPIForm
+from .forms import VideoForm, PlaylistForm, DispositivoTVForm, SegmentoForm, AppVersionForm, ConteudoCorporativoForm, ConfiguracaoAPIForm, HorarioFuncionamentoForm
 
 
 def home_view(request):
@@ -1730,6 +1736,7 @@ def dispositivo_detail_view(request, pk):
     
     # Horário de funcionamento do dispositivo
     no_horario = dispositivo.esta_no_horario_exibicao()
+    horarios_funcionamento = dispositivo.horarios_funcionamento.all()
     
     # Buscar logs recentes com vídeo e thumbnail
     logs_recentes = dispositivo.logs_exibicao.select_related(
@@ -1740,6 +1747,7 @@ def dispositivo_detail_view(request, pk):
         'dispositivo': dispositivo,
         'agendamentos_ativos_count': agendamentos_ativos_count,
         'no_horario': no_horario,
+        'horarios_funcionamento': horarios_funcionamento,
         'logs_recentes': logs_recentes,
     }
     
@@ -1895,6 +1903,88 @@ def agendamento_delete_view(request, dispositivo_pk, pk):
     }
     
     return render(request, 'agendamentos/agendamento_confirm_delete.html', context)
+
+
+# ===== Horário de Funcionamento CRUD =====
+
+@login_required
+def horario_create_view(request, dispositivo_pk):
+    """Criar horário de funcionamento para um dispositivo"""
+    dispositivo = get_object_or_404(DispositivoTV, pk=dispositivo_pk)
+    user = request.user
+
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+        messages.error(request, 'Você não tem permissão para este dispositivo.')
+        return redirect('dispositivo_detail', pk=dispositivo_pk)
+
+    if request.method == 'POST':
+        form = HorarioFuncionamentoForm(request.POST)
+        if form.is_valid():
+            horario = form.save(commit=False)
+            horario.dispositivo = dispositivo
+            horario.save()
+            messages.success(request, f'Horário "{horario.nome}" criado com sucesso!')
+            return redirect('dispositivo_detail', pk=dispositivo_pk)
+    else:
+        form = HorarioFuncionamentoForm()
+
+    context = {
+        'form': form,
+        'dispositivo': dispositivo,
+    }
+    return render(request, 'horarios/horario_form.html', context)
+
+
+@login_required
+def horario_update_view(request, dispositivo_pk, pk):
+    """Editar horário de funcionamento"""
+    dispositivo = get_object_or_404(DispositivoTV, pk=dispositivo_pk)
+    horario = get_object_or_404(HorarioFuncionamento, pk=pk, dispositivo=dispositivo)
+    user = request.user
+
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+        messages.error(request, 'Você não tem permissão para este dispositivo.')
+        return redirect('dispositivo_detail', pk=dispositivo_pk)
+
+    if request.method == 'POST':
+        form = HorarioFuncionamentoForm(request.POST, instance=horario)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Horário "{horario.nome}" atualizado com sucesso!')
+            return redirect('dispositivo_detail', pk=dispositivo_pk)
+    else:
+        form = HorarioFuncionamentoForm(instance=horario)
+
+    context = {
+        'form': form,
+        'dispositivo': dispositivo,
+        'horario': horario,
+    }
+    return render(request, 'horarios/horario_form.html', context)
+
+
+@login_required
+def horario_delete_view(request, dispositivo_pk, pk):
+    """Deletar horário de funcionamento"""
+    dispositivo = get_object_or_404(DispositivoTV, pk=dispositivo_pk)
+    horario = get_object_or_404(HorarioFuncionamento, pk=pk, dispositivo=dispositivo)
+    user = request.user
+
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+        messages.error(request, 'Você não tem permissão para este dispositivo.')
+        return redirect('dispositivo_detail', pk=dispositivo_pk)
+
+    if request.method == 'POST':
+        nome = horario.nome
+        horario.delete()
+        messages.success(request, f'Horário "{nome}" excluído com sucesso!')
+        return redirect('dispositivo_detail', pk=dispositivo_pk)
+
+    context = {
+        'horario': horario,
+        'dispositivo': dispositivo,
+    }
+    return render(request, 'horarios/horario_confirm_delete.html', context)
 
 
 # User/Franchisee Views

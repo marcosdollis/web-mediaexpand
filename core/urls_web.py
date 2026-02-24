@@ -65,6 +65,11 @@ urlpatterns = [
     path('dispositivos/<int:dispositivo_pk>/agendamentos/<int:pk>/update/', views.agendamento_update_view, name='agendamento_update'),
     path('dispositivos/<int:dispositivo_pk>/agendamentos/<int:pk>/delete/', views.agendamento_delete_view, name='agendamento_delete'),
     
+    # Horários de Funcionamento (ligar/desligar do dispositivo)
+    path('dispositivos/<int:dispositivo_pk>/horarios/create/', views.horario_create_view, name='horario_create'),
+    path('dispositivos/<int:dispositivo_pk>/horarios/<int:pk>/update/', views.horario_update_view, name='horario_update'),
+    path('dispositivos/<int:dispositivo_pk>/horarios/<int:pk>/delete/', views.horario_delete_view, name='horario_delete'),
+    
     # App Management (OWNER ONLY)
     path('app/upload/', views.app_upload_view, name='app_upload'),
     path('app/version/<int:pk>/toggle/', views.app_version_toggle_view, name='app_version_toggle'),
