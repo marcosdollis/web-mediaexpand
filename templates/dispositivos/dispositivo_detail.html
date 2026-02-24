@@ -317,54 +317,44 @@
             <!-- QR Code -->
             <div class="card shadow mb-4">
                 <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="fas fa-moon me-2"></i>Simulação de Desligamento</h5>
+                    <h5 class="mb-0"><i class="fas fa-moon me-2"></i>Horário de Funcionamento</h5>
                 </div>
                 <div class="card-body">
-                    {% if tem_simulacao_desligamento %}
+                    {% if dispositivo.tem_horario_funcionamento %}
                     <div class="d-flex align-items-center mb-3">
                         {% if no_horario %}
                         <span class="badge bg-success fs-6 me-2"><i class="fas fa-power-off me-1"></i>TV Ligada</span>
-                        <small class="text-muted">Dentro do horário de exibição</small>
+                        <small class="text-muted">Dentro do horário de funcionamento</small>
                         {% else %}
                         <span class="badge bg-dark fs-6 me-2"><i class="fas fa-power-off me-1"></i>TV Desligada</span>
                         <small class="text-muted">Fora do horário — tela preta</small>
                         {% endif %}
                     </div>
                     <div class="small">
-                        <p class="text-muted mb-2"><i class="fas fa-info-circle me-1"></i>Horários de funcionamento:</p>
-                        <ul class="list-unstyled mb-0">
-                            {% for ag in agendamentos_com_horario %}
-                            <li class="mb-1">
-                                <i class="fas fa-clock text-primary me-1"></i>
-                                <strong>{{ ag.get_horario_display }}</strong>
-                                <span class="text-muted">— {{ ag.get_dias_display }}</span>
-                            </li>
-                            {% endfor %}
-                        </ul>
+                        <div class="mb-2">
+                            <i class="fas fa-clock text-primary me-1"></i>
+                            <strong>{{ dispositivo.get_horario_funcionamento_display }}</strong>
+                        </div>
+                        <div class="mb-2">
+                            <i class="fas fa-calendar-week text-primary me-1"></i>
+                            {{ dispositivo.get_dias_funcionamento_display }}
+                        </div>
                         <hr class="my-2">
                         <small class="text-muted">
                             <i class="fas fa-moon me-1"></i>
-                            Fora destes horários a TV simula estar desligada (tela preta).
+                            Fora deste horário a TV simula estar desligada (tela preta).
+                            <a href="{% url 'dispositivo_update' dispositivo.pk %}" class="text-decoration-none">Editar</a>
                         </small>
                     </div>
-                    {% elif agendamentos_ativos_count > 0 %}
+                    {% else %}
                     <div class="d-flex align-items-center mb-2">
                         <span class="badge bg-info fs-6 me-2"><i class="fas fa-infinity me-1"></i>24/7</span>
                         <small class="text-muted">TV sempre ligada</small>
                     </div>
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
-                        Há pelo menos uma playlist 24/7 vinculada. A TV nunca simula desligamento.<br>
-                        Para ativar, defina horários em todas as playlists vinculadas.
-                    </small>
-                    {% else %}
-                    <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-secondary fs-6 me-2"><i class="fas fa-minus-circle me-1"></i>Inativa</span>
-                        <small class="text-muted">Sem playlists vinculadas</small>
-                    </div>
-                    <small class="text-muted">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Vincule playlists com horário definido para ativar a simulação de desligamento.
+                        Nenhum horário de funcionamento definido — a TV fica ligada 24 horas.
+                        <a href="{% url 'dispositivo_update' dispositivo.pk %}" class="text-decoration-none">Definir horário</a>
                     </small>
                     {% endif %}
                 </div>

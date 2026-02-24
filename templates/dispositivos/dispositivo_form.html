@@ -124,6 +124,84 @@
                             </small>
                         </div>
 
+                        <hr class="my-4">
+
+                        <!-- Horário de Funcionamento -->
+                        <h5 class="mb-3">
+                            <i class="bi bi-clock me-2"></i>Horário de Funcionamento
+                            <small class="text-muted fw-normal">(opcional)</small>
+                        </h5>
+                        <p class="text-muted small mb-3">
+                            Define quando a TV fica ligada. Fora desse horário, a TV simula estar desligada (tela preta).
+                            Deixe vazio para que a TV fique ligada 24 horas.
+                        </p>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.hora_ligar.id_for_label }}" class="form-label">
+                                    <i class="bi bi-sunrise me-1"></i>Hora de Ligar
+                                </label>
+                                {{ form.hora_ligar }}
+                                <small class="form-text text-muted">Ex: 08:00</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.hora_desligar.id_for_label }}" class="form-label">
+                                    <i class="bi bi-sunset me-1"></i>Hora de Desligar
+                                </label>
+                                {{ form.hora_desligar }}
+                                <small class="form-text text-muted">Ex: 17:00</small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Dias de Funcionamento</label>
+                            <div class="d-flex gap-3 flex-wrap">
+                                {% for field_name in "seg,ter,qua,qui,sex,sab,dom" %}
+                                {% with dia_field=field_name %}
+                                {% endwith %}
+                                {% endfor %}
+                                <div class="form-check">
+                                    {{ form.seg }}
+                                    <label class="form-check-label" for="{{ form.seg.id_for_label }}">Seg</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.ter }}
+                                    <label class="form-check-label" for="{{ form.ter.id_for_label }}">Ter</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.qua }}
+                                    <label class="form-check-label" for="{{ form.qua.id_for_label }}">Qua</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.qui }}
+                                    <label class="form-check-label" for="{{ form.qui.id_for_label }}">Qui</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.sex }}
+                                    <label class="form-check-label" for="{{ form.sex.id_for_label }}">Sex</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.sab }}
+                                    <label class="form-check-label" for="{{ form.sab.id_for_label }}">Sáb</label>
+                                </div>
+                                <div class="form-check">
+                                    {{ form.dom }}
+                                    <label class="form-check-label" for="{{ form.dom.id_for_label }}">Dom</label>
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">
+                                Selecione os dias em que a TV deve funcionar. Relevante apenas com horário definido.
+                            </small>
+                        </div>
+
+                        {% if form.errors and not form.field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
                         {% if dispositivo %}
                         <!-- Info Playlists -->
                         <div class="alert alert-info mb-3">

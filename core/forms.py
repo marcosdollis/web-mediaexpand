@@ -221,12 +221,20 @@ class PlaylistForm(forms.ModelForm):
 
 class DispositivoTVForm(forms.ModelForm):
     """Formulário para dispositivos TV"""
+    
+    # Checkboxes para dias de funcionamento
+    seg = forms.BooleanField(required=False, label='Seg')
+    ter = forms.BooleanField(required=False, label='Ter')
+    qua = forms.BooleanField(required=False, label='Qua')
+    qui = forms.BooleanField(required=False, label='Qui')
+    sex = forms.BooleanField(required=False, label='Sex')
+    sab = forms.BooleanField(required=False, label='Sáb')
+    dom = forms.BooleanField(required=False, label='Dom')
 
     class Meta:
         model = DispositivoTV
-        fields = ['nome', 'localizacao', 'municipio', 'publico_estimado_mes', 'ativo']
-        # playlist_atual removido — playlists são vinculadas via Agendamentos na página de detalhes
-        # identificador_unico é gerado automaticamente na view
+        fields = ['nome', 'localizacao', 'municipio', 'publico_estimado_mes', 
+                  'hora_ligar', 'hora_desligar', 'ativo']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome do dispositivo'}),
             'localizacao': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Localização (ex: Praça Central)'}),
@@ -236,11 +244,52 @@ class DispositivoTVForm(forms.ModelForm):
                 'placeholder': 'Ex: 5000',
                 'min': '0'
             }),
+            'hora_ligar': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'hora_desligar': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['hora_ligar'].required = False
+        self.fields['hora_desligar'].required = False
+        # Carregar dias de funcionamento no edit
+        if self.instance and self.instance.pk and self.instance.dias_funcionamento:
+            mapping = {0: 'seg', 1: 'ter', 2: 'qua', 3: 'qui', 4: 'sex', 5: 'sab', 6: 'dom'}
+            for num, nome in mapping.items():
+                if num in self.instance.dias_funcionamento:
+                    self.fields[nome].initial = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        hora_ligar = cleaned_data.get('hora_ligar')
+        hora_desligar = cleaned_data.get('hora_desligar')
+        
+        if (hora_ligar and not hora_desligar) or (hora_desligar and not hora_ligar):
+            raise forms.ValidationError('Preencha ambos os horários (ligar e desligar) ou deixe ambos vazios para 24h.')
+        
+        if hora_ligar and hora_desligar and hora_ligar >= hora_desligar:
+            raise forms.ValidationError('O horário de ligar deve ser anterior ao de desligar.')
+        
+        # Coletar dias selecionados
+        dias = []
+        mapping = {'seg': 0, 'ter': 1, 'qua': 2, 'qui': 3, 'sex': 4, 'sab': 5, 'dom': 6}
+        for nome, num in mapping.items():
+            if cleaned_data.get(nome):
+                dias.append(num)
+        
+        if hora_ligar and hora_desligar and not dias:
+            raise forms.ValidationError('Selecione pelo menos um dia da semana quando definir horário de funcionamento.')
+        
+        cleaned_data['dias_funcionamento'] = dias
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.dias_funcionamento = self.cleaned_data.get('dias_funcionamento', [])
+        if commit:
+            instance.save()
+        return instance
 
 
 class AgendamentoExibicaoForm(forms.ModelForm):

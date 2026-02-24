@@ -402,6 +402,16 @@ class PlaylistItem(models.Model):
 
 class DispositivoTV(models.Model):
     """Dispositivos de TV que executarão as playlists"""
+    DIAS_SEMANA_CHOICES = [
+        (0, 'Segunda-feira'),
+        (1, 'Terça-feira'),
+        (2, 'Quarta-feira'),
+        (3, 'Quinta-feira'),
+        (4, 'Sexta-feira'),
+        (5, 'Sábado'),
+        (6, 'Domingo'),
+    ]
+    
     nome = models.CharField(max_length=200)
     identificador_unico = models.CharField(max_length=100, unique=True, help_text='UUID ou código único da TV')
     municipio = models.ForeignKey(Municipio, on_delete=models.CASCADE, related_name='dispositivos')
@@ -416,6 +426,19 @@ class DispositivoTV(models.Model):
     publico_estimado_mes = models.IntegerField(
         default=0,
         help_text='Estimativa de pessoas que visualizarão os anúncios por mês'
+    )
+    # Horário de funcionamento do dispositivo (simulação de ligar/desligar)
+    hora_ligar = models.TimeField(
+        null=True, blank=True,
+        help_text='Hora que a TV liga (ex: 08:00). Vazio = 24h.'
+    )
+    hora_desligar = models.TimeField(
+        null=True, blank=True,
+        help_text='Hora que a TV desliga (ex: 17:00). Vazio = 24h.'
+    )
+    dias_funcionamento = models.JSONField(
+        default=list, blank=True,
+        help_text='Dias da semana que a TV funciona: 0=Seg..6=Dom. Vazio = todos.'
     )
     ativo = models.BooleanField(default=True, db_index=True)
     ultima_sincronizacao = models.DateTimeField(null=True, blank=True)
@@ -432,27 +455,46 @@ class DispositivoTV(models.Model):
         return f"{self.nome} - {self.municipio}"
     
     def esta_no_horario_exibicao(self):
-        """Verifica se o dispositivo deve estar exibindo agora baseado nos agendamentos"""
+        """
+        Verifica se o dispositivo deve estar ligado agora baseado no
+        horário de funcionamento do DISPOSITIVO (hora_ligar / hora_desligar).
+        Se não há horário definido, está sempre ligado.
+        """
         from django.utils import timezone
-        
-        agendamentos = self.agendamentos.filter(ativo=True)
-        if not agendamentos.exists():
-            return True  # sem agendamentos = sempre exibe
-        
+
+        # Sem horário de funcionamento = 24/7
+        if not self.hora_ligar or not self.hora_desligar:
+            return True
+
         now = timezone.localtime(timezone.now())
         dia_semana = now.weekday()
         hora_atual = now.time()
-        
-        for ag in agendamentos:
-            # 24/7 playlist → sempre exibe
-            if ag.is_fulltime:
-                return True
-            dias = ag.dias_efetivos
-            if dia_semana in dias:
-                if ag.hora_inicio <= hora_atual <= ag.hora_fim:
-                    return True
-        
-        return False
+
+        # Verificar dia da semana
+        dias = self.dias_funcionamento if self.dias_funcionamento else list(range(7))
+        if dia_semana not in dias:
+            return False
+
+        return self.hora_ligar <= hora_atual <= self.hora_desligar
+
+    @property
+    def tem_horario_funcionamento(self):
+        """Retorna True se o dispositivo tem horário de funcionamento definido"""
+        return bool(self.hora_ligar and self.hora_desligar)
+
+    def get_horario_funcionamento_display(self):
+        """Retorna o horário de funcionamento formatado"""
+        if not self.tem_horario_funcionamento:
+            return "24 horas"
+        return f"{self.hora_ligar.strftime('%H:%M')} até {self.hora_desligar.strftime('%H:%M')}"
+
+    def get_dias_funcionamento_display(self):
+        """Retorna os dias de funcionamento formatados"""
+        dias = self.dias_funcionamento if self.dias_funcionamento else list(range(7))
+        if len(dias) == 7 or not dias:
+            return "Todos os dias"
+        nomes = {0: 'Seg', 1: 'Ter', 2: 'Qua', 3: 'Qui', 4: 'Sex', 5: 'Sáb', 6: 'Dom'}
+        return ', '.join(nomes[d] for d in sorted(dias))
 
     def get_playlist_atual_por_horario(self):
         """

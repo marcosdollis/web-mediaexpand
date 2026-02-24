@@ -485,6 +485,11 @@ class TVCheckScheduleView(APIView):
                 'current_time': timezone.localtime(timezone.now()).isoformat(),
                 'dispositivo_nome': dispositivo.nome,
                 'has_playlist': dispositivo.playlist_atual is not None,
+                'horario_funcionamento': {
+                    'hora_ligar': dispositivo.hora_ligar.strftime('%H:%M') if dispositivo.hora_ligar else None,
+                    'hora_desligar': dispositivo.hora_desligar.strftime('%H:%M') if dispositivo.hora_desligar else None,
+                    'dias_funcionamento': dispositivo.dias_funcionamento or [],
+                },
             }
             
             # Playlist ativa pelo horário (pode ser diferente da padrão)
@@ -1723,10 +1728,7 @@ def dispositivo_detail_view(request, pk):
     agendamentos_ativos = dispositivo.agendamentos.filter(ativo=True).select_related('playlist')
     agendamentos_ativos_count = agendamentos_ativos.count()
     
-    # Simulação de desligamento: verifica se há agendamentos com horário definido
-    agendamentos_com_horario = [ag for ag in agendamentos_ativos if not ag.is_fulltime]
-    agendamentos_fulltime = [ag for ag in agendamentos_ativos if ag.is_fulltime]
-    tem_simulacao_desligamento = len(agendamentos_com_horario) > 0 and len(agendamentos_fulltime) == 0
+    # Horário de funcionamento do dispositivo
     no_horario = dispositivo.esta_no_horario_exibicao()
     
     # Buscar logs recentes com vídeo e thumbnail
@@ -1737,8 +1739,6 @@ def dispositivo_detail_view(request, pk):
     context = {
         'dispositivo': dispositivo,
         'agendamentos_ativos_count': agendamentos_ativos_count,
-        'agendamentos_com_horario': agendamentos_com_horario,
-        'tem_simulacao_desligamento': tem_simulacao_desligamento,
         'no_horario': no_horario,
         'logs_recentes': logs_recentes,
     }
