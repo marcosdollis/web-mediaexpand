@@ -8,7 +8,8 @@ from django.db import models
 from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion,
-    QRCodeClick, AgendamentoExibicao, ConteudoCorporativo, ConfiguracaoAPI
+    QRCodeClick, AgendamentoExibicao, ConteudoCorporativo, ConfiguracaoAPI,
+    AgendamentoVideo
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -363,10 +364,11 @@ class TVAPIView(APIView):
                 dispositivo.versao_app = versao_app
             dispositivo.save()
             
-            # Retorna playlist atual
-            if dispositivo.playlist_atual and dispositivo.playlist_atual.ativa:
+            # Retorna playlist baseada no agendamento de horário
+            playlist_ativa = dispositivo.get_playlist_atual_por_horario()
+            if playlist_ativa and playlist_ativa.ativa:
                 playlist_serializer = PlaylistTVSerializer(
-                    dispositivo.playlist_atual,
+                    playlist_ativa,
                     context={'request': request}
                 )
                 return Response({
@@ -486,13 +488,14 @@ class TVCheckScheduleView(APIView):
                 'has_playlist': dispositivo.playlist_atual is not None,
             }
             
-            # Se deve exibir e tem playlist, retorna info da playlist
-            if should_display and dispositivo.playlist_atual:
-                response_data['playlist_id'] = dispositivo.playlist_atual.id
-                response_data['playlist_nome'] = dispositivo.playlist_atual.nome
+            # Playlist ativa pelo horário (pode ser diferente da padrão)
+            playlist_ativa = dispositivo.get_playlist_atual_por_horario()
+            if should_display and playlist_ativa:
+                response_data['playlist_id'] = playlist_ativa.id
+                response_data['playlist_nome'] = playlist_ativa.nome
             
-            # Retorna info dos agendamentos ativos
-            agendamentos = dispositivo.agendamentos.filter(ativo=True)
+            # Retorna info dos agendamentos ativos com playlist vinculada
+            agendamentos = dispositivo.agendamentos.filter(ativo=True).select_related('playlist')
             if agendamentos.exists():
                 response_data['agendamentos'] = [
                     {
@@ -500,6 +503,9 @@ class TVCheckScheduleView(APIView):
                         'dias_semana': ag.dias_semana,
                         'hora_inicio': ag.hora_inicio.strftime('%H:%M'),
                         'hora_fim': ag.hora_fim.strftime('%H:%M'),
+                        'playlist_id': ag.playlist_id,
+                        'playlist_nome': ag.playlist.nome if ag.playlist else None,
+                        'prioridade': ag.prioridade,
                     }
                     for ag in agendamentos
                 ]
@@ -514,6 +520,42 @@ class TVCheckScheduleView(APIView):
                 {'error': 'Dispositivo não encontrado ou inativo'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+class TVCorporativoHTMLView(APIView):
+    """
+    Retorna a página HTML completa de conteúdo corporativo para o app de TV.
+    O Android WebView carrega esta URL e exibe por duracao_segundos.
+    
+    URL: /api/tv/corporativo/<tipo>/<playlist_id>/
+    tipo: previsao_tempo | cotacoes | noticias
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, tipo, playlist_id):
+        from django.shortcuts import render as django_render
+        from .services import buscar_dados_corporativos
+
+        tipo_upper = tipo.upper()
+        valid = ['PREVISAO_TEMPO', 'COTACOES', 'NOTICIAS']
+        if tipo_upper not in valid:
+            return Response({'error': f'Tipo inválido. Válidos: {valid}'}, status=400)
+
+        # Buscar município da playlist para previsão do tempo
+        municipio = None
+        try:
+            playlist = Playlist.objects.select_related('municipio').get(pk=playlist_id)
+            municipio = playlist.municipio
+        except Playlist.DoesNotExist:
+            pass
+
+        dados = buscar_dados_corporativos(tipo_upper, municipio=municipio)
+
+        context = {
+            'conteudo_tipo': tipo_upper,
+            'dados': dados,
+        }
+        return django_render(request, 'corporativo/conteudo_tv.html', context)
 
 
 class DashboardStatsView(APIView):
@@ -591,7 +633,7 @@ from django.core.paginator import Paginator
 from datetime import timedelta, datetime, time
 import calendar
 import os
-from .forms import VideoForm, PlaylistForm, DispositivoTVForm, SegmentoForm, AppVersionForm, ConteudoCorporativoForm, ConfiguracaoAPIForm
+from .forms import VideoForm, PlaylistForm, DispositivoTVForm, SegmentoForm, AppVersionForm, ConteudoCorporativoForm, ConfiguracaoAPIForm, AgendamentoVideoForm
 
 
 def home_view(request):
@@ -1844,6 +1886,99 @@ def agendamento_delete_view(request, dispositivo_pk, pk):
     }
     
     return render(request, 'agendamentos/agendamento_confirm_delete.html', context)
+
+
+# ══════════════════════════════════════════════
+#  AGENDAMENTO DE VÍDEO (publicação agendada)
+# ══════════════════════════════════════════════
+
+@login_required
+def agendamento_video_list_view(request):
+    """Lista de agendamentos de publicação de vídeos"""
+    user = request.user
+    if user.is_client():
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+
+    qs = AgendamentoVideo.objects.select_related('video', 'playlist', 'video__cliente').all()
+    if user.is_franchisee():
+        qs = qs.filter(playlist__franqueado=user)
+
+    context = {'agendamentos': qs}
+    return render(request, 'agendamentos/agendamento_video_list.html', context)
+
+
+@login_required
+def agendamento_video_create_view(request):
+    """Criar novo agendamento de publicação de vídeo"""
+    user = request.user
+    if user.is_client():
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        form = AgendamentoVideoForm(request.POST, user=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Agendamento de vídeo criado com sucesso!')
+            return redirect('agendamento_video_list')
+    else:
+        form = AgendamentoVideoForm(user=user)
+
+    context = {
+        'form': form,
+        'title': 'Agendar Publicação de Vídeo',
+        'button_text': 'Criar Agendamento',
+    }
+    return render(request, 'agendamentos/agendamento_video_form.html', context)
+
+
+@login_required
+def agendamento_video_update_view(request, pk):
+    """Editar agendamento de publicação de vídeo"""
+    user = request.user
+    agendamento = get_object_or_404(AgendamentoVideo, pk=pk)
+
+    if user.is_franchisee() and agendamento.playlist.franqueado != user:
+        messages.error(request, 'Sem permissão.')
+        return redirect('agendamento_video_list')
+
+    if request.method == 'POST':
+        form = AgendamentoVideoForm(request.POST, instance=agendamento, user=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Agendamento atualizado com sucesso!')
+            return redirect('agendamento_video_list')
+    else:
+        form = AgendamentoVideoForm(instance=agendamento, user=user)
+
+    context = {
+        'form': form,
+        'agendamento': agendamento,
+        'title': 'Editar Agendamento de Vídeo',
+        'button_text': 'Salvar Alterações',
+    }
+    return render(request, 'agendamentos/agendamento_video_form.html', context)
+
+
+@login_required
+def agendamento_video_delete_view(request, pk):
+    """Deletar agendamento de publicação de vídeo"""
+    user = request.user
+    agendamento = get_object_or_404(AgendamentoVideo, pk=pk)
+
+    if user.is_franchisee() and agendamento.playlist.franqueado != user:
+        messages.error(request, 'Sem permissão.')
+        return redirect('agendamento_video_list')
+
+    if request.method == 'POST':
+        titulo = str(agendamento)
+        agendamento.delete()
+        messages.success(request, f'Agendamento "{titulo}" deletado com sucesso!')
+        return redirect('agendamento_video_list')
+
+    context = {'agendamento': agendamento}
+    return render(request, 'agendamentos/agendamento_video_confirm_delete.html', context)
 
 
 # User/Franchisee Views

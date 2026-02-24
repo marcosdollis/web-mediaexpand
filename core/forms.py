@@ -1,6 +1,10 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
-from .models import User, Municipio, Cliente, Video, Playlist, DispositivoTV, AgendamentoExibicao, Segmento, AppVersion, ConteudoCorporativo, ConfiguracaoAPI
+from .models import (
+    User, Municipio, Cliente, Video, Playlist, DispositivoTV,
+    AgendamentoExibicao, Segmento, AppVersion, ConteudoCorporativo,
+    ConfiguracaoAPI, AgendamentoVideo
+)
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -206,7 +210,7 @@ class DispositivoTVForm(forms.ModelForm):
 
 
 class AgendamentoExibicaoForm(forms.ModelForm):
-    """Formulário para agendamento de horários de exibição"""
+    """Formulário para agendamento de horários de exibição com playlist vinculada"""
     
     # Campos para checkboxes dos dias da semana
     segunda = forms.BooleanField(required=False, label='Segunda-feira')
@@ -219,16 +223,21 @@ class AgendamentoExibicaoForm(forms.ModelForm):
 
     class Meta:
         model = AgendamentoExibicao
-        fields = ['nome', 'hora_inicio', 'hora_fim', 'ativo']
+        fields = ['nome', 'playlist', 'hora_inicio', 'hora_fim', 'prioridade', 'ativo']
         widgets = {
-            'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome do agendamento'}),
+            'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Manhã Colaboradores'}),
+            'playlist': forms.Select(attrs={'class': 'form-select'}),
             'hora_inicio': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
             'hora_fim': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'prioridade': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': '0'}),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['playlist'].queryset = Playlist.objects.filter(ativa=True)
+        self.fields['playlist'].required = False
+        self.fields['playlist'].help_text = 'Playlist a ser exibida neste horário. Se vazio, usa a playlist padrão do dispositivo.'
         # Se está editando, carregar os dias selecionados
         if self.instance and self.instance.pk and self.instance.dias_semana:
             dias_mapping = {
@@ -368,3 +377,47 @@ class ConfiguracaoAPIForm(forms.ModelForm):
             'cache_cotacoes_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '5'}),
             'cache_noticias_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '5'}),
         }
+
+
+class AgendamentoVideoForm(forms.ModelForm):
+    """Formulário para agendamento de publicação de vídeo"""
+
+    class Meta:
+        model = AgendamentoVideo
+        fields = ['video', 'playlist', 'data_inicio', 'data_fim', 'ordem', 'repeticoes', 'ativo']
+        widgets = {
+            'video': forms.Select(attrs={'class': 'form-select'}),
+            'playlist': forms.Select(attrs={'class': 'form-select'}),
+            'data_inicio': forms.DateTimeInput(attrs={
+                'class': 'form-control',
+                'type': 'datetime-local',
+            }),
+            'data_fim': forms.DateTimeInput(attrs={
+                'class': 'form-control',
+                'type': 'datetime-local',
+            }),
+            'ordem': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': '0'}),
+            'repeticoes': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'value': '1'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        self.fields['data_fim'].required = False
+        # Filtrar vídeos aprovados e ativos
+        qs_video = Video.objects.filter(ativo=True, status='APPROVED')
+        qs_playlist = Playlist.objects.filter(ativa=True)
+        if user and user.is_franchisee():
+            qs_video = qs_video.filter(cliente__franqueado=user)
+            qs_playlist = qs_playlist.filter(franqueado=user)
+        self.fields['video'].queryset = qs_video
+        self.fields['playlist'].queryset = qs_playlist
+
+    def clean(self):
+        cleaned_data = super().clean()
+        inicio = cleaned_data.get('data_inicio')
+        fim = cleaned_data.get('data_fim')
+        if inicio and fim and fim <= inicio:
+            raise forms.ValidationError('A data de término deve ser posterior à data de início.')
+        return cleaned_data

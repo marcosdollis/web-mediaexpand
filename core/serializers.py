@@ -1,9 +1,10 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
+from django.db import models
 from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao,
-    ConteudoCorporativo, ConfiguracaoAPI
+    ConteudoCorporativo, ConfiguracaoAPI, AgendamentoVideo
 )
 
 
@@ -228,31 +229,33 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
         model = Playlist
         fields = ['id', 'nome', 'duracao_total_segundos', 'videos']
     
+    def _build_url(self, path):
+        """Constrói URL absoluta e força HTTPS em produção"""
+        url = self.context['request'].build_absolute_uri(path)
+        if 'railway.app' in url:
+            url = url.replace('http://', 'https://')
+        return url
+
     def get_videos(self, obj):
-        from .services import buscar_dados_corporativos
-        from .image_generator import gerar_imagem_corporativa
+        from django.urls import reverse
+        from .models import AgendamentoVideo
+        from django.utils import timezone
+
         items = obj.items.filter(ativo=True).select_related('video', 'conteudo_corporativo').order_by('ordem')
         result = []
+
         for item in items:
-            # ── Conteúdo corporativo ──
+            # ── Conteúdo corporativo → HTML via WebView ──
             if item.conteudo_corporativo:
                 cc = item.conteudo_corporativo
                 if not cc.ativo:
                     continue
-                dados = buscar_dados_corporativos(cc.tipo, municipio=obj.municipio)
-
-                # Gerar imagem PNG a partir dos dados corporativos
-                img_rel_url = gerar_imagem_corporativa(
-                    tipo=cc.tipo,
-                    dados=dados,
-                    playlist_id=obj.id,
-                )
-                # Montar URL absoluta
-                arquivo_url = None
-                if img_rel_url:
-                    arquivo_url = self.context['request'].build_absolute_uri(img_rel_url)
-                    if 'railway.app' in arquivo_url:
-                        arquivo_url = arquivo_url.replace('http://', 'https://')
+                # URL da página HTML que o app carrega no WebView
+                html_path = reverse('tv-corporativo-html', kwargs={
+                    'tipo': cc.tipo.lower(),
+                    'playlist_id': obj.id,
+                })
+                html_url = self._build_url(html_path)
 
                 for _ in range(item.repeticoes):
                     result.append({
@@ -264,7 +267,7 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                         'ativo': True,
                         'texto_tarja': None,
                         'qrcode': None,
-                        'arquivo_url': arquivo_url,
+                        'arquivo_url': html_url,
                     })
                 continue
 
@@ -276,12 +279,7 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                 continue
                 
             for _ in range(item.repeticoes):
-                # Constrói URL e força HTTPS em produção
-                arquivo_url = self.context['request'].build_absolute_uri(item.video.arquivo.url)
-                
-                # Força HTTPS se estiver em produção (Railway)
-                if 'railway.app' in arquivo_url:
-                    arquivo_url = arquivo_url.replace('http://', 'https://')
+                arquivo_url = self._build_url(item.video.arquivo.url)
                 
                 video_data = {
                     'id': item.video.id,
@@ -293,14 +291,9 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                     'texto_tarja': item.video.texto_tarja,
                 }
                 
-                # QR Code data (opcional - só enviado se configurado)
+                # QR Code data (opcional)
                 if item.video.qrcode_url_destino:
-                    tracking_url = self.context['request'].build_absolute_uri(
-                        f'/r/{item.video.qrcode_tracking_code}/'
-                    )
-                    if 'railway.app' in tracking_url:
-                        tracking_url = tracking_url.replace('http://', 'https://')
-                    
+                    tracking_url = self._build_url(f'/r/{item.video.qrcode_tracking_code}/')
                     video_data['qrcode'] = {
                         'tracking_url': tracking_url,
                         'descricao': item.video.qrcode_descricao or '',
@@ -309,6 +302,46 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                     video_data['qrcode'] = None
                 
                 result.append(video_data)
+
+        # ── Vídeos agendados para esta playlist & este momento ──
+        now = timezone.now()
+        agendados = AgendamentoVideo.objects.filter(
+            playlist=obj,
+            ativo=True,
+            data_inicio__lte=now,
+        ).filter(
+            models.Q(data_fim__isnull=True) | models.Q(data_fim__gte=now)
+        ).select_related('video').order_by('ordem')
+
+        for ag in agendados:
+            v = ag.video
+            if not v.arquivo or not v.ativo or v.status != 'APPROVED':
+                continue
+            # Evitar duplicata se o vídeo já está na playlist normal
+            if any(item.get('id') == v.id and item.get('tipo') == 'video' for item in result):
+                continue
+            for _ in range(ag.repeticoes):
+                arquivo_url = self._build_url(v.arquivo.url)
+                video_data = {
+                    'id': v.id,
+                    'tipo': 'video',
+                    'titulo': v.titulo,
+                    'arquivo_url': arquivo_url,
+                    'duracao_segundos': v.duracao_segundos,
+                    'ativo': v.ativo,
+                    'texto_tarja': v.texto_tarja,
+                    'agendado': True,
+                }
+                if v.qrcode_url_destino:
+                    tracking_url = self._build_url(f'/r/{v.qrcode_tracking_code}/')
+                    video_data['qrcode'] = {
+                        'tracking_url': tracking_url,
+                        'descricao': v.qrcode_descricao or '',
+                    }
+                else:
+                    video_data['qrcode'] = None
+                result.append(video_data)
+
         return result
 
 

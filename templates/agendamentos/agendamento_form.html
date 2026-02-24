@@ -129,6 +129,30 @@
                             </div>
                         </div>
 
+                        <!-- Playlist vinculada -->
+                        <div class="mb-3">
+                            <label for="{{ form.playlist.id_for_label }}" class="form-label">Playlist</label>
+                            {{ form.playlist }}
+                            {% if form.playlist.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.playlist.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Playlist a ser exibida neste horário. Se vazio, usa a playlist padrão do dispositivo.</div>
+                        </div>
+
+                        <!-- Prioridade -->
+                        <div class="mb-3">
+                            <label for="{{ form.prioridade.id_for_label }}" class="form-label">Prioridade</label>
+                            {{ form.prioridade }}
+                            {% if form.prioridade.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.prioridade.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Quanto maior, maior a prioridade. Usado quando há conflitos de horário entre agendamentos.</div>
+                        </div>
+
                         <!-- Ativo -->
                         <div class="mb-3">
                             <div class="form-check form-switch">
@@ -152,7 +176,9 @@
                         <!-- Info Alert -->
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle me-2"></i>
-                            <strong>Importante:</strong> Fora dos horários agendados, a TV exibirá uma tela preta (como se estivesse desligada).
+                            <strong>Importante:</strong> Cada faixa horária pode ter uma playlist diferente.
+                            Ex: "Colaboradores" das 8h–10h, "Clientes" das 10h–18h. 
+                            Fora dos horários agendados, a TV usa a playlist padrão do dispositivo.
                         </div>
 
                         <!-- Buttons -->

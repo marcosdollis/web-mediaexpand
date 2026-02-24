@@ -1,0 +1,39 @@
+{% extends "base/base.html" %}
+
+{% block title %}Excluir Agendamento - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão</h4>
+                </div>
+                <div class="card-body">
+                    <p>Tem certeza que deseja excluir o agendamento?</p>
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <strong>Vídeo:</strong> {{ agendamento.video.titulo }}<br>
+                            <strong>Playlist:</strong> {{ agendamento.playlist.nome }}<br>
+                            <strong>Início:</strong> {{ agendamento.data_inicio|date:"d/m/Y H:i" }}<br>
+                            <strong>Término:</strong> {% if agendamento.data_fim %}{{ agendamento.data_fim|date:"d/m/Y H:i" }}{% else %}Sem término{% endif %}
+                        </div>
+                    </div>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{% url 'agendamento_video_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash me-1"></i>Excluir
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

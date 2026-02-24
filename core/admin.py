@@ -4,7 +4,7 @@ from django.utils.html import format_html
 from .models import (
     User, Municipio, Cliente, Video, 
     Playlist, PlaylistItem, DispositivoTV, AgendamentoExibicao, LogExibicao, AppVersion,
-    QRCodeClick, ConteudoCorporativo, ConfiguracaoAPI
+    QRCodeClick, ConteudoCorporativo, ConfiguracaoAPI, AgendamentoVideo, Segmento
 )
 
 
@@ -134,15 +134,25 @@ class DispositivoTVAdmin(admin.ModelAdmin):
 
 @admin.register(AgendamentoExibicao)
 class AgendamentoExibicaoAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'dispositivo', 'get_dias_semana', 'hora_inicio', 'hora_fim', 'ativo', 'created_at')
+    list_display = ('nome', 'dispositivo', 'playlist', 'get_dias_semana', 'hora_inicio', 'hora_fim', 'prioridade', 'ativo', 'created_at')
     list_filter = ('ativo', 'dispositivo__municipio')
-    search_fields = ('nome', 'dispositivo__nome')
+    search_fields = ('nome', 'dispositivo__nome', 'playlist__nome')
     readonly_fields = ('created_at', 'updated_at')
     ordering = ('dispositivo', 'hora_inicio')
     
     def get_dias_semana(self, obj):
         return obj.get_dias_display()
     get_dias_semana.short_description = 'Dias da Semana'
+
+
+@admin.register(AgendamentoVideo)
+class AgendamentoVideoAdmin(admin.ModelAdmin):
+    list_display = ('video', 'playlist', 'data_inicio', 'data_fim', 'status_display', 'ordem', 'repeticoes', 'ativo')
+    list_filter = ('ativo', 'playlist', 'data_inicio')
+    search_fields = ('video__titulo', 'playlist__nome')
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('-data_inicio',)
+    date_hierarchy = 'data_inicio'
 
 
 @admin.register(LogExibicao)

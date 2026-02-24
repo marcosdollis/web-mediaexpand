@@ -65,6 +65,12 @@ urlpatterns = [
     path('dispositivos/<int:dispositivo_pk>/agendamentos/<int:pk>/update/', views.agendamento_update_view, name='agendamento_update'),
     path('dispositivos/<int:dispositivo_pk>/agendamentos/<int:pk>/delete/', views.agendamento_delete_view, name='agendamento_delete'),
     
+    # Agendamentos de Publicação de Vídeos
+    path('agendamentos-video/', views.agendamento_video_list_view, name='agendamento_video_list'),
+    path('agendamentos-video/create/', views.agendamento_video_create_view, name='agendamento_video_create'),
+    path('agendamentos-video/<int:pk>/update/', views.agendamento_video_update_view, name='agendamento_video_update'),
+    path('agendamentos-video/<int:pk>/delete/', views.agendamento_video_delete_view, name='agendamento_video_delete'),
+    
     # App Management (OWNER ONLY)
     path('app/upload/', views.app_upload_view, name='app_upload'),
     path('app/version/<int:pk>/toggle/', views.app_version_toggle_view, name='app_version_toggle'),

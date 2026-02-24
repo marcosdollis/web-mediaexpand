@@ -390,6 +390,35 @@ class DispositivoTV(models.Model):
         
         return False
 
+    def get_playlist_atual_por_horario(self):
+        """
+        Retorna a playlist que deve ser exibida agora baseado nos agendamentos.
+        Se o agendamento tem uma playlist vinculada, usa ela.
+        Senão, usa a playlist_atual (padrão) do dispositivo.
+        Se nenhum agendamento bate, retorna a playlist padrão.
+        """
+        from django.utils import timezone
+
+        agendamentos = self.agendamentos.filter(ativo=True).select_related('playlist')
+        if not agendamentos.exists():
+            return self.playlist_atual
+
+        now = timezone.localtime(timezone.now())
+        dia_semana = now.weekday()
+        hora_atual = now.time()
+
+        melhor = None
+        for ag in agendamentos:
+            if dia_semana in ag.dias_semana and ag.hora_inicio <= hora_atual <= ag.hora_fim:
+                if melhor is None or ag.prioridade > melhor.prioridade:
+                    melhor = ag
+
+        if melhor:
+            return melhor.playlist if melhor.playlist else self.playlist_atual
+
+        # Nenhum agendamento ativo agora — retorna playlist padrão
+        return self.playlist_atual
+
     def status_conexao(self):
         """
         Retorna o status real de conexão baseado no consumo da API:
@@ -423,7 +452,10 @@ class DispositivoTV(models.Model):
 
 
 class AgendamentoExibicao(models.Model):
-    """Agendamento de horários de exibição para dispositivos"""
+    """Agendamento de horários de exibição para dispositivos.
+    Agora vincula uma PLAYLIST específica ao horário, permitindo
+    múltiplas playlists por TV em diferentes faixas horárias.
+    """
     DIAS_SEMANA_CHOICES = [
         (0, 'Segunda-feira'),
         (1, 'Terça-feira'),
@@ -435,6 +467,12 @@ class AgendamentoExibicao(models.Model):
     ]
     
     dispositivo = models.ForeignKey(DispositivoTV, on_delete=models.CASCADE, related_name='agendamentos')
+    playlist = models.ForeignKey(
+        Playlist, on_delete=models.CASCADE,
+        related_name='agendamentos',
+        null=True, blank=True,
+        help_text='Playlist a ser exibida neste horário. Se vazio, usa a playlist padrão do dispositivo.'
+    )
     nome = models.CharField(max_length=200, help_text='Nome descritivo do agendamento')
     dias_semana = models.JSONField(
         default=list,
@@ -442,6 +480,10 @@ class AgendamentoExibicao(models.Model):
     )
     hora_inicio = models.TimeField(help_text='Hora de início da exibição')
     hora_fim = models.TimeField(help_text='Hora de término da exibição')
+    prioridade = models.IntegerField(
+        default=0,
+        help_text='Prioridade do agendamento (maior = maior prioridade). Usado para resolver conflitos.'
+    )
     ativo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -453,7 +495,8 @@ class AgendamentoExibicao(models.Model):
     
     def __str__(self):
         dias_str = ', '.join([self.DIAS_SEMANA_CHOICES[dia][1][:3] for dia in sorted(self.dias_semana)])
-        return f"{self.nome} - {dias_str} ({self.hora_inicio.strftime('%H:%M')} - {self.hora_fim.strftime('%H:%M')})"
+        pl = f' → {self.playlist.nome}' if self.playlist else ''
+        return f"{self.nome}{pl} - {dias_str} ({self.hora_inicio.strftime('%H:%M')} - {self.hora_fim.strftime('%H:%M')})"
     
     def get_dias_display(self):
         """Retorna os dias da semana em formato legível"""
@@ -461,6 +504,78 @@ class AgendamentoExibicao(models.Model):
             return "Nenhum dia"
         dias_nomes = [self.DIAS_SEMANA_CHOICES[dia][1] for dia in sorted(self.dias_semana)]
         return ', '.join(dias_nomes)
+
+
+class AgendamentoVideo(models.Model):
+    """
+    Agendamento de publicação de vídeo — permite agendar data/hora
+    para que um vídeo apareça (ou desapareça) das playlists.
+    """
+    video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name='agendamentos')
+    playlist = models.ForeignKey(
+        Playlist, on_delete=models.CASCADE,
+        related_name='agendamentos_video',
+        help_text='Playlist onde o vídeo será exibido'
+    )
+    data_inicio = models.DateTimeField(
+        help_text='Data/hora em que o vídeo começa a ser exibido'
+    )
+    data_fim = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Data/hora em que o vídeo deixa de ser exibido (vazio = sem término)'
+    )
+    ordem = models.IntegerField(
+        default=0,
+        help_text='Posição na playlist durante o período agendado'
+    )
+    repeticoes = models.IntegerField(
+        default=1,
+        help_text='Quantas vezes o vídeo é repetido por ciclo da playlist'
+    )
+    ativo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Agendamento de Vídeo'
+        verbose_name_plural = 'Agendamentos de Vídeos'
+        ordering = ['data_inicio']
+
+    def __str__(self):
+        fim = f' até {self.data_fim.strftime("%d/%m/%Y %H:%M")}' if self.data_fim else ' (sem término)'
+        return f'{self.video.titulo} → {self.playlist.nome} — {self.data_inicio.strftime("%d/%m/%Y %H:%M")}{fim}'
+
+    @property
+    def esta_ativo_agora(self):
+        """Verifica se o agendamento está no período ativo"""
+        if not self.ativo:
+            return False
+        from django.utils import timezone
+        now = timezone.now()
+        if now < self.data_inicio:
+            return False
+        if self.data_fim and now > self.data_fim:
+            return False
+        return True
+
+    @property
+    def status_display(self):
+        """Status legível do agendamento"""
+        if not self.ativo:
+            return 'Inativo'
+        from django.utils import timezone
+        now = timezone.now()
+        if now < self.data_inicio:
+            return 'Agendado'
+        if self.data_fim and now > self.data_fim:
+            return 'Expirado'
+        return 'Em exibição'
+
+    @property
+    def status_badge(self):
+        """Classe CSS do badge"""
+        s = self.status_display
+        return {'Agendado': 'info', 'Em exibição': 'success', 'Expirado': 'secondary', 'Inativo': 'danger'}.get(s, 'secondary')
 
 
 class LogExibicao(models.Model):

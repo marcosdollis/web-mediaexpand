@@ -150,6 +150,17 @@
                                         <span class="badge bg-secondary">Inativo</span>
                                         {% endif %}
                                     </div>
+                                    {% if agendamento.playlist %}
+                                    <div class="small text-primary mb-1">
+                                        <i class="fas fa-list me-1"></i>
+                                        Playlist: <strong>{{ agendamento.playlist.nome }}</strong>
+                                    </div>
+                                    {% else %}
+                                    <div class="small text-muted mb-1">
+                                        <i class="fas fa-list me-1"></i>
+                                        Usa playlist padrão do dispositivo
+                                    </div>
+                                    {% endif %}
                                     <div class="small text-muted mb-1">
                                         <i class="fas fa-calendar-week me-1"></i>
                                         {{ agendamento.get_dias_display }}
@@ -157,6 +168,7 @@
                                     <div class="small">
                                         <i class="fas fa-clock me-1"></i>
                                         {{ agendamento.hora_inicio|time:"H:i" }} até {{ agendamento.hora_fim|time:"H:i" }}
+                                        {% if agendamento.prioridade %}<span class="badge bg-info ms-1">Prioridade {{ agendamento.prioridade }}</span>{% endif %}
                                     </div>
                                 </div>
                                 <div class="d-flex gap-1">
@@ -174,9 +186,10 @@
                     <div class="alert alert-info mt-3 mb-0">
                         <i class="fas fa-info-circle me-2"></i>
                         <small>
-                            Fora dos horários agendados, a TV exibirá uma tela preta.
+                            Cada faixa horária pode ter sua própria playlist.
+                            Fora dos horários agendados, a TV usa a playlist padrão.
                             {% if agendamentos_ativos_count == 0 %}
-                            <strong>Sem agendamentos ativos: TV exibirá conteúdo 24/7.</strong>
+                            <strong>Sem agendamentos ativos: TV exibirá a playlist padrão 24/7.</strong>
                             {% endif %}
                         </small>
                     </div>

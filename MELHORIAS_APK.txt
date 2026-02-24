@@ -1,0 +1,242 @@
+================================================================================
+   MELHORIAS NECESSÁRIAS NO APK — MediaExpand TV App
+   Gerado em: 24/02/2026
+================================================================================
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  1. CONTEÚDO CORPORATIVO VIA WEBVIEW (em vez de imagem/vídeo)              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+SITUAÇÃO ANTERIOR:
+- O serializer tentava servir uma imagem PNG via arquivo_url
+- ExoPlayer não sabe renderizar imagens, causava tela preta
+- Tentamos gerar MP4, mas era pesado demais para o servidor
+
+NOVA ABORDAGEM:
+- O servidor agora retorna uma URL HTML completa no campo arquivo_url
+  para itens com tipo == "corporativo"
+- O app deve carregar essa URL num WebView em vez de ExoPlayer
+
+FORMATO DA RESPOSTA DA API:
+{
+    "id": 900001,
+    "titulo": "Cotações",
+    "tipo": "corporativo",           ← IDENTIFICADOR CHAVE
+    "subtipo": "COTACOES",           ← PREVISAO_TEMPO | COTACOES | NOTICIAS
+    "duracao_segundos": 15,
+    "ativo": true,
+    "texto_tarja": null,
+    "qrcode": null,
+    "arquivo_url": "https://seu-dominio.railway.app/api/tv/corporativo/cotacoes/1/"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                   É uma URL HTML, NÃO um arquivo de mídia!
+}
+
+IMPLEMENTAÇÃO NO ANDROID:
+─────────────────────────
+
+1. No layout XML, adicionar um WebView ao lado do PlayerView:
+
+   <android.webkit.WebView
+       android:id="@+id/webview_corporativo"
+       android:layout_width="match_parent"
+       android:layout_height="match_parent"
+       android:visibility="gone" />
+
+2. No código de reprodução da playlist, tratar o tipo "corporativo":
+
+   // Kotlin
+   when (currentItem.tipo) {
+       "corporativo" -> {
+           // Esconder player de vídeo
+           playerView.visibility = View.GONE
+           webView.visibility = View.VISIBLE
+
+           // Configurar WebView
+           webView.settings.javaScriptEnabled = true
+           webView.settings.loadWithOverviewMode = true
+           webView.settings.useWideViewPort = true
+           webView.settings.domStorageEnabled = true
+
+           // Forçar viewport 1920x1080 (resolução TV)
+           webView.setInitialScale(100)
+
+           // Carregar a URL
+           webView.loadUrl(currentItem.arquivo_url)
+
+           // Avançar para próximo item após a duração
+           handler.postDelayed({
+               webView.visibility = View.GONE
+               playNext()
+           }, currentItem.duracao_segundos * 1000L)
+       }
+       else -> {
+           // Vídeo normal — usar ExoPlayer
+           webView.visibility = View.GONE
+           playerView.visibility = View.VISIBLE
+           // ... código existente do ExoPlayer ...
+       }
+   }
+
+3. Ao trocar de item, sempre cancelar o handler pendente:
+
+   handler.removeCallbacksAndMessages(null)
+
+4. Ao sair/destruir a Activity, limpar o WebView:
+
+   webView.stopLoading()
+   webView.destroy()
+
+NOTAS:
+- A página HTML já vem com relógio em tempo real (JavaScript)
+- A resolução é fixa em 1920x1080 (ideal para TV)
+- Fontes Inter (Google Fonts) e ícones Font Awesome são carregados via CDN
+- O layout é 100% self-contained (não usa Django templates do admin)
+- Se a rede cair, o WebView mostrará erro de carregamento (tratar com
+  webView.setWebViewClient() mostrando tela de fallback)
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  2. MÚLTIPLAS PLAYLISTS POR TV (agendamento por horário)                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+SITUAÇÃO ANTERIOR:
+- Cada dispositivo tinha UMA playlist (playlist_atual)
+- Agendamentos controlavam apenas ON/OFF do dispositivo
+
+NOVA ABORDAGEM:
+- Cada agendamento de exibição pode ter uma PLAYLIST VINCULADA
+- O servidor já resolve qual playlist entregar baseado no horário atual
+- O app NÃO precisa fazer essa lógica! O endpoint POST /api/tv/auth/
+  já retorna a playlist correta para o momento.
+
+EXEMPLO DE USO (configuração no painel web):
+  Agendamento 1: "Manhã Colaboradores"   → 08:00-10:00 → Playlist "Interno"
+  Agendamento 2: "Horário Comercial"     → 10:00-18:00 → Playlist "Clientes"
+  Playlist Padrão do dispositivo         → Fora dos horários → Playlist "Geral"
+
+IMPACTO NO APP:
+- NENHUMA ALTERAÇÃO necessária no fluxo de autenticação/playlist
+- O app continua fazendo POST /api/tv/auth/ e recebendo a playlist
+- O servidor escolhe a playlist correta automaticamente
+- A playlist pode mudar ao longo do dia
+
+RECOMENDAÇÃO:
+- O app deve re-autenticar periodicamente (a cada 5-10 minutos)
+  para receber a playlist atualizada quando o horário muda
+- Quando receber uma playlist_id diferente da atual, recarregar os itens
+- Já faz isso? Se sim, nada precisa mudar
+
+RESPOSTA ATUALIZADA DO endpoint /api/tv/check-schedule/:
+{
+    "should_display": true,
+    "playlist_id": 2,                    ← PODE MUDAR ao longo do dia
+    "playlist_nome": "Clientes",
+    "agendamentos": [
+        {
+            "nome": "Manhã Colaboradores",
+            "dias_semana": [0,1,2,3,4],
+            "hora_inicio": "08:00",
+            "hora_fim": "10:00",
+            "playlist_id": 1,            ← NOVO CAMPO
+            "playlist_nome": "Interno",  ← NOVO CAMPO
+            "prioridade": 0              ← NOVO CAMPO
+        },
+        {
+            "nome": "Horário Comercial",
+            "dias_semana": [0,1,2,3,4],
+            "hora_inicio": "10:00",
+            "hora_fim": "18:00",
+            "playlist_id": 2,
+            "playlist_nome": "Clientes",
+            "prioridade": 0
+        }
+    ]
+}
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  3. VÍDEOS AGENDADOS (publicação programada)                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+SITUAÇÃO ANTERIOR:
+- Vídeos eram adicionados manualmente à playlist
+- Para remover um vídeo promocional, o franqueado tinha que entrar no painel
+
+NOVA ABORDAGEM:
+- Franqueado pode agendar data/hora de início e fim para um vídeo
+- O vídeo aparece automaticamente na playlist durante o período agendado
+- Quando expira, desaparece automaticamente
+- Tudo resolvido no servidor — o app não precisa mudar nada!
+
+IMPACTO NO APP:
+- NENHUMA ALTERAÇÃO necessária
+- O serializer já injeta os vídeos agendados na lista de "videos" da playlist
+- O app recebe os mesmos campos de sempre
+- Vídeos agendados vêm com um campo extra "agendado": true (informativo)
+
+FORMATO (dentro da lista de "videos" da playlist):
+{
+    "id": 5,
+    "tipo": "video",
+    "titulo": "Promoção Dia das Mães",
+    "arquivo_url": "https://seu-dominio/media/videos/cliente_1/promo.mp4",
+    "duracao_segundos": 30,
+    "ativo": true,
+    "texto_tarja": "Aproveite! Só até domingo!",
+    "qrcode": null,
+    "agendado": true                 ← CAMPO INFORMATIVO (pode ignorar)
+}
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  RESUMO DE ALTERAÇÕES NO APP                                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────┬────────────────┬──────────────────────┐
+│ Funcionalidade                      │ Alteração      │ Prioridade           │
+├─────────────────────────────────────┼────────────────┼──────────────────────┤
+│ Conteúdo corporativo via WebView    │ OBRIGATÓRIA    │ ALTA — sem isso,     │
+│                                     │                │ conteúdo corporativo │
+│                                     │                │ não funciona         │
+├─────────────────────────────────────┼────────────────┼──────────────────────┤
+│ Múltiplas playlists por horário     │ NENHUMA*       │ — resolvido no       │
+│                                     │                │ servidor             │
+├─────────────────────────────────────┼────────────────┼──────────────────────┤
+│ Vídeos agendados                    │ NENHUMA        │ — resolvido no       │
+│                                     │                │ servidor             │
+├─────────────────────────────────────┼────────────────┼──────────────────────┤
+│ Re-autenticar periodicamente        │ RECOMENDADA    │ MÉDIA — para pegar   │
+│ (a cada 5-10 min)                   │                │ troca de playlist    │
+│                                     │                │ por horário          │
+├─────────────────────────────────────┼────────────────┼──────────────────────┤
+│ Tratar erro de rede no WebView      │ RECOMENDADA    │ BAIXA — experiência  │
+│                                     │                │ do usuário           │
+└─────────────────────────────────────┴────────────────┴──────────────────────┘
+
+* O app já busca a playlist via POST /api/tv/auth/ — o servidor retorna
+  a playlist correta para o horário. Se o app re-autenticar periodicamente,
+  a troca de playlist por horário funciona automaticamente.
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  ENDPOINTS DA API (referência)                                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+POST /api/tv/auth/
+  → Autenticação + retorna playlist (já seleciona por horário)
+  Body: { "identificador_unico": "UUID", "versao_app": "1.0.0" }
+
+GET  /api/tv/check-schedule/<UUID>/
+  → Verifica se deve exibir + retorna agendamentos com playlists
+
+GET  /api/tv/corporativo/<tipo>/<playlist_id>/
+  → Página HTML para WebView (corporativo)
+  Tipos: previsao_tempo, cotacoes, noticias
+  Exemplo: /api/tv/corporativo/cotacoes/1/
+
+POST /api/tv/log-exibicao/
+  → Registra log de exibição (sem alteração)
+
+================================================================================
