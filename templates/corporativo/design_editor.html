@@ -191,7 +191,7 @@
     position: relative;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     border-radius: 4px;
-    overflow: hidden;
+    /* NO overflow:hidden and NO CSS transform — zoom is handled by Fabric's setZoom() */
 }
 .canvas-container-wrapper .canvas-container {
     display: block !important;
@@ -900,6 +900,21 @@ const COLORS = [
 ];
 
 // ── INIT ──
+// applyZoomToFabric is at module level so zoom buttons and applyCanvasSize can call it
+function applyZoomToFabric(zoom) {
+    if (!canvas) return;
+    const displayW = Math.round(CANVAS_W * zoom);
+    const displayH = Math.round(CANVAS_H * zoom);
+    canvas.setWidth(displayW);
+    canvas.setHeight(displayH);
+    canvas.setZoom(zoom);
+    // No CSS transform — Fabric handles all coordinate math internally
+    const wrapper = document.getElementById('canvasWrapper');
+    if (wrapper) wrapper.style.transform = '';
+    const el = document.getElementById('zoomLevel');
+    if (el) el.textContent = Math.round(zoom * 100) + '%';
+}
+
 function init() {
     canvas = new fabric.Canvas('designCanvas', {
         width: CANVAS_W,
@@ -909,12 +924,11 @@ function init() {
         selection: true,
     });
 
-    // Helper: force canvas to CANVAS_W × CANVAS_H and update inputs
+    // Sync design dimensions back to inputs and re-apply zoom to DOM canvas
     function enforceCanvasSize() {
-        canvas.setWidth(CANVAS_W);
-        canvas.setHeight(CANVAS_H);
         document.getElementById('canvasWidth').value = CANVAS_W;
         document.getElementById('canvasHeight').value = CANVAS_H;
+        applyZoomToFabric(currentZoom);
     }
 
     // Load existing design
@@ -1033,32 +1047,29 @@ function buildColorPalette() {
 // ── ZOOM ──
 window.zoomIn = function() {
     currentZoom = Math.min(currentZoom + 0.1, 3);
-    applyZoom();
+    applyZoomToFabric(currentZoom);
 };
 window.zoomOut = function() {
     currentZoom = Math.max(currentZoom - 0.1, 0.1);
-    applyZoom();
+    applyZoomToFabric(currentZoom);
 };
 window.zoomFit = function() {
     const area = document.getElementById('canvasArea');
     if (!area) return;
     const aW = area.clientWidth - 40;
     const aH = area.clientHeight - 60;
-    const scaleW = aW / canvas.getWidth();
-    const scaleH = aH / canvas.getHeight();
+    // Always divide by CANVAS_W/CANVAS_H (design dimensions), not canvas.getWidth()
+    // which now returns the current display size instead of the design size
+    const scaleW = aW / CANVAS_W;
+    const scaleH = aH / CANVAS_H;
     currentZoom = Math.min(scaleW, scaleH, 1);
-    applyZoom();
+    applyZoomToFabric(currentZoom);
 };
-function applyZoom() {
-    const wrapper = document.getElementById('canvasWrapper');
-    wrapper.style.transform = 'scale(' + currentZoom + ')';
-    wrapper.style.transformOrigin = 'center center';
-    document.getElementById('zoomLevel').textContent = Math.round(currentZoom * 100) + '%';
-}
 
 // ── ADD ELEMENTS ──
-function getCenterX() { return canvas.getWidth() / 2; }
-function getCenterY() { return canvas.getHeight() / 2; }
+// Use CANVAS_W/CANVAS_H (design space), not canvas.getWidth() which is the display size
+function getCenterX() { return CANVAS_W / 2; }
+function getCenterY() { return CANVAS_H / 2; }
 
 window.addText = function() {
     const text = new fabric.IText('Seu texto aqui', {
@@ -1454,7 +1465,7 @@ window.setTextAlign = function(align) {
 window.alignObject = function(type) {
     const obj = canvas.getActiveObject();
     if (!obj) return;
-    const cW = canvas.getWidth(), cH = canvas.getHeight();
+    const cW = CANVAS_W, cH = CANVAS_H;  // design dimensions, not display size
     switch (type) {
         case 'left': obj.set('left', 0); break;
         case 'right': obj.set('left', cW - obj.getScaledWidth()); break;
@@ -1619,10 +1630,9 @@ window.applyCanvasSize = function() {
     const h = parseInt(document.getElementById('canvasHeight').value) || 1080;
     CANVAS_W = w;
     CANVAS_H = h;
-    canvas.setWidth(w);
-    canvas.setHeight(h);
-    canvas.renderAll();
+    // zoomFit recalculates zoom and calls applyZoomToFabric which sets the DOM size
     zoomFit();
+    canvas.renderAll();
     document.getElementById('settingsDropdown').classList.remove('show');
     showToast('Dimensões atualizadas: ' + w + '×' + h + 'px');
     scheduleAutoSave();
@@ -1683,14 +1693,11 @@ function performSave(titulo, showFeedback) {
     }
     updateSaveIndicator();
 
-    // Use live canvas dimensions as source of truth
-    const largura = canvas.getWidth();
-    const altura = canvas.getHeight();
-    // Keep inputs in sync
+    // CANVAS_W/CANVAS_H are always the design dimensions (canvas.getWidth() is display size)
+    const largura = CANVAS_W;
+    const altura = CANVAS_H;
     document.getElementById('canvasWidth').value = largura;
     document.getElementById('canvasHeight').value = altura;
-    CANVAS_W = largura;
-    CANVAS_H = altura;
 
     const designJSON = canvas.toJSON();
     // Embed dimensions directly in JSON so they survive round-trips (Fabric.js toJSON() omits them)
