@@ -364,18 +364,41 @@ class TVAPIView(APIView):
                 dispositivo.versao_app = versao_app
             dispositivo.save()
             
-            # Retorna playlist baseada no agendamento de horário
-            playlist_ativa = dispositivo.get_playlist_atual_por_horario()
-            if playlist_ativa and playlist_ativa.ativa:
-                playlist_serializer = PlaylistTVSerializer(
-                    playlist_ativa,
-                    context={'request': request}
-                )
+            # Retorna TODAS as playlists ativas no horário atual mescladas
+            playlists_ativas = dispositivo.get_playlists_ativas_por_horario()
+            
+            if playlists_ativas:
+                # Mescla todos os vídeos de todas as playlists em uma única lista
+                all_videos = []
+                playlist_ids = []
+                playlist_names = []
+                
+                for playlist in playlists_ativas:
+                    if not playlist.ativa:
+                        continue
+                    playlist_ids.append(playlist.id)
+                    playlist_names.append(playlist.nome)
+                    
+                    # Serializa os vídeos desta playlist
+                    serializer = PlaylistTVSerializer(
+                        playlist,
+                        context={'request': request}
+                    )
+                    videos = serializer.data.get('videos', [])
+                    all_videos.extend(videos)
+                
+                # Retorna uma "mega-playlist" com todos os vídeos em sequência
                 return Response({
                     'dispositivo_id': dispositivo.id,
                     'dispositivo_nome': dispositivo.nome,
                     'municipio': str(dispositivo.municipio),
-                    'playlist': playlist_serializer.data
+                    'playlist': {
+                        'id': playlist_ids[0] if len(playlist_ids) == 1 else 0,  # 0 = múltiplas playlists mescladas
+                        'nome': ' + '.join(playlist_names),  # "Playlist A + Playlist B"
+                        'duracao_total_segundos': sum(v.get('duracao_segundos', 0) for v in all_videos),
+                        'videos': all_videos,
+                        'playlists_mescladas': playlist_ids,  # IDs das playlists que foram mescladas
+                    }
                 })
             else:
                 return Response({
@@ -498,11 +521,17 @@ class TVCheckScheduleView(APIView):
                 ],
             }
             
-            # Playlist ativa pelo horário (pode ser diferente da padrão)
-            playlist_ativa = dispositivo.get_playlist_atual_por_horario()
-            if should_display and playlist_ativa:
-                response_data['playlist_id'] = playlist_ativa.id
-                response_data['playlist_nome'] = playlist_ativa.nome
+            # Playlists ativas pelo horário (pode ser diferente da padrão)
+            playlists_ativas = dispositivo.get_playlists_ativas_por_horario()
+            if should_display and playlists_ativas:
+                if len(playlists_ativas) == 1:
+                    response_data['playlist_id'] = playlists_ativas[0].id
+                    response_data['playlist_nome'] = playlists_ativas[0].nome
+                else:
+                    # Múltiplas playlists mescladas
+                    response_data['playlist_id'] = 0  # 0 = múltiplas mescladas
+                    response_data['playlist_nome'] = ' + '.join([p.nome for p in playlists_ativas])
+                    response_data['playlists_mescladas'] = [p.id for p in playlists_ativas]
             
             # Retorna info dos agendamentos ativos com playlist vinculada
             agendamentos = dispositivo.agendamentos.filter(ativo=True).select_related('playlist')

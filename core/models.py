@@ -458,26 +458,28 @@ class DispositivoTV(models.Model):
         """Retorna True se o dispositivo tem horários de funcionamento definidos"""
         return self.horarios_funcionamento.filter(ativo=True).exists()
 
-    def get_playlist_atual_por_horario(self):
+    def get_playlists_ativas_por_horario(self):
         """
-        Retorna a playlist que deve ser exibida agora.
+        Retorna TODAS as playlists que devem ser exibidas agora.
+        Se há agendamento com horário específico, retorna apenas ele.
+        Se há múltiplos agendamentos 24/7, retorna TODOS.
         Prioridade:
-        1. Agendamento com horário que bate agora (maior prioridade ganha)
-        2. Agendamento 24/7 (sem horário) com maior prioridade
+        1. Agendamentos com horário que batem agora (retorna todos)
+        2. Agendamentos 24/7 (sem horário) (retorna todos)
         3. playlist_atual (fallback legado)
         """
         from django.utils import timezone
 
         agendamentos = self.agendamentos.filter(ativo=True).select_related('playlist')
         if not agendamentos.exists():
-            return self.playlist_atual
+            return [self.playlist_atual] if self.playlist_atual else []
 
         now = timezone.localtime(timezone.now())
         dia_semana = now.weekday()
         hora_atual = now.time()
 
-        melhor_horario = None
-        melhor_fulltime = None
+        agendamentos_horario = []
+        agendamentos_fulltime = []
 
         for ag in agendamentos:
             if not ag.playlist or not ag.playlist.ativa:
@@ -486,22 +488,32 @@ class DispositivoTV(models.Model):
             dias = ag.dias_efetivos
 
             if ag.is_fulltime:
-                # Playlist 24/7 - candidata a fallback
+                # Playlist 24/7
                 if dia_semana in dias:
-                    if melhor_fulltime is None or ag.prioridade > melhor_fulltime.prioridade:
-                        melhor_fulltime = ag
+                    agendamentos_fulltime.append(ag)
             else:
                 # Playlist com horário específico
                 if dia_semana in dias and ag.hora_inicio <= hora_atual <= ag.hora_fim:
-                    if melhor_horario is None or ag.prioridade > melhor_horario.prioridade:
-                        melhor_horario = ag
+                    agendamentos_horario.append(ag)
 
         # Prioridade: horário específico > 24/7 > playlist_atual
-        if melhor_horario:
-            return melhor_horario.playlist
-        if melhor_fulltime:
-            return melhor_fulltime.playlist
-        return self.playlist_atual
+        if agendamentos_horario:
+            # Ordena por prioridade e retorna todas
+            agendamentos_horario.sort(key=lambda x: x.prioridade, reverse=True)
+            return [ag.playlist for ag in agendamentos_horario]
+        if agendamentos_fulltime:
+            # Ordena por prioridade e retorna todas
+            agendamentos_fulltime.sort(key=lambda x: x.prioridade, reverse=True)
+            return [ag.playlist for ag in agendamentos_fulltime]
+        return [self.playlist_atual] if self.playlist_atual else []
+
+    def get_playlist_atual_por_horario(self):
+        """
+        Retorna a playlist que deve ser exibida agora (apenas uma).
+        Mantido por compatibilidade. Use get_playlists_ativas_por_horario() para múltiplas.
+        """
+        playlists = self.get_playlists_ativas_por_horario()
+        return playlists[0] if playlists else None
 
     def status_conexao(self):
         """

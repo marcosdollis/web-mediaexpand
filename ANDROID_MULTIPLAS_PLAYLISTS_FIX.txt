@@ -1,0 +1,270 @@
+═══════════════════════════════════════════════════════════════════════════════
+   AJUSTE APP ANDROID TV - SUPORTE A MÚLTIPLAS PLAYLISTS POR HORÁRIO
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 DIAGNÓSTICO DO PROBLEMA
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ PROBLEMA RESOLVIDO NA API!
+
+A API foi ATUALIZADA para retornar múltiplas playlists mescladas automaticamente:
+  ✓ Se há 2+ playlists 24/7, a API mescla TODAS em uma única sequência
+  ✓ Retorna campo 'playlists_mescladas' com os IDs de todas as playlists
+  ✓ O campo 'videos' contém TODOS os vídeos em sequência (Playlist A completa + Playlist B completa)
+
+COMO FUNCIONA AGORA:
+  • Dispositivo tem 2 playlists sem horário (24/7)
+  • API retorna uma "mega-playlist" com:
+    - videos: [vídeos da playlist 1... vídeos da playlist 2...]
+    - nome: "Playlist A + Playlist B"
+    - playlists_mescladas: [1, 2]
+  
+O APP ANDROID não precisa fazer nada especial, basta tocar os vídeos em loop!
+
+═══════════════════════════════════════════════════════════════════════════════
+🔧 SOLUÇÃO - PROBLEM RESOLVIDO NO BACKEND!
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ A API foi modificada para mesclar automaticamente múltiplas playlists 24/7
+
+✅ O app Android NÃO precisa de mudanças! Basta:
+   1. Reiniciar o app (ou aguardar próxima sincronização)
+   2. A API vai retornar TODOS os vídeos das 2 playlists mesclados
+   3. O app vai tocar em loop normalmente
+
+═══════════════════════════════════════════════════════════════════════════════
+⚠️ IMPLEMENTAÇÃO RECOMENDADA (OPCIONAL - MELHORIA FUTURA)
+═══════════════════════════════════════════════════════════════════════════════
+
+Para melhorar ainda mais, o app PODE (mas não precisa) implementar verificação
+periódica para detectar mudanças de playlist em tempo real (quando admin altera).
+
+Código simplificado:
+
+```kotlin
+// Verificar a cada 2-5 minutos se houve mudança
+private fun checkForPlaylistUpdate() {
+    val url = "$BASE_URL/api/tv/auth/"
+    // ... faz request ...
+    
+    val newVideos = response.getJSONObject("playlist")
+        .getJSONArray("videos")
+    
+    // Se lista de vídeos mudou, recarrega
+    if (videosChanged(currentVideos, newVideos)) {
+        reloadPlaylist()
+    }
+}
+```
+
+MAS ISSO É OPCIONAL! O app atual já vai funcionar após reiniciar.
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 RESPOSTA DA API /api/tv/auth/ (ATUALIZADA!)
+═══════════════════════════════════════════════════════════════════════════════
+
+Se você tem 2 playlists 24/7 vinculadas ao dispositivo, a API agora retorna:
+
+```json
+{
+  "dispositivo_id": 1,
+  "dispositivo_nome": "TV Shopping Center",
+  "municipio": "São Paulo/SP",
+  "playlist": {
+    "id": 0,  // 0 = múltiplas playlists mescladas
+    "nome": "Playlist Manhã + Playlist Tarde",
+    "duracao_total_segundos": 600,
+    "playlists_mescladas": [3, 5],  // IDs das playlists originais
+    "videos": [
+      // ── Vídeos da Playlist 1 ──
+      {
+        "id": 10,
+        "tipo": "video",
+        "titulo": "Video A1",
+        "arquivo_url": "https://...",
+        "duracao_segundos": 30
+      },
+      {
+        "id": 11,
+        "tipo": "video",
+        "titulo": "Video A2",
+        "arquivo_url": "https://...",
+        "duracao_segundos": 45
+      },
+      // ── Vídeos da Playlist 2 ──
+      {
+        "id": 20,
+        "tipo": "video",
+        "titulo": "Video B1",
+        "arquivo_url": "https://...",
+        "duracao_segundos": 30
+      },
+      {
+        "id": 21,
+        "tipo": "video",
+        "titulo": "Video B2",
+        "arquivo_url": "https://...",
+        "duracao_segundos": 40
+      }
+    ]
+  }
+}
+```
+
+O APP ANDROID APENAS TOCA EM LOOP ESSA LISTA COMPLETA!
+Automaticamente vai tocar: A1 → A2 → B1 → B2 → volta para A1...
+
+═══════════════════════════════════════════════════════════════════════════════
+🎯 LÓGICA DE FUNCIONAMENTO (SIMPLIFICADA)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. APP INICIA
+   └─> Chama /api/tv/auth/ → recebe lista completa de vídeos (todas as playlists mescladas)
+   └─> Inicia reprodução em loop normal
+
+2. A CADA 2-5 MINUTOS (RECOMENDADO - verificação de playlist)
+   └─> Chama /api/tv/auth/ novamente
+   └─> Compara IDs dos vídeos recebidos com os atuais
+   └─> Se mudou: recarrega e reinicia reprodução
+
+3. A CADA 1 MINUTO (OPCIONAL - verificação de horário)
+   └─> Chama /api/tv/check-schedule/{uuid}/
+   └─> Se should_display = false:
+       └─> Pausa reprodução (mostra tela preta)
+   └─> Se should_display = true:
+       └─> Retoma reprodução
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 RESPOSTA DA API /api/tv/check-schedule/ (ATUALIZADA)
+═══════════════════════════════════════════════════════════════════════════════
+
+Quando há múltiplas playlists mescladas:
+
+```json
+{
+  "should_display": true,
+  "current_time": "2026-02-28T14:30:00-03:00",
+  "dispositivo_nome": "TV Shopping Center",
+  "has_playlist": true,
+  "playlist_id": 0,  // 0 = múltiplas playlists mescladas
+  "playlist_nome": "Playlist A + Playlist B",
+  "playlists_mescladas": [3, 5],  // IDs das playlists originais
+  "agendamentos": [
+    {
+      "nome": "Playlist A",
+      "dias_semana": [0, 1, 2, 3, 4, 5, 6],
+      "hora_inicio": null,  // null = 24/7
+      "hora_fim": null,
+      "playlist_id": 3,
+      "playlist_nome": "Playlist A",
+      "prioridade": 10
+    },
+    {
+      "nome": "Playlist B", 
+      "dias_semana": [0, 1, 2, 3, 4, 5, 6],
+      "hora_inicio": null,  // null = 24/7
+      "hora_fim": null,
+      "playlist_id": 5,
+      "playlist_nome": "Playlist B",
+      "prioridade": 10
+    }
+  ]
+}
+```
+
+═══════════════════════════════════════════════════════════════════════════════
+⚙️ CONFIGURAÇÕES RECOMENDADAS
+═══════════════════════════════════════════════════════════════════════════════
+
+Intervalo de verificação de playlist: 2-5 minutos
+  • Recarrega /api/tv/auth/ periodicamente para pegar mudanças
+  • Compara IDs dos vídeos para detectar se playlist mudou
+  • Muito frequente: sobrecarga desnecessária
+  • Muito espaçado: demora para perceber mudanças
+
+Cache de vídeos:
+  • Manter cache dos últimos vídeos baixados
+  • Evita re-download quando API retorna mesmos vídeos
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ O QUE O APP ANDROID JÁ DEVE ESTAR FAZENDO (E CONTINUA FUNCIONANDO)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Chama /api/tv/auth/ ao iniciar
+2. Recebe lista de vídeos no campo 'playlist.videos'
+3. Toca cada vídeo em loop infinito
+4. Registra logs de exibição
+
+COM A MUDANÇA NA API:
+  ✓ Se há 1 playlist: recebe vídeos dessa playlist (comportamento antigo)
+  ✓ Se há 2+ playlists 24/7: recebe vídeos de TODAS mescladas (novo!)
+  ✓ O app NÃO precisa mudar nada, apenas toca a lista completa em loop
+
+═══════════════════════════════════════════════════════════════════════════════
+🐛 TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEMA: Ainda toca só uma playlist
+└─> Verifique a resposta da API /api/tv/auth/ no log
+└─> Deve conter campo 'playlists_mescladas' se há múltiplas
+└─> Confirme que ambas playlists estão ATIVAS no admin
+└─> Confirme que os agendamentos estão ATIVOS no admin
+└─> Verifique se hora_inicio/hora_fim são NULL (24/7)
+
+PROBLEMA: Vídeos duplicados
+└─> Normal! Se você adicionou o mesmo vídeo em 2 playlists, ele vai aparecer 2 vezes
+└─> Solução: remover vídeo duplicado de uma das playlists
+
+PROBLEMA: Ordem errada dos vídeos
+└─> A API mescla na ordem de prioridade dos agendamentos
+└─> Playlist de maior prioridade vem primeiro
+└─> Ajuste a prioridade no admin se necessário
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ CHECKLIST - TESTE SE ESTÁ FUNCIONANDO
+═══════════════════════════════════════════════════════════════════════════════
+
+NO ADMIN WEB:
+[ ] Criar/verificar 2 playlists ativas com vídeos diferentes
+[ ] Vincular ambas ao mesmo dispositivo (seção "Playlists Vinculadas")
+[ ] Certificar que hora_inicio e hora_fim estão VAZIOS (24/7)
+[ ] Certificar que campo "Ativo" está marcado
+[ ] Pode configurar prioridades diferentes se quiser ordem específica
+
+TESTE NA API:
+[ ] Chamar /api/tv/auth/ com identificador_unico do dispositivo
+[ ] Verificar resposta contém campo 'playlists_mescladas': [ID1, ID2]
+[ ] Verificar que 'videos' contém vídeos das 2 playlists
+[ ] Nome deve ser "Playlist A + Playlist B"
+
+NO APP ANDROID:
+[ ] Reiniciar app ou forçar nova sincronização
+[ ] Verificar logs: quantos vídeos foram baixados?
+[ ] Deve ser: (vídeos playlist 1) + (vídeos playlist 2)
+[ ] Observar reprodução: deve tocar todos os vídeos em sequência
+
+═══════════════════════════════════════════════════════════════════════════════
+📞 RESUMO FINAL
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ PROBLEMA RESOLVIDO NO BACKEND!
+
+O que foi feito:
+  • API modificada para retornar múltiplas playlists 24/7 mescladas automaticamente
+  • Campo 'videos' agora contém vídeos de TODAS as playlists em sequência
+  • App Android vai receber lista completa e tocar em loop normal
+
+Próximos passos:
+  1. Reinicie o app Android para forçar nova sincronização
+  2. Verifique no admin que ambas playlists estão ATIVAS
+  3. Verifique que os agendamentos estão sem horário (hora_inicio e hora_fim vazios)
+  4. O app deve automaticamente tocar todos os vídeos das 2 playlists em sequência!
+
+Se ainda não funcionar após reiniciar o app:
+  • Teste a API manualmente: POST https://seu-dominio.com/api/tv/auth/
+  • Envie: {"identificador_unico": "UUID-DO-SEU-DISPOSITIVO"}
+  • Verifique se retorna campo 'playlists_mescladas' na resposta
+  • Conte quantos vídeos estão no array 'videos' - deve ser soma das 2 playlists
+
+═══════════════════════════════════════════════════════════════════════════════
+
