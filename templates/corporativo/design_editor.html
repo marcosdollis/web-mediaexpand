@@ -911,12 +911,13 @@ function init() {
 
     // Load existing design
     if (EXISTING_JSON && typeof EXISTING_JSON === 'object') {
-        // Restore canvas dimensions from the saved JSON (Fabric stores width/height in toJSON output)
-        const jsonW = EXISTING_JSON.width || EXISTING_JSON.backgroundImage && EXISTING_JSON.backgroundImage.width;
-        const jsonH = EXISTING_JSON.height || EXISTING_JSON.backgroundImage && EXISTING_JSON.backgroundImage.height;
-        if (jsonW && jsonH && jsonW > 0 && jsonH > 0) {
-            CANVAS_W = jsonW;
-            CANVAS_H = jsonH;
+        // Prefer _canvasWidth/_canvasHeight embedded by our save function.
+        // Falls back to Django model values (CANVAS_W/CANVAS_H from template vars).
+        const savedW = EXISTING_JSON._canvasWidth || 0;
+        const savedH = EXISTING_JSON._canvasHeight || 0;
+        if (savedW > 0 && savedH > 0) {
+            CANVAS_W = savedW;
+            CANVAS_H = savedH;
         }
         canvas.setWidth(CANVAS_W);
         canvas.setHeight(CANVAS_H);
@@ -934,6 +935,8 @@ function init() {
         // New design — sync inputs to defaults
         document.getElementById('canvasWidth').value = CANVAS_W;
         document.getElementById('canvasHeight').value = CANVAS_H;
+        canvas.setWidth(CANVAS_W);
+        canvas.setHeight(CANVAS_H);
         canvas.backgroundColor = '#ffffff';
         canvas.renderAll();
         saveUndoState();
@@ -1679,10 +1682,13 @@ function performSave(titulo, showFeedback) {
     }
     updateSaveIndicator();
 
-    const designJSON = canvas.toJSON();
-    const thumbnailURL = canvas.toDataURL({ format: 'png', multiplier: 0.3 });
     const largura = parseInt(document.getElementById('canvasWidth').value) || 1920;
     const altura = parseInt(document.getElementById('canvasHeight').value) || 1080;
+    const designJSON = canvas.toJSON();
+    // Embed dimensions directly in JSON so they survive round-trips (Fabric.js toJSON() omits them)
+    designJSON._canvasWidth = largura;
+    designJSON._canvasHeight = altura;
+    const thumbnailURL = canvas.toDataURL({ format: 'png', multiplier: 0.3 });
     const duracao = parseInt(document.getElementById('designDuration').value) || 15;
     const isTemplate = document.getElementById('isTemplate').value === '1';
     const templateCat = document.getElementById('templateCategoria').value.trim();
