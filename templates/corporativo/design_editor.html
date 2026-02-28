@@ -911,17 +911,33 @@ function init() {
 
     // Load existing design
     if (EXISTING_JSON && typeof EXISTING_JSON === 'object') {
+        // Restore canvas dimensions from the saved JSON (Fabric stores width/height in toJSON output)
+        const jsonW = EXISTING_JSON.width || EXISTING_JSON.backgroundImage && EXISTING_JSON.backgroundImage.width;
+        const jsonH = EXISTING_JSON.height || EXISTING_JSON.backgroundImage && EXISTING_JSON.backgroundImage.height;
+        if (jsonW && jsonH && jsonW > 0 && jsonH > 0) {
+            CANVAS_W = jsonW;
+            CANVAS_H = jsonH;
+        }
+        canvas.setWidth(CANVAS_W);
+        canvas.setHeight(CANVAS_H);
+        // Sync input fields to actual design dimensions
+        document.getElementById('canvasWidth').value = CANVAS_W;
+        document.getElementById('canvasHeight').value = CANVAS_H;
+
         canvas.loadFromJSON(EXISTING_JSON, function() {
             canvas.renderAll();
             updateLayers();
             saveUndoState();
-            console.log('[DesignEditor] Design loaded from JSON, objects:', canvas.getObjects().length);
+            console.log('[DesignEditor] Design loaded: ' + CANVAS_W + 'x' + CANVAS_H + ', objects:', canvas.getObjects().length);
         });
     } else {
+        // New design — sync inputs to defaults
+        document.getElementById('canvasWidth').value = CANVAS_W;
+        document.getElementById('canvasHeight').value = CANVAS_H;
         canvas.backgroundColor = '#ffffff';
         canvas.renderAll();
         saveUndoState();
-        console.log('[DesignEditor] New blank canvas');
+        console.log('[DesignEditor] New blank canvas: ' + CANVAS_W + 'x' + CANVAS_H);
     }
 
     // Fit canvas after a short delay to ensure DOM is ready
