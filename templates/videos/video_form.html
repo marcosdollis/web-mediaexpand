@@ -47,7 +47,7 @@
                         <!-- Video File -->
                         <div class="mb-4">
                             <label for="{% if form %}{{ form.arquivo.id_for_label }}{% else %}arquivo{% endif %}" class="form-label fw-bold">
-                                <i class="fas fa-video text-primary me-2"></i>Arquivo de Vídeo
+                                <i class="fas fa-video text-primary me-2"></i>Arquivo de Vídeo <span class="text-danger">*</span>
                             </label>
                             
                             {% if video and video.arquivo %}
@@ -61,7 +61,7 @@
                             {% endif %}
                             
                             <div class="upload-area" id="uploadArea">
-                                <div class="upload-content">
+                                <div class="upload-content" id="uploadContent">
                                     <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
                                     {% if video %}
                                     <h5 class="text-muted">Arraste um novo vídeo aqui</h5>
@@ -70,12 +70,12 @@
                                     <h5 class="text-muted">Arraste seu vídeo aqui</h5>
                                     <p class="text-muted small mb-3">ou clique para selecionar</p>
                                     {% endif %}
-                                    {% if form %}
-                                        {{ form.arquivo }}
-                                    {% else %}
-                                        <input type="file" name="arquivo" id="arquivo" class="form-control" accept="video/*" required>
-                                    {% endif %}
                                 </div>
+                                {% if form %}
+                                    {{ form.arquivo }}
+                                {% else %}
+                                    <input type="file" name="arquivo" id="arquivo" accept="video/*" {% if not video %}required{% endif %}>
+                                {% endif %}
                                 <div class="upload-progress d-none">
                                     <div class="progress mb-2">
                                         <div class="progress-bar" role="progressbar" style="width: 0%"></div>
@@ -92,7 +92,7 @@
                             {% endif %}
                             <div class="form-text">
                                 <small class="text-muted">
-                                    Formatos aceitos: MP4, AVI, MOV, WMV. Tamanho máximo: 100MB
+                                    Formatos aceitos: MP4, AVI, MOV, WMV. Tamanho máximo: 500MB
                                 </small>
                             </div>
                         </div>
@@ -406,11 +406,18 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const uploadArea = document.getElementById('uploadArea');
-    const fileInput = document.getElementById('id_video_file');
-    const uploadContent = uploadArea.querySelector('.upload-content');
+    // Buscar o input de arquivo (Django pode gerar id_arquivo)
+    const fileInput = document.getElementById('id_arquivo') || document.getElementById('arquivo');
+    const uploadContent = document.getElementById('uploadContent');
     const uploadProgress = uploadArea.querySelector('.upload-progress');
     const progressBar = uploadProgress.querySelector('.progress-bar');
     const submitBtn = document.getElementById('submitBtn');
+    const form = document.querySelector('form');
+
+    if (!fileInput) {
+        console.error('Input de arquivo não encontrado');
+        return;
+    }
 
     // Drag and drop functionality
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -423,32 +430,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     ['dragenter', 'dragover'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, highlight, false);
+        uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
     });
 
     ['dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, unhighlight, false);
+        uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
     });
 
-    function highlight(e) {
-        uploadArea.classList.add('dragover');
-    }
-
-    function unhighlight(e) {
-        uploadArea.classList.remove('dragover');
-    }
-
-    uploadArea.addEventListener('drop', handleDrop, false);
-
-    function handleDrop(e) {
+    uploadArea.addEventListener('drop', function(e) {
         const dt = e.dataTransfer;
         const files = dt.files;
 
         if (files.length > 0) {
-            fileInput.files = files;
-            updateFileDisplay(files[0]);
+            // Criar um novo DataTransfer para setar no input
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(files[0]);
+            fileInput.files = dataTransfer.files;
+            
+            // Disparar evento change manualmente
+            const changeEvent = new Event('change', { bubbles: true });
+            fileInput.dispatchEvent(changeEvent);
         }
-    }
+    }, false);
 
     // File input change
     fileInput.addEventListener('change', function(e) {
@@ -465,7 +468,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <i class="fas fa-file-video fa-3x text-success mb-3"></i>
             <h5 class="text-success">${fileName}</h5>
             <p class="text-muted">Tamanho: ${fileSize}</p>
-            <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearFile()">
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearFileUpload()">
                 <i class="fas fa-times me-1"></i>Remover
             </button>
         `;
@@ -474,70 +477,73 @@ document.addEventListener('DOMContentLoaded', function() {
         validateVideoFile(file);
     }
 
-    window.clearFile = function() {
+    window.clearFileUpload = function() {
         fileInput.value = '';
         uploadContent.innerHTML = `
             <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
             <h5 class="text-muted">Arraste seu vídeo aqui</h5>
             <p class="text-muted small mb-3">ou clique para selecionar</p>
-            <div class="file-input-wrapper">
-                <input type="file" name="video_file" accept="video/*" id="id_video_file" required>
-                <button type="button" class="btn btn-outline-primary">
-                    <i class="fas fa-folder-open me-2"></i>Selecionar Arquivo
-                </button>
-            </div>
         `;
     };
 
     function validateVideoFile(file) {
-        const maxSize = 100 * 1024 * 1024; // 100MB
-        const allowedTypes = ['video/mp4', 'video/avi', 'video/mov', 'video/wmv'];
+        const maxSize = 500 * 1024 * 1024; // 500MB
+        const allowedTypes = ['video/mp4', 'video/avi', 'video/quicktime', 'video/x-ms-wmv', 'video/x-msvideo'];
+        const allowedExts = ['.mp4', '.avi', '.mov', '.wmv'];
 
         let isValid = true;
         let errorMessage = '';
 
+        // Verificar extensão
+        const fileName = file.name.toLowerCase();
+        const hasValidExt = allowedExts.some(ext => fileName.endsWith(ext));
+
         if (file.size > maxSize) {
             isValid = false;
-            errorMessage = 'Arquivo muito grande. Máximo: 100MB';
-        } else if (!allowedTypes.includes(file.type)) {
+            errorMessage = 'Arquivo muito grande. Máximo: 500MB';
+        } else if (!hasValidExt && !allowedTypes.includes(file.type)) {
             isValid = false;
             errorMessage = 'Tipo de arquivo não suportado. Use MP4, AVI, MOV ou WMV';
         }
 
         if (!isValid) {
             showAlert(errorMessage, 'danger');
-            clearFile();
+            clearFileUpload();
         }
     }
 
     // Form submission
-    const form = document.querySelector('form');
     form.addEventListener('submit', function(e) {
-        if (!fileInput.files.length) {
+        // Se não é edição e não tem arquivo, bloquear
+        const isEdit = document.querySelector('input[name="arquivo"]').hasAttribute('required') === false;
+        
+        if (!isEdit && !fileInput.files.length) {
             e.preventDefault();
             showAlert('Por favor, selecione um arquivo de vídeo', 'warning');
             return;
         }
 
-        // Show progress
-        uploadContent.classList.add('d-none');
-        uploadProgress.classList.remove('d-none');
+        // Show progress apenas se tiver arquivo novo
+        if (fileInput.files.length > 0) {
+            uploadContent.classList.add('d-none');
+            uploadProgress.classList.remove('d-none');
 
-        // Disable submit button
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
 
-        // Simulate progress (in real implementation, this would be handled by the server)
-        let progress = 0;
-        const progressInterval = setInterval(() => {
-            progress += Math.random() * 15;
-            if (progress > 90) progress = 90;
-            progressBar.style.width = progress + '%';
+            // Simulate progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90;
+                progressBar.style.width = progress + '%';
 
-            if (progress >= 90) {
-                clearInterval(progressInterval);
-            }
-        }, 200);
+                if (progress >= 90) {
+                    clearInterval(progressInterval);
+                }
+            }, 200);
+        }
     });
 
     // Form validation
@@ -547,7 +553,7 @@ document.addEventListener('DOMContentLoaded', function() {
             event.stopPropagation();
         }
         form.classList.add('was-validated');
-    });
+    }, false);
 });
 
 function formatFileSize(bytes) {
@@ -559,7 +565,9 @@ function formatFileSize(bytes) {
 }
 
 function showAlert(message, type = 'info') {
-    const alertContainer = document.querySelector('.card-body') || document.body;
+    const alertContainer = document.querySelector('.card-body');
+    if (!alertContainer) return;
+    
     const alertHtml = `
         <div class="alert alert-${type} alert-dismissible fade show mt-3" role="alert">
             ${message}
@@ -567,6 +575,14 @@ function showAlert(message, type = 'info') {
         </div>
     `;
     alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+    
+    // Auto-dismiss após 5 segundos
+    setTimeout(() => {
+        const alert = alertContainer.querySelector('.alert');
+        if (alert) {
+            alert.remove();
+        }
+    }, 5000);
 }
 
 // Live preview da tarja inferior
