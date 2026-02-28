@@ -19,6 +19,11 @@
                     <a href="{% url 'design_list' %}" class="btn btn-outline-secondary">
                         <i class="fas fa-images me-1"></i>Meus Designs
                     </a>
+                    <button class="btn btn-outline-info" onclick="document.getElementById('pptxGalleryUpload').click()">
+                        <i class="fas fa-file-powerpoint me-1"></i>Importar PPTX
+                    </button>
+                    <input type="file" id="pptxGalleryUpload" accept=".pptx" style="display:none;"
+                           onchange="importPPTXFromGallery(event)">
                     <a href="{% url 'design_editor_create' %}" class="btn btn-primary">
                         <i class="fas fa-plus me-2"></i>Design em Branco
                     </a>
@@ -159,4 +164,86 @@
     box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
 }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function importPPTXFromGallery(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin fa-3x text-primary mb-3" style="display:block;"></i><h5>Importando PPTX...</h5><p class="text-muted">Convertendo slides para design editável</p></div>';
+    document.body.appendChild(overlay);
+
+    var formData = new FormData();
+    formData.append('pptx', file);
+
+    fetch('{% url "design_import_pptx" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        document.body.removeChild(overlay);
+        if (data.success && data.pages && data.pages.length > 0) {
+            // Save as a new design via the save endpoint
+            var designJSON = {
+                _version: 2,
+                _canvasWidth: data.canvasWidth || 1920,
+                _canvasHeight: data.canvasHeight || 1080,
+                pages: data.pages.map(function(p, i) {
+                    return {
+                        id: 'page_' + Date.now() + '_' + i,
+                        name: p.name || ('Slide ' + (i + 1)),
+                        duration: 5,
+                        transition: 'fade',
+                        transitionDuration: 0.5,
+                        audioUrl: '',
+                        fabricJson: p.fabricJson,
+                        animations: []
+                    };
+                })
+            };
+
+            var payload = {
+                titulo: file.name.replace('.pptx', '').replace('.PPTX', ''),
+                design_json: designJSON,
+                thumbnail: '',
+                largura: data.canvasWidth || 1920,
+                altura: data.canvasHeight || 1080,
+                duracao_segundos: data.pages.length * 5,
+                is_template: false,
+                template_categoria: ''
+            };
+
+            fetch('{% url "design_save_new" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(saveData) {
+                if (saveData.success && saveData.id) {
+                    window.location.href = '/corporativo/design/' + saveData.id + '/edit/';
+                } else {
+                    alert('Erro ao salvar design importado: ' + (saveData.message || ''));
+                }
+            });
+        } else {
+            alert('Erro ao importar PPTX: ' + (data.message || 'Nenhum slide encontrado'));
+        }
+    })
+    .catch(function(err) {
+        document.body.removeChild(overlay);
+        alert('Erro de conexão: ' + err.message);
+    });
+    e.target.value = '';
+}
+</script>
 {% endblock %}

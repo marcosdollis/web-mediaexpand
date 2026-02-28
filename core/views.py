@@ -3507,12 +3507,270 @@ def design_render_tv_view(request, pk):
     """
     Renderiza o design como HTML/SVG estático para o app de TV (WebView).
     Usa Fabric.js para gerar canvas a partir do JSON salvo.
+    Suporta multi-page com transições e áudio.
     """
     conteudo = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
-    import json
+    import json as json_mod
+    design_data = conteudo.design_json or {}
     context = {
         'conteudo': conteudo,
-        'design_json': json.dumps(conteudo.design_json) if conteudo.design_json else '{}',
+        'design_json': json_mod.dumps(design_data),
     }
     return render(request, 'corporativo/design_tv_render.html', context)
+
+
+@login_required
+def design_import_pptx_view(request):
+    """
+    AJAX POST: Recebe upload de arquivo .pptx, converte slides para
+    estrutura multi-page JSON compatível com o editor de design.
+    Retorna JSON com as pages prontas para inserção.
+    """
+    import json as json_mod
+    import base64
+    import io
+    from django.http import JsonResponse
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
+
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        return JsonResponse({'success': False, 'message': 'Sem permissão'}, status=403)
+
+    pptx_file = request.FILES.get('pptx_file')
+    if not pptx_file:
+        return JsonResponse({'success': False, 'message': 'Nenhum arquivo enviado'}, status=400)
+
+    if not pptx_file.name.lower().endswith('.pptx'):
+        return JsonResponse({'success': False, 'message': 'Arquivo deve ser .pptx'}, status=400)
+
+    try:
+        from pptx import Presentation
+        from pptx.util import Inches, Pt, Emu
+        from pptx.dml.color import RGBColor
+        from pptx.enum.text import PP_ALIGN
+
+        prs = Presentation(pptx_file)
+
+        # Slide dimensions (EMUs → px at 96 DPI)
+        slide_w_px = int(prs.slide_width / 914400 * 96)
+        slide_h_px = int(prs.slide_height / 914400 * 96)
+
+        pages = []
+        for slide_idx, slide in enumerate(prs.slides):
+            fabric_objects = []
+
+            # Extract background color
+            bg_color = '#ffffff'
+            try:
+                bg_fill = slide.background.fill
+                if bg_fill and bg_fill.type is not None:
+                    if bg_fill.fore_color and bg_fill.fore_color.rgb:
+                        bg_color = '#' + str(bg_fill.fore_color.rgb)
+            except Exception:
+                pass
+
+            for shape in slide.shapes:
+                # Convert shape position from EMU to pixels
+                left_px = int((shape.left or 0) / 914400 * 96)
+                top_px = int((shape.top or 0) / 914400 * 96)
+                width_px = int((shape.width or 0) / 914400 * 96)
+                height_px = int((shape.height or 0) / 914400 * 96)
+
+                # Shape fill color
+                fill_color = '#667eea'
+                try:
+                    if hasattr(shape, 'fill') and shape.fill and shape.fill.type is not None:
+                        if shape.fill.fore_color and shape.fill.fore_color.rgb:
+                            fill_color = '#' + str(shape.fill.fore_color.rgb)
+                except Exception:
+                    pass
+
+                if shape.has_text_frame:
+                    # TEXT SHAPE
+                    for para in shape.text_frame.paragraphs:
+                        full_text = para.text.strip()
+                        if not full_text:
+                            continue
+
+                        # Gather text properties from first run
+                        font_size = 24
+                        font_family = 'Inter'
+                        font_color = '#333333'
+                        font_weight = 'normal'
+                        font_style = 'normal'
+                        text_align = 'left'
+                        underline = False
+
+                        if para.runs:
+                            run = para.runs[0]
+                            if run.font.size:
+                                font_size = int(run.font.size / 12700)  # EMU → pt
+                            if run.font.name:
+                                font_family = run.font.name
+                            if run.font.bold:
+                                font_weight = 'bold'
+                            if run.font.italic:
+                                font_style = 'italic'
+                            if run.font.underline:
+                                underline = True
+                            try:
+                                if run.font.color and run.font.color.rgb:
+                                    font_color = '#' + str(run.font.color.rgb)
+                            except Exception:
+                                pass
+
+                        if para.alignment:
+                            align_map = {
+                                PP_ALIGN.LEFT: 'left',
+                                PP_ALIGN.CENTER: 'center',
+                                PP_ALIGN.RIGHT: 'right',
+                            }
+                            text_align = align_map.get(para.alignment, 'left')
+
+                        fabric_objects.append({
+                            'type': 'i-text',
+                            'text': full_text,
+                            'left': left_px,
+                            'top': top_px,
+                            'width': width_px,
+                            'fontFamily': font_family,
+                            'fontSize': font_size,
+                            'fill': font_color,
+                            'fontWeight': font_weight,
+                            'fontStyle': font_style,
+                            'underline': underline,
+                            'textAlign': text_align,
+                            'editable': True,
+                        })
+                        # Offset subsequent paragraphs vertically
+                        top_px += int(font_size * 1.4)
+
+                elif shape.shape_type == 13:  # MSO_SHAPE_TYPE.PICTURE
+                    # IMAGE SHAPE
+                    try:
+                        image = shape.image
+                        img_bytes = image.blob
+                        content_type = image.content_type or 'image/png'
+                        b64 = base64.b64encode(img_bytes).decode('utf-8')
+                        data_url = f'data:{content_type};base64,{b64}'
+                        fabric_objects.append({
+                            'type': 'image',
+                            'src': data_url,
+                            'left': left_px,
+                            'top': top_px,
+                            'scaleX': width_px / max(shape.image.size[0], 1) if hasattr(shape.image, 'size') else 1,
+                            'scaleY': height_px / max(shape.image.size[1], 1) if hasattr(shape.image, 'size') else 1,
+                        })
+                    except Exception as img_err:
+                        # Skip unreadable images
+                        pass
+
+                elif hasattr(shape, 'shape_type') and shape.width and shape.height:
+                    # GEOMETRIC SHAPE → rect
+                    stroke_color = 'transparent'
+                    stroke_width = 0
+                    try:
+                        if shape.line and shape.line.fill and shape.line.fill.fore_color:
+                            stroke_color = '#' + str(shape.line.fill.fore_color.rgb)
+                            stroke_width = int((shape.line.width or 0) / 12700)
+                    except Exception:
+                        pass
+
+                    rx = 0
+                    fabric_objects.append({
+                        'type': 'rect',
+                        'left': left_px,
+                        'top': top_px,
+                        'width': width_px,
+                        'height': height_px,
+                        'fill': fill_color,
+                        'stroke': stroke_color,
+                        'strokeWidth': stroke_width,
+                        'rx': rx,
+                        'ry': rx,
+                    })
+
+            # Build Fabric-compatible canvas JSON for this slide
+            fabric_json = {
+                'version': '5.3.1',
+                'objects': fabric_objects,
+                'background': bg_color,
+            }
+
+            pages.append({
+                'id': f'page_{slide_idx + 1}',
+                'name': f'Slide {slide_idx + 1}',
+                'duration': 5,
+                'transition': 'fade',
+                'transitionDuration': 0.5,
+                'audioUrl': '',
+                'fabricJson': fabric_json,
+                'animations': [],
+            })
+
+        return JsonResponse({
+            'success': True,
+            'canvasWidth': slide_w_px,
+            'canvasHeight': slide_h_px,
+            'pages': pages,
+            'totalSlides': len(pages),
+            'message': f'{len(pages)} slides importados com sucesso!',
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao processar PPTX: {str(e)}'
+        }, status=400)
+
+
+@login_required
+def design_audio_upload_view(request):
+    """
+    AJAX POST: Recebe upload de arquivo de áudio (mp3, wav, ogg).
+    Salva no media/designs/audio/ e retorna a URL.
+    """
+    import uuid
+    from django.http import JsonResponse
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
+
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        return JsonResponse({'success': False, 'message': 'Sem permissão'}, status=403)
+
+    audio_file = request.FILES.get('audio_file')
+    if not audio_file:
+        return JsonResponse({'success': False, 'message': 'Nenhum arquivo enviado'}, status=400)
+
+    allowed_ext = ['.mp3', '.wav', '.ogg', '.m4a', '.aac']
+    ext = os.path.splitext(audio_file.name)[1].lower()
+    if ext not in allowed_ext:
+        return JsonResponse({
+            'success': False,
+            'message': f'Formato não suportado. Use: {", ".join(allowed_ext)}'
+        }, status=400)
+
+    # Save file
+    filename = f'audio_{uuid.uuid4().hex[:8]}{ext}'
+    save_dir = os.path.join('media', 'designs', 'audio')
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, filename)
+
+    with open(save_path, 'wb') as f:
+        for chunk in audio_file.chunks():
+            f.write(chunk)
+
+    audio_url = f'/media/designs/audio/{filename}'
+    return JsonResponse({
+        'success': True,
+        'audioUrl': audio_url,
+        'filename': audio_file.name,
+        'message': 'Áudio enviado com sucesso!',
+    })
 

@@ -417,6 +417,104 @@
 .save-toast.error { background: #dc3545; box-shadow: 0 4px 12px rgba(220,53,69,0.4); }
 .save-toast.show { display: block; animation: slideIn 0.3s ease; }
 @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* ── PAGE STRIP (FILMSTRIP) ── */
+.page-strip-container {
+    height: 120px;
+    background: var(--panel-bg);
+    border-top: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    flex-shrink: 0;
+    overflow-x: auto;
+}
+.page-strip-container::-webkit-scrollbar { height: 4px; }
+.page-strip-container::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 2px; }
+.page-thumb {
+    min-width: 140px; max-width: 140px; height: 90px;
+    border-radius: 8px; border: 2px solid var(--panel-border);
+    background: var(--panel-surface); cursor: pointer;
+    position: relative; overflow: hidden; flex-shrink: 0;
+    transition: border-color 0.2s;
+}
+.page-thumb:hover { border-color: var(--accent); }
+.page-thumb.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(102,126,234,0.3); }
+.page-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.page-thumb-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.7); color: #fff; font-size: 10px;
+    text-align: center; padding: 2px 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.page-thumb-duration {
+    position: absolute; top: 4px; right: 4px;
+    background: rgba(0,0,0,0.6); color: #fff; font-size: 9px;
+    padding: 1px 4px; border-radius: 3px;
+}
+.page-thumb-delete {
+    position: absolute; top: 4px; left: 4px;
+    background: rgba(220,53,69,0.8); color: #fff; border: none;
+    border-radius: 50%; width: 18px; height: 18px; font-size: 10px;
+    cursor: pointer; display: none; align-items: center;
+    justify-content: center; line-height: 1;
+}
+.page-thumb:hover .page-thumb-delete { display: flex; }
+.page-add-btn {
+    min-width: 60px; height: 90px; border-radius: 8px;
+    border: 2px dashed var(--panel-border); background: transparent;
+    color: var(--panel-text-muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex-shrink: 0; transition: all 0.2s;
+}
+.page-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── PAGE SETTINGS BAR ── */
+.page-settings-bar {
+    height: 36px; background: var(--panel-surface);
+    border-top: 1px solid var(--panel-border);
+    display: flex; align-items: center; padding: 0 12px;
+    gap: 12px; flex-shrink: 0; font-size: 12px; color: var(--panel-text);
+}
+.page-settings-bar label { color: var(--panel-text-muted); font-size: 11px; margin-right: 4px; }
+.page-settings-bar input, .page-settings-bar select {
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    color: var(--panel-text); border-radius: 4px; padding: 2px 6px; font-size: 11px;
+}
+.page-settings-bar input[type="number"] { width: 60px; }
+.page-settings-bar select { width: 120px; }
+
+/* ── ANIMATION PANEL ── */
+.anim-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px; background: var(--panel-surface);
+    border-radius: 6px; margin-bottom: 4px; font-size: 11px; color: var(--panel-text);
+}
+.anim-item select, .anim-item input {
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    color: var(--panel-text); border-radius: 4px; padding: 2px 4px; font-size: 11px;
+}
+.anim-item select { width: 90px; }
+.anim-item input { width: 50px; }
+.anim-item button { background: none; border: none; color: #dc3545; cursor: pointer; font-size: 12px; }
+
+/* ── AUDIO PANEL ── */
+.audio-controls {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px; background: var(--panel-surface); border-radius: 6px;
+}
+.audio-controls button {
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    color: var(--panel-text); border-radius: 4px; padding: 4px 8px;
+    cursor: pointer; font-size: 11px;
+}
+.audio-controls button:hover { border-color: var(--accent); color: var(--accent); }
+.audio-filename {
+    font-size: 11px; color: var(--panel-text-muted);
+    overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; max-width: 150px;
+}
 </style>
 {% endblock %}
 
@@ -476,6 +574,9 @@
                 </div>
             </div>
             <div style="width:1px;height:24px;background:rgba(255,255,255,0.2);"></div>
+            <button class="btn-editor btn-editor-outline" onclick="document.getElementById('pptxUpload').click()" title="Importar PPTX">
+                <i class="fas fa-file-powerpoint me-1"></i>PPTX
+            </button>
             <button class="btn-editor btn-editor-outline" onclick="previewDesign()" title="Preview">
                 <i class="fas fa-eye me-1"></i>Preview
             </button>
@@ -828,6 +929,51 @@
                 </div>
             </div>
 
+            <!-- Animation Panel (per object) -->
+            <div class="prop-group" id="animPanel" style="display:none;">
+                <div class="panel-section-title">Animação do Objeto</div>
+                <div id="animSettings">
+                    <div style="margin-bottom:8px;">
+                        <label>Tipo de Animação</label>
+                        <select id="animType" onchange="updateSelectedObjectAnimation()">
+                            <option value="none">Nenhuma</option>
+                            <option value="fadeIn">Fade In</option>
+                            <option value="slideLeft">Deslizar da Direita</option>
+                            <option value="slideRight">Deslizar da Esquerda</option>
+                            <option value="slideUp">Deslizar de Baixo</option>
+                            <option value="slideDown">Deslizar de Cima</option>
+                            <option value="zoomIn">Zoom In</option>
+                            <option value="bounceIn">Bounce In</option>
+                        </select>
+                    </div>
+                    <div class="prop-row" style="margin-bottom:8px;">
+                        <div>
+                            <label>Atraso (s)</label>
+                            <input type="number" id="animDelay" value="0" min="0" max="10" step="0.1" onchange="updateSelectedObjectAnimation()">
+                        </div>
+                        <div>
+                            <label>Duração (s)</label>
+                            <input type="number" id="animDuration" value="1" min="0.1" max="5" step="0.1" onchange="updateSelectedObjectAnimation()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audio Panel (per page) -->
+            <div class="prop-group" id="audioPanel">
+                <div class="panel-section-title">Áudio da Página</div>
+                <div class="audio-controls">
+                    <button onclick="document.getElementById('audioUpload').click()" title="Upload áudio">
+                        <i class="fas fa-upload me-1"></i>Upload
+                    </button>
+                    <span class="audio-filename" id="audioFilename">Sem áudio</span>
+                    <button onclick="removePageAudio()" title="Remover áudio" style="margin-left:auto;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <audio id="audioPreview" controls style="width:100%; margin-top:6px; height:28px; display:none;"></audio>
+            </div>
+
             <!-- Layers -->
             <div class="prop-group">
                 <div class="panel-section-title">Camadas</div>
@@ -839,7 +985,43 @@
             </div>
         </div>
     </div>
+
+    <!-- PAGE SETTINGS BAR -->
+    <div class="page-settings-bar" id="pageSettingsBar">
+        <label>Duração:</label>
+        <input type="number" id="pageDuration" value="5" min="1" max="300" onchange="updateCurrentPageSetting('duration', parseFloat(this.value))"> <span>s</span>
+        <div style="width:1px;height:20px;background:var(--panel-border);"></div>
+        <label>Transição:</label>
+        <select id="pageTransition" onchange="updateCurrentPageSetting('transition', this.value)">
+            <option value="none">Nenhuma</option>
+            <option value="fade" selected>Fade</option>
+            <option value="slideLeft">Deslizar Esq.</option>
+            <option value="slideRight">Deslizar Dir.</option>
+            <option value="slideUp">Deslizar Cima</option>
+            <option value="slideDown">Deslizar Baixo</option>
+            <option value="zoom">Zoom</option>
+        </select>
+        <label>Dur. Trans.:</label>
+        <input type="number" id="pageTransDuration" value="0.5" min="0.1" max="3" step="0.1" onchange="updateCurrentPageSetting('transitionDuration', parseFloat(this.value))"> <span>s</span>
+        <div style="width:1px;height:20px;background:var(--panel-border);"></div>
+        <label>Página:</label>
+        <span id="pageIndicator" style="font-weight:600;">1 / 1</span>
+        <div style="margin-left:auto; display:flex; gap:4px;">
+            <button class="btn-editor btn-editor-outline" style="padding:2px 8px; font-size:11px;" onclick="duplicateCurrentPage()" title="Duplicar página">
+                <i class="fas fa-clone"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- PAGE STRIP (FILMSTRIP) -->
+    <div class="page-strip-container" id="pageStrip">
+        <!-- Populated by JS -->
+    </div>
 </div>
+
+<!-- Hidden file inputs -->
+<input type="file" id="pptxUpload" accept=".pptx" style="display:none;" onchange="handlePPTXImport(event)">
+<input type="file" id="audioUpload" accept="audio/*" style="display:none;" onchange="handleAudioUpload(event)">
 
 <!-- Preview Modal -->
 <div class="template-modal-overlay" id="previewModal">
@@ -890,6 +1072,10 @@ let isSaving = false;
 let hasUnsavedChanges = false;
 const AUTO_SAVE_DELAY = 30000; // 30 seconds
 
+// ── MULTI-PAGE STATE ──
+let pages = [];
+let currentPageIdx = 0;
+
 // ── COLORS ──
 const COLORS = [
     '#ffffff', '#000000', '#f44336', '#e91e63', '#9c27b0', '#673ab7',
@@ -931,32 +1117,56 @@ function init() {
         applyZoomToFabric(currentZoom);
     }
 
-    // Load existing design
+    // Load existing design (multi-page aware)
     if (EXISTING_JSON && typeof EXISTING_JSON === 'object') {
-        // Strip any width/height Fabric may have stored so loadFromJSON can't override our size
-        var jsonCopy = Object.assign({}, EXISTING_JSON);
-        delete jsonCopy.width;
-        delete jsonCopy.height;
-
-        enforceCanvasSize();
-
-        canvas.loadFromJSON(jsonCopy, function() {
-            // Fabric v5 loadFromJSON may internally resize the canvas — enforce our size again
-            enforceCanvasSize();
-            canvas.renderAll();
-            updateLayers();
-            saveUndoState();
-            zoomFit();
-            console.log('[DesignEditor] Design loaded: ' + CANVAS_W + 'x' + CANVAS_H + ', objects:', canvas.getObjects().length);
-        });
-    } else {
-        // New design
-        enforceCanvasSize();
-        canvas.backgroundColor = '#ffffff';
-        canvas.renderAll();
-        saveUndoState();
-        console.log('[DesignEditor] New blank canvas: ' + CANVAS_W + 'x' + CANVAS_H);
+        if (EXISTING_JSON._version === 2 && EXISTING_JSON.pages) {
+            // V2 multi-page format
+            if (EXISTING_JSON._canvasWidth) CANVAS_W = EXISTING_JSON._canvasWidth;
+            if (EXISTING_JSON._canvasHeight) CANVAS_H = EXISTING_JSON._canvasHeight;
+            pages = EXISTING_JSON.pages.map(function(p, i) {
+                return {
+                    id: p.id || ('page_' + (i+1)),
+                    name: p.name || ('Slide ' + (i+1)),
+                    duration: p.duration || 5,
+                    transition: p.transition || 'fade',
+                    transitionDuration: p.transitionDuration || 0.5,
+                    audioUrl: p.audioUrl || '',
+                    fabricJson: p.fabricJson || null,
+                    animations: p.animations || [],
+                    _thumbnail: null
+                };
+            });
+        } else {
+            // Legacy single-canvas format → wrap in one page
+            var legacyJson = Object.assign({}, EXISTING_JSON);
+            if (legacyJson._canvasWidth) { CANVAS_W = legacyJson._canvasWidth; delete legacyJson._canvasWidth; }
+            if (legacyJson._canvasHeight) { CANVAS_H = legacyJson._canvasHeight; delete legacyJson._canvasHeight; }
+            delete legacyJson.width; delete legacyJson.height;
+            pages = [{
+                id: 'page_1', name: 'Slide 1',
+                duration: parseInt(document.getElementById('designDuration').value) || 15,
+                transition: 'fade', transitionDuration: 0.5,
+                audioUrl: '', fabricJson: legacyJson, animations: [],
+                _thumbnail: null
+            }];
+        }
     }
+    if (pages.length === 0) {
+        pages = [createNewPage('Slide 1')];
+    }
+
+    enforceCanvasSize();
+    currentPageIdx = 0;
+    loadPageIntoCanvas(0, function() {
+        enforceCanvasSize();
+        canvas.renderAll();
+        updateLayers();
+        saveUndoState();
+        zoomFit();
+        renderPageStrip();
+        syncPageSettingsUI();
+        console.log('[DesignEditor] Loaded ' + pages.length + ' page(s), ' + CANVAS_W + 'x' + CANVAS_H);
+    });
 
     // Fit canvas after a short delay to ensure DOM is ready
     setTimeout(zoomFit, 200);
@@ -1220,13 +1430,12 @@ window.handleImageUpload = function(e) {
     const reader = new FileReader();
     reader.onload = function(evt) {
         fabric.Image.fromURL(evt.target.result, function(img) {
-            const cW = canvas.getWidth(), cH = canvas.getHeight();
-            const maxW = cW * 0.5;
-            const maxH = cH * 0.5;
-            const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+            var maxW = CANVAS_W * 0.5;
+            var maxH = CANVAS_H * 0.5;
+            var scale = Math.min(maxW / img.width, maxH / img.height, 1);
             img.set({
-                left: cW / 2 - (img.width * scale) / 2,
-                top: cH / 2 - (img.height * scale) / 2,
+                left: CANVAS_W / 2 - (img.width * scale) / 2,
+                top: CANVAS_H / 2 - (img.height * scale) / 2,
                 scaleX: scale, scaleY: scale,
             });
             canvas.add(img);
@@ -1253,10 +1462,9 @@ window.setCanvasBgColor = function() {
 window.setBgGradient = function(gradientCSS) {
     const match = gradientCSS.match(/#[0-9a-fA-F]{6}/g);
     if (match && match.length >= 2) {
-        const cW = canvas.getWidth(), cH = canvas.getHeight();
-        const grad = new fabric.Gradient({
+        var grad = new fabric.Gradient({
             type: 'linear',
-            coords: { x1: 0, y1: 0, x2: cW, y2: cH },
+            coords: { x1: 0, y1: 0, x2: CANVAS_W, y2: CANVAS_H },
             colorStops: [
                 { offset: 0, color: match[0] },
                 { offset: 1, color: match[1] },
@@ -1281,10 +1489,9 @@ window.handleBgImageUpload = function(e) {
     const reader = new FileReader();
     reader.onload = function(evt) {
         fabric.Image.fromURL(evt.target.result, function(img) {
-            const cW = canvas.getWidth(), cH = canvas.getHeight();
             canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-                scaleX: cW / img.width,
-                scaleY: cH / img.height,
+                scaleX: CANVAS_W / img.width,
+                scaleY: CANVAS_H / img.height,
                 originX: 'left', originY: 'top',
             });
             saveUndoState();
@@ -1311,6 +1518,7 @@ function onSelectionChange() {
     const obj = canvas.getActiveObject();
     if (!obj) return;
     showPropertiesFor(obj);
+    showAnimationPanel(obj);
     updateLayers();
 }
 function onSelectionClear() {
@@ -1319,6 +1527,7 @@ function onSelectionClear() {
     document.getElementById('shapePropsPanel').style.display = 'none';
     document.getElementById('alignPanel').style.display = 'none';
     document.getElementById('actionsPanel').style.display = 'none';
+    document.getElementById('animPanel').style.display = 'none';
 }
 function showPropertiesFor(obj) {
     document.getElementById('propsPanel').style.display = 'block';
@@ -1699,10 +1908,27 @@ function performSave(titulo, showFeedback) {
     document.getElementById('canvasWidth').value = largura;
     document.getElementById('canvasHeight').value = altura;
 
-    const designJSON = canvas.toJSON();
-    // Embed dimensions directly in JSON so they survive round-trips (Fabric.js toJSON() omits them)
-    designJSON._canvasWidth = largura;
-    designJSON._canvasHeight = altura;
+    // Save current page state before serializing
+    saveCurrentPageState();
+
+    // Build v2 multi-page JSON
+    const designJSON = {
+        _version: 2,
+        _canvasWidth: largura,
+        _canvasHeight: altura,
+        pages: pages.map(function(p) {
+            return {
+                id: p.id,
+                name: p.name,
+                duration: p.duration,
+                transition: p.transition,
+                transitionDuration: p.transitionDuration,
+                audioUrl: p.audioUrl,
+                fabricJson: p.fabricJson,
+                animations: p.animations
+            };
+        })
+    };
     const thumbnailURL = canvas.toDataURL({ format: 'png', multiplier: 0.3 });
     const duracao = parseInt(document.getElementById('designDuration').value) || 15;
     const isTemplate = document.getElementById('isTemplate').value === '1';
@@ -1773,6 +1999,353 @@ function showToast(msg, isError) {
     toast.className = 'save-toast show' + (isError ? ' error' : '');
     setTimeout(function() { toast.classList.remove('show'); }, 3000);
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  MULTI-PAGE MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+function createNewPage(name) {
+    return {
+        id: 'page_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        name: name || ('Slide ' + (pages.length + 1)),
+        duration: 5,
+        transition: 'fade',
+        transitionDuration: 0.5,
+        audioUrl: '',
+        fabricJson: null,
+        animations: [],
+        _thumbnail: null
+    };
+}
+
+function saveCurrentPageState() {
+    if (!canvas || pages.length === 0) return;
+    var json = canvas.toJSON();
+    delete json.width; delete json.height;
+    pages[currentPageIdx].fabricJson = json;
+    // Capture thumbnail
+    try {
+        pages[currentPageIdx]._thumbnail = canvas.toDataURL({ format: 'png', multiplier: 0.15 });
+    } catch(e) {}
+}
+
+function loadPageIntoCanvas(idx, cb) {
+    var page = pages[idx];
+    if (!page) { if (cb) cb(); return; }
+    if (page.fabricJson) {
+        var json = JSON.parse(JSON.stringify(page.fabricJson));
+        delete json.width; delete json.height;
+        canvas.loadFromJSON(json, function() {
+            canvas.setWidth(Math.round(CANVAS_W * currentZoom));
+            canvas.setHeight(Math.round(CANVAS_H * currentZoom));
+            canvas.setZoom(currentZoom);
+            canvas.renderAll();
+            if (cb) cb();
+        });
+    } else {
+        canvas.clear();
+        canvas.setBackgroundColor('#ffffff', function() {
+            canvas.renderAll();
+            if (cb) cb();
+        });
+    }
+}
+
+window.switchToPage = function(idx) {
+    if (idx === currentPageIdx || idx < 0 || idx >= pages.length) return;
+    // Save current page
+    saveCurrentPageState();
+    // Clear undo history for new page
+    undoStack = [];
+    redoStack = [];
+    currentPageIdx = idx;
+    loadPageIntoCanvas(idx, function() {
+        canvas.renderAll();
+        updateLayers();
+        saveUndoState();
+        renderPageStrip();
+        syncPageSettingsUI();
+        onSelectionClear();
+    });
+};
+
+window.addNewPage = function() {
+    saveCurrentPageState();
+    var newPage = createNewPage('Slide ' + (pages.length + 1));
+    pages.push(newPage);
+    switchToPage(pages.length - 1);
+    scheduleAutoSave();
+};
+
+window.duplicateCurrentPage = function() {
+    saveCurrentPageState();
+    var src = pages[currentPageIdx];
+    var dup = {
+        id: 'page_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        name: src.name + ' (cópia)',
+        duration: src.duration,
+        transition: src.transition,
+        transitionDuration: src.transitionDuration,
+        audioUrl: src.audioUrl,
+        fabricJson: src.fabricJson ? JSON.parse(JSON.stringify(src.fabricJson)) : null,
+        animations: src.animations ? JSON.parse(JSON.stringify(src.animations)) : [],
+        _thumbnail: src._thumbnail
+    };
+    pages.splice(currentPageIdx + 1, 0, dup);
+    switchToPage(currentPageIdx + 1);
+    scheduleAutoSave();
+};
+
+window.deletePage = function(idx) {
+    if (pages.length <= 1) {
+        showToast('Deve haver pelo menos uma página', true);
+        return;
+    }
+    pages.splice(idx, 1);
+    if (currentPageIdx >= pages.length) currentPageIdx = pages.length - 1;
+    if (idx === currentPageIdx || currentPageIdx >= pages.length) {
+        currentPageIdx = Math.min(currentPageIdx, pages.length - 1);
+        loadPageIntoCanvas(currentPageIdx, function() {
+            canvas.renderAll();
+            updateLayers();
+            undoStack = []; redoStack = [];
+            saveUndoState();
+            renderPageStrip();
+            syncPageSettingsUI();
+        });
+    } else {
+        if (idx < currentPageIdx) currentPageIdx--;
+        renderPageStrip();
+        syncPageSettingsUI();
+    }
+    scheduleAutoSave();
+};
+
+function renderPageStrip() {
+    var strip = document.getElementById('pageStrip');
+    strip.innerHTML = '';
+
+    pages.forEach(function(page, idx) {
+        var thumb = document.createElement('div');
+        thumb.className = 'page-thumb' + (idx === currentPageIdx ? ' active' : '');
+        thumb.onclick = function() { switchToPage(idx); };
+
+        if (page._thumbnail) {
+            var img = document.createElement('img');
+            img.src = page._thumbnail;
+            thumb.appendChild(img);
+        } else {
+            var ph = document.createElement('div');
+            ph.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--panel-text-muted);font-size:24px;';
+            ph.innerHTML = '<i class="far fa-square"></i>';
+            thumb.appendChild(ph);
+        }
+
+        var label = document.createElement('div');
+        label.className = 'page-thumb-label';
+        label.textContent = page.name || ('Slide ' + (idx + 1));
+        thumb.appendChild(label);
+
+        var dur = document.createElement('div');
+        dur.className = 'page-thumb-duration';
+        dur.textContent = (page.duration || 5) + 's';
+        thumb.appendChild(dur);
+
+        if (pages.length > 1) {
+            var del = document.createElement('button');
+            del.className = 'page-thumb-delete';
+            del.innerHTML = '&times;';
+            del.onclick = function(e) { e.stopPropagation(); deletePage(idx); };
+            thumb.appendChild(del);
+        }
+
+        strip.appendChild(thumb);
+    });
+
+    var addBtn = document.createElement('button');
+    addBtn.className = 'page-add-btn';
+    addBtn.onclick = addNewPage;
+    addBtn.title = 'Adicionar página';
+    addBtn.innerHTML = '<i class="fas fa-plus"></i>';
+    strip.appendChild(addBtn);
+
+    // Update page indicator
+    var ind = document.getElementById('pageIndicator');
+    if (ind) ind.textContent = (currentPageIdx + 1) + ' / ' + pages.length;
+}
+
+function syncPageSettingsUI() {
+    var page = pages[currentPageIdx];
+    if (!page) return;
+    document.getElementById('pageDuration').value = page.duration || 5;
+    document.getElementById('pageTransition').value = page.transition || 'fade';
+    document.getElementById('pageTransDuration').value = page.transitionDuration || 0.5;
+    // Audio
+    var af = document.getElementById('audioFilename');
+    var ap = document.getElementById('audioPreview');
+    if (page.audioUrl) {
+        af.textContent = page.audioUrl.split('/').pop();
+        ap.src = page.audioUrl;
+        ap.style.display = 'block';
+    } else {
+        af.textContent = 'Sem áudio';
+        ap.src = '';
+        ap.style.display = 'none';
+    }
+}
+
+window.updateCurrentPageSetting = function(key, value) {
+    if (!pages[currentPageIdx]) return;
+    pages[currentPageIdx][key] = value;
+    renderPageStrip();
+    scheduleAutoSave();
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  ANIMATION MANAGEMENT (per object, per page)
+// ═══════════════════════════════════════════════════════════════
+
+function showAnimationPanel(obj) {
+    var panel = document.getElementById('animPanel');
+    if (!obj) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    var idx = canvas.getObjects().indexOf(obj);
+    var page = pages[currentPageIdx];
+    var anim = null;
+    if (page && page.animations) {
+        anim = page.animations.find(function(a) { return a.objectIndex === idx; });
+    }
+    document.getElementById('animType').value = anim ? anim.type : 'none';
+    document.getElementById('animDelay').value = anim ? anim.delay : 0;
+    document.getElementById('animDuration').value = anim ? anim.duration : 1;
+}
+
+window.updateSelectedObjectAnimation = function() {
+    var obj = canvas.getActiveObject();
+    if (!obj) return;
+    var idx = canvas.getObjects().indexOf(obj);
+    var page = pages[currentPageIdx];
+    if (!page) return;
+    if (!page.animations) page.animations = [];
+
+    var type = document.getElementById('animType').value;
+    var delay = parseFloat(document.getElementById('animDelay').value) || 0;
+    var duration = parseFloat(document.getElementById('animDuration').value) || 1;
+
+    // Remove old entry for this object
+    page.animations = page.animations.filter(function(a) { return a.objectIndex !== idx; });
+
+    if (type !== 'none') {
+        page.animations.push({ objectIndex: idx, type: type, delay: delay, duration: duration });
+    }
+    scheduleAutoSave();
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  AUDIO MANAGEMENT (per page)
+// ═══════════════════════════════════════════════════════════════
+
+window.handleAudioUpload = function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var formData = new FormData();
+    formData.append('audio', file);
+
+    fetch('{% url "design_audio_upload" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF },
+        body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            pages[currentPageIdx].audioUrl = data.audioUrl;
+            syncPageSettingsUI();
+            showToast('Áudio adicionado!');
+            scheduleAutoSave();
+        } else {
+            showToast(data.message || 'Erro ao fazer upload', true);
+        }
+    })
+    .catch(function(err) { showToast('Erro: ' + err.message, true); });
+    e.target.value = '';
+};
+
+window.removePageAudio = function() {
+    pages[currentPageIdx].audioUrl = '';
+    syncPageSettingsUI();
+    scheduleAutoSave();
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  PPTX IMPORT
+// ═══════════════════════════════════════════════════════════════
+
+window.handlePPTXImport = function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    showToast('Importando PPTX...');
+
+    var formData = new FormData();
+    formData.append('pptx', file);
+
+    fetch('{% url "design_import_pptx" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF },
+        body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            // Update canvas dimensions from PPTX
+            CANVAS_W = data.canvasWidth || 1920;
+            CANVAS_H = data.canvasHeight || 1080;
+            document.getElementById('canvasWidth').value = CANVAS_W;
+            document.getElementById('canvasHeight').value = CANVAS_H;
+
+            // Convert imported pages to our format
+            var importedPages = (data.pages || []).map(function(p, i) {
+                return {
+                    id: 'page_' + Date.now() + '_' + i,
+                    name: p.name || ('Slide ' + (i + 1)),
+                    duration: 5,
+                    transition: 'fade',
+                    transitionDuration: 0.5,
+                    audioUrl: '',
+                    fabricJson: p.fabricJson || null,
+                    animations: [],
+                    _thumbnail: null
+                };
+            });
+
+            if (importedPages.length > 0) {
+                // Save current page state
+                saveCurrentPageState();
+                // Replace all pages with imported ones
+                pages = importedPages;
+                currentPageIdx = 0;
+                undoStack = []; redoStack = [];
+                loadPageIntoCanvas(0, function() {
+                    applyZoomToFabric(currentZoom);
+                    canvas.renderAll();
+                    updateLayers();
+                    saveUndoState();
+                    zoomFit();
+                    renderPageStrip();
+                    syncPageSettingsUI();
+                });
+                showToast('PPTX importado: ' + data.totalSlides + ' slide(s)!');
+                scheduleAutoSave();
+            } else {
+                showToast('Nenhum slide encontrado no PPTX', true);
+            }
+        } else {
+            showToast(data.message || 'Erro ao importar PPTX', true);
+        }
+    })
+    .catch(function(err) { showToast('Erro: ' + err.message, true); });
+    e.target.value = '';
+};
 
 // ── INIT ON LOAD ──
 document.addEventListener('DOMContentLoaded', init);

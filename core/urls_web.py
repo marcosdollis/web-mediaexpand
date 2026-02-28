@@ -94,4 +94,6 @@ urlpatterns = [
     path('corporativo/design/<int:pk>/delete/', views.design_delete_view, name='design_delete'),
     path('corporativo/design/templates/', views.design_template_gallery_view, name='design_template_gallery'),
     path('corporativo/design/<int:pk>/render/', views.design_render_tv_view, name='design_render_tv'),
+    path('corporativo/design/import-pptx/', views.design_import_pptx_view, name='design_import_pptx'),
+    path('corporativo/design/upload-audio/', views.design_audio_upload_view, name='design_audio_upload'),
 ]
