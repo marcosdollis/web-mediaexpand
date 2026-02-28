@@ -3538,7 +3538,7 @@ def design_import_pptx_view(request):
     if not user.is_owner() and not user.is_franchisee():
         return JsonResponse({'success': False, 'message': 'Sem permissão'}, status=403)
 
-    pptx_file = request.FILES.get('pptx_file')
+    pptx_file = request.FILES.get('pptx') or request.FILES.get('pptx_file')
     if not pptx_file:
         return JsonResponse({'success': False, 'message': 'Nenhum arquivo enviado'}, status=400)
 
