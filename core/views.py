@@ -3299,14 +3299,18 @@ def design_editor_view(request, pk=None):
     Editor visual (Fabric.js) para criar ou editar um design corporativo.
     Se pk=None → novo design. Se pk → editar existente.
     """
+    import json as json_mod
     user = request.user
     if not user.is_owner() and not user.is_franchisee():
         messages.error(request, 'Sem permissão.')
         return redirect('dashboard')
 
     conteudo = None
+    design_json_str = 'null'
     if pk:
         conteudo = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
+        if conteudo.design_json:
+            design_json_str = json_mod.dumps(conteudo.design_json)
 
     # Categorias de template para seletor
     categorias = (
@@ -3319,6 +3323,7 @@ def design_editor_view(request, pk=None):
 
     context = {
         'conteudo': conteudo,
+        'design_json_str': design_json_str,
         'categorias': list(categorias),
     }
     return render(request, 'corporativo/design_editor.html', context)

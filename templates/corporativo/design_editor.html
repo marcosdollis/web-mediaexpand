@@ -482,6 +482,7 @@
             <button class="btn-editor btn-editor-save" onclick="saveDesign()" id="btnSave">
                 <i class="fas fa-save me-1"></i>Salvar
             </button>
+            <span id="saveIndicator" style="font-size:11px; margin-left:8px; white-space:nowrap;"></span>
         </div>
     </div>
 
@@ -857,25 +858,23 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-//  DESIGN EDITOR — Fabric.js Canvas + Complete UI
+//  DESIGN EDITOR — Fabric.js Canvas + Complete UI (v2 fixed)
 // ═══════════════════════════════════════════════════════════════
 
 (function() {
 'use strict';
 
-// ── CONFIG ──
-const CANVAS_W = {{ conteudo.design_largura|default:1920 }};
-const CANVAS_H = {{ conteudo.design_altura|default:1080 }};
-const EXISTING_JSON = {{ conteudo.design_json|safe|default:'null' }};
-const CONTEUDO_PK = {{ conteudo.pk|default:'null' }};
+// ── CONFIG (let so they can be updated) ──
+let CANVAS_W = {{ conteudo.design_largura|default:1920 }};
+let CANVAS_H = {{ conteudo.design_altura|default:1080 }};
+
+// Properly serialized JSON from view (json.dumps)
+const EXISTING_JSON = {{ design_json_str|safe }};
+let CONTEUDO_PK = {{ conteudo.pk|default:'null' }};
 
 // Save URLs
 const SAVE_URL_NEW = '{% url "design_save_new" %}';
-{% if conteudo %}
-const SAVE_URL_EDIT = '{% url "design_save" pk=conteudo.pk %}';
-{% else %}
-const SAVE_URL_EDIT = null;
-{% endif %}
+let SAVE_URL_EDIT = {% if conteudo %}'{% url "design_save" pk=conteudo.pk %}'{% else %}null{% endif %};
 
 // CSRF
 const CSRF = '{{ csrf_token }}';
@@ -886,6 +885,10 @@ let currentZoom = 1;
 let undoStack = [];
 let redoStack = [];
 let isUndoRedoing = false;
+let autoSaveTimer = null;
+let isSaving = false;
+let hasUnsavedChanges = false;
+const AUTO_SAVE_DELAY = 30000; // 30 seconds
 
 // ── COLORS ──
 const COLORS = [
@@ -907,21 +910,22 @@ function init() {
     });
 
     // Load existing design
-    if (EXISTING_JSON) {
+    if (EXISTING_JSON && typeof EXISTING_JSON === 'object') {
         canvas.loadFromJSON(EXISTING_JSON, function() {
             canvas.renderAll();
             updateLayers();
-            saveState();
+            saveUndoState();
+            console.log('[DesignEditor] Design loaded from JSON, objects:', canvas.getObjects().length);
         });
     } else {
-        // Default white canvas
         canvas.backgroundColor = '#ffffff';
         canvas.renderAll();
-        saveState();
+        saveUndoState();
+        console.log('[DesignEditor] New blank canvas');
     }
 
-    // Fit canvas
-    setTimeout(zoomFit, 100);
+    // Fit canvas after a short delay to ensure DOM is ready
+    setTimeout(zoomFit, 200);
 
     // Events
     canvas.on('selection:created', onSelectionChange);
@@ -930,6 +934,7 @@ function init() {
     canvas.on('object:modified', onObjectModified);
     canvas.on('object:added', onObjectChange);
     canvas.on('object:removed', onObjectChange);
+    canvas.on('text:changed', onObjectChange);
 
     // Color palette
     buildColorPalette();
@@ -939,6 +944,43 @@ function init() {
 
     // Window resize → refit
     window.addEventListener('resize', zoomFit);
+
+    // Warn before leaving with unsaved changes
+    window.addEventListener('beforeunload', function(e) {
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+}
+
+// ── AUTO-SAVE ──
+function scheduleAutoSave() {
+    hasUnsavedChanges = true;
+    updateSaveIndicator();
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(function() {
+        const titulo = document.getElementById('designTitle').value.trim();
+        if (titulo && !isSaving) {
+            console.log('[DesignEditor] Auto-saving...');
+            saveDesignSilent();
+        }
+    }, AUTO_SAVE_DELAY);
+}
+
+function updateSaveIndicator() {
+    const indicator = document.getElementById('saveIndicator');
+    if (!indicator) return;
+    if (isSaving) {
+        indicator.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
+        indicator.style.color = '#ffc107';
+    } else if (hasUnsavedChanges) {
+        indicator.innerHTML = '<i class="fas fa-circle me-1" style="font-size:8px;"></i>Não salvo';
+        indicator.style.color = '#ff6b6b';
+    } else {
+        indicator.innerHTML = '<i class="fas fa-check me-1"></i>Salvo';
+        indicator.style.color = '#28a745';
+    }
 }
 
 // ── COLOR PALETTE ──
@@ -958,13 +1000,10 @@ function buildColorPalette() {
         swatch.onclick = () => {
             const obj = canvas.getActiveObject();
             if (obj) {
-                if (obj.type === 'i-text' || obj.type === 'textbox') {
-                    obj.set('fill', c);
-                } else {
-                    obj.set('fill', c);
-                }
+                obj.set('fill', c);
                 canvas.renderAll();
-                saveState();
+                saveUndoState();
+                scheduleAutoSave();
             }
         };
         container.appendChild(swatch);
@@ -982,30 +1021,30 @@ window.zoomOut = function() {
 };
 window.zoomFit = function() {
     const area = document.getElementById('canvasArea');
+    if (!area) return;
     const aW = area.clientWidth - 40;
     const aH = area.clientHeight - 60;
-    const scaleW = aW / CANVAS_W;
-    const scaleH = aH / CANVAS_H;
+    const scaleW = aW / canvas.getWidth();
+    const scaleH = aH / canvas.getHeight();
     currentZoom = Math.min(scaleW, scaleH, 1);
     applyZoom();
 };
 function applyZoom() {
     const wrapper = document.getElementById('canvasWrapper');
-    wrapper.style.transform = `scale(${currentZoom})`;
+    wrapper.style.transform = 'scale(' + currentZoom + ')';
     wrapper.style.transformOrigin = 'center center';
     document.getElementById('zoomLevel').textContent = Math.round(currentZoom * 100) + '%';
 }
 
 // ── ADD ELEMENTS ──
+function getCenterX() { return canvas.getWidth() / 2; }
+function getCenterY() { return canvas.getHeight() / 2; }
+
 window.addText = function() {
     const text = new fabric.IText('Seu texto aqui', {
-        left: CANVAS_W / 2 - 100,
-        top: CANVAS_H / 2 - 20,
-        fontFamily: 'Inter',
-        fontSize: 36,
-        fill: '#333333',
-        fontWeight: 'normal',
-        editable: true,
+        left: getCenterX() - 100, top: getCenterY() - 20,
+        fontFamily: 'Inter', fontSize: 36, fill: '#333333',
+        fontWeight: 'normal', editable: true,
     });
     canvas.add(text);
     canvas.setActiveObject(text);
@@ -1014,13 +1053,9 @@ window.addText = function() {
 
 window.addHeading = function() {
     const text = new fabric.IText('TÍTULO', {
-        left: CANVAS_W / 2 - 150,
-        top: CANVAS_H / 2 - 40,
-        fontFamily: 'Inter',
-        fontSize: 72,
-        fill: '#111111',
-        fontWeight: 'bold',
-        editable: true,
+        left: getCenterX() - 150, top: getCenterY() - 40,
+        fontFamily: 'Inter', fontSize: 72, fill: '#111111',
+        fontWeight: 'bold', editable: true,
     });
     canvas.add(text);
     canvas.setActiveObject(text);
@@ -1029,13 +1064,9 @@ window.addHeading = function() {
 
 window.addSubtext = function() {
     const text = new fabric.IText('Subtítulo ou descrição', {
-        left: CANVAS_W / 2 - 120,
-        top: CANVAS_H / 2,
-        fontFamily: 'Inter',
-        fontSize: 24,
-        fill: '#666666',
-        fontWeight: '300',
-        editable: true,
+        left: getCenterX() - 120, top: getCenterY(),
+        fontFamily: 'Inter', fontSize: 24, fill: '#666666',
+        fontWeight: '300', editable: true,
     });
     canvas.add(text);
     canvas.setActiveObject(text);
@@ -1044,15 +1075,9 @@ window.addSubtext = function() {
 
 window.addRect = function() {
     const rect = new fabric.Rect({
-        left: CANVAS_W / 2 - 100,
-        top: CANVAS_H / 2 - 60,
-        width: 200,
-        height: 120,
-        fill: '#667eea',
-        rx: 0,
-        ry: 0,
-        strokeWidth: 0,
-        stroke: 'transparent',
+        left: getCenterX() - 100, top: getCenterY() - 60,
+        width: 200, height: 120, fill: '#667eea',
+        rx: 0, ry: 0, strokeWidth: 0, stroke: 'transparent',
     });
     canvas.add(rect);
     canvas.setActiveObject(rect);
@@ -1061,12 +1086,9 @@ window.addRect = function() {
 
 window.addCircle = function() {
     const circle = new fabric.Circle({
-        left: CANVAS_W / 2 - 60,
-        top: CANVAS_H / 2 - 60,
-        radius: 60,
-        fill: '#764ba2',
-        strokeWidth: 0,
-        stroke: 'transparent',
+        left: getCenterX() - 60, top: getCenterY() - 60,
+        radius: 60, fill: '#764ba2',
+        strokeWidth: 0, stroke: 'transparent',
     });
     canvas.add(circle);
     canvas.setActiveObject(circle);
@@ -1075,13 +1097,9 @@ window.addCircle = function() {
 
 window.addTriangle = function() {
     const tri = new fabric.Triangle({
-        left: CANVAS_W / 2 - 50,
-        top: CANVAS_H / 2 - 50,
-        width: 100,
-        height: 100,
-        fill: '#f5576c',
-        strokeWidth: 0,
-        stroke: 'transparent',
+        left: getCenterX() - 50, top: getCenterY() - 50,
+        width: 100, height: 100, fill: '#f5576c',
+        strokeWidth: 0, stroke: 'transparent',
     });
     canvas.add(tri);
     canvas.setActiveObject(tri);
@@ -1089,14 +1107,10 @@ window.addTriangle = function() {
 };
 
 window.addLine = function() {
-    const line = new fabric.Line(
-        [CANVAS_W / 2 - 100, CANVAS_H / 2, CANVAS_W / 2 + 100, CANVAS_H / 2],
-        {
-            stroke: '#333333',
-            strokeWidth: 3,
-            selectable: true,
-        }
-    );
+    const cx = getCenterX(), cy = getCenterY();
+    const line = new fabric.Line([cx - 100, cy, cx + 100, cy], {
+        stroke: '#333333', strokeWidth: 3, selectable: true,
+    });
     canvas.add(line);
     canvas.setActiveObject(line);
     canvas.renderAll();
@@ -1105,11 +1119,8 @@ window.addLine = function() {
 window.addStar = function() {
     const points = createStarPoints(5, 60, 30);
     const star = new fabric.Polygon(points, {
-        left: CANVAS_W / 2 - 60,
-        top: CANVAS_H / 2 - 60,
-        fill: '#ffc107',
-        strokeWidth: 0,
-        stroke: 'transparent',
+        left: getCenterX() - 60, top: getCenterY() - 60,
+        fill: '#ffc107', strokeWidth: 0, stroke: 'transparent',
     });
     canvas.add(star);
     canvas.setActiveObject(star);
@@ -1131,15 +1142,9 @@ function createStarPoints(spikes, outerR, innerR) {
 
 window.addRoundedRect = function() {
     const rect = new fabric.Rect({
-        left: CANVAS_W / 2 - 100,
-        top: CANVAS_H / 2 - 60,
-        width: 200,
-        height: 120,
-        fill: '#00bcd4',
-        rx: 16,
-        ry: 16,
-        strokeWidth: 0,
-        stroke: 'transparent',
+        left: getCenterX() - 100, top: getCenterY() - 60,
+        width: 200, height: 120, fill: '#00bcd4',
+        rx: 16, ry: 16, strokeWidth: 0, stroke: 'transparent',
     });
     canvas.add(rect);
     canvas.setActiveObject(rect);
@@ -1148,17 +1153,12 @@ window.addRoundedRect = function() {
 
 window.addDiamond = function() {
     const points = [
-        { x: 60, y: 0 },
-        { x: 120, y: 60 },
-        { x: 60, y: 120 },
-        { x: 0, y: 60 },
+        { x: 60, y: 0 }, { x: 120, y: 60 },
+        { x: 60, y: 120 }, { x: 0, y: 60 },
     ];
     const diamond = new fabric.Polygon(points, {
-        left: CANVAS_W / 2 - 60,
-        top: CANVAS_H / 2 - 60,
-        fill: '#e91e63',
-        strokeWidth: 0,
-        stroke: 'transparent',
+        left: getCenterX() - 60, top: getCenterY() - 60,
+        fill: '#e91e63', strokeWidth: 0, stroke: 'transparent',
     });
     canvas.add(diamond);
     canvas.setActiveObject(diamond);
@@ -1167,20 +1167,12 @@ window.addDiamond = function() {
 
 window.addArrow = function() {
     const points = [
-        { x: 0, y: 20 },
-        { x: 80, y: 20 },
-        { x: 80, y: 0 },
-        { x: 120, y: 30 },
-        { x: 80, y: 60 },
-        { x: 80, y: 40 },
-        { x: 0, y: 40 },
+        { x: 0, y: 20 }, { x: 80, y: 20 }, { x: 80, y: 0 },
+        { x: 120, y: 30 }, { x: 80, y: 60 }, { x: 80, y: 40 }, { x: 0, y: 40 },
     ];
     const arrow = new fabric.Polygon(points, {
-        left: CANVAS_W / 2 - 60,
-        top: CANVAS_H / 2 - 30,
-        fill: '#ff9800',
-        strokeWidth: 0,
-        stroke: 'transparent',
+        left: getCenterX() - 60, top: getCenterY() - 30,
+        fill: '#ff9800', strokeWidth: 0, stroke: 'transparent',
     });
     canvas.add(arrow);
     canvas.setActiveObject(arrow);
@@ -1197,15 +1189,14 @@ window.handleImageUpload = function(e) {
     const reader = new FileReader();
     reader.onload = function(evt) {
         fabric.Image.fromURL(evt.target.result, function(img) {
-            // Scale to fit canvas nicely
-            const maxW = CANVAS_W * 0.5;
-            const maxH = CANVAS_H * 0.5;
+            const cW = canvas.getWidth(), cH = canvas.getHeight();
+            const maxW = cW * 0.5;
+            const maxH = cH * 0.5;
             const scale = Math.min(maxW / img.width, maxH / img.height, 1);
             img.set({
-                left: CANVAS_W / 2 - (img.width * scale) / 2,
-                top: CANVAS_H / 2 - (img.height * scale) / 2,
-                scaleX: scale,
-                scaleY: scale,
+                left: cW / 2 - (img.width * scale) / 2,
+                top: cH / 2 - (img.height * scale) / 2,
+                scaleX: scale, scaleY: scale,
             });
             canvas.add(img);
             canvas.setActiveObject(img);
@@ -1219,28 +1210,37 @@ window.handleImageUpload = function(e) {
 // ── BACKGROUND ──
 window.setCanvasBgColor = function() {
     const color = document.getElementById('customColor').value;
-    canvas.setBackgroundColor(color, canvas.renderAll.bind(canvas));
-    // Remove background image if any
-    canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
-    saveState();
+    canvas.setBackgroundImage(null, function() {
+        canvas.setBackgroundColor(color, function() {
+            canvas.renderAll();
+            saveUndoState();
+            scheduleAutoSave();
+        });
+    });
 };
+
 window.setBgGradient = function(gradientCSS) {
-    // Parse gradient to Fabric gradient
     const match = gradientCSS.match(/#[0-9a-fA-F]{6}/g);
     if (match && match.length >= 2) {
+        const cW = canvas.getWidth(), cH = canvas.getHeight();
         const grad = new fabric.Gradient({
             type: 'linear',
-            coords: { x1: 0, y1: 0, x2: CANVAS_W, y2: CANVAS_H },
+            coords: { x1: 0, y1: 0, x2: cW, y2: cH },
             colorStops: [
                 { offset: 0, color: match[0] },
                 { offset: 1, color: match[1] },
             ]
         });
-        canvas.setBackgroundColor(grad, canvas.renderAll.bind(canvas));
-        canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
-        saveState();
+        canvas.setBackgroundImage(null, function() {
+            canvas.setBackgroundColor(grad, function() {
+                canvas.renderAll();
+                saveUndoState();
+                scheduleAutoSave();
+            });
+        });
     }
 };
+
 window.triggerBgImageUpload = function() {
     document.getElementById('bgImageUpload').click();
 };
@@ -1250,15 +1250,14 @@ window.handleBgImageUpload = function(e) {
     const reader = new FileReader();
     reader.onload = function(evt) {
         fabric.Image.fromURL(evt.target.result, function(img) {
-            const scaleX = CANVAS_W / img.width;
-            const scaleY = CANVAS_H / img.height;
+            const cW = canvas.getWidth(), cH = canvas.getHeight();
             canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-                scaleX: scaleX,
-                scaleY: scaleY,
-                originX: 'left',
-                originY: 'top',
+                scaleX: cW / img.width,
+                scaleY: cH / img.height,
+                originX: 'left', originY: 'top',
             });
-            saveState();
+            saveUndoState();
+            scheduleAutoSave();
         });
     };
     reader.readAsDataURL(file);
@@ -1272,11 +1271,12 @@ window.applyCustomColor = function(prop) {
     if (!obj) return;
     obj.set(prop, color);
     canvas.renderAll();
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 
 // ── PROPERTIES PANEL ──
-function onSelectionChange(e) {
+function onSelectionChange() {
     const obj = canvas.getActiveObject();
     if (!obj) return;
     showPropertiesFor(obj);
@@ -1290,7 +1290,6 @@ function onSelectionClear() {
     document.getElementById('actionsPanel').style.display = 'none';
 }
 function showPropertiesFor(obj) {
-    // Common props
     document.getElementById('propsPanel').style.display = 'block';
     document.getElementById('alignPanel').style.display = 'block';
     document.getElementById('actionsPanel').style.display = 'block';
@@ -1301,7 +1300,6 @@ function showPropertiesFor(obj) {
     document.getElementById('propAngle').value = Math.round(obj.angle);
     document.getElementById('propOpacity').value = Math.round(obj.opacity * 100);
 
-    // Text props
     const isText = obj.type === 'i-text' || obj.type === 'textbox';
     document.getElementById('textPropsPanel').style.display = isText ? 'block' : 'none';
     if (isText) {
@@ -1310,14 +1308,12 @@ function showPropertiesFor(obj) {
         document.getElementById('propFontWeight').value = obj.fontWeight || 'normal';
         document.getElementById('propTextColor').value = obj.fill || '#333333';
         document.getElementById('propLineHeight').value = obj.lineHeight || 1.16;
-        // Button states
         document.getElementById('btnBold').classList.toggle('active', obj.fontWeight === 'bold' || parseInt(obj.fontWeight) >= 700);
         document.getElementById('btnItalic').classList.toggle('active', obj.fontStyle === 'italic');
-        document.getElementById('btnUnderline').classList.toggle('active', obj.underline);
-        document.getElementById('btnStrikethrough').classList.toggle('active', obj.linethrough);
+        document.getElementById('btnUnderline').classList.toggle('active', !!obj.underline);
+        document.getElementById('btnStrikethrough').classList.toggle('active', !!obj.linethrough);
     }
 
-    // Shape props
     const isShape = !isText && obj.type !== 'image';
     document.getElementById('shapePropsPanel').style.display = isShape ? 'block' : 'none';
     if (isShape) {
@@ -1330,8 +1326,8 @@ function showPropertiesFor(obj) {
 
 function colorToHex(color) {
     if (!color || color === 'transparent') return '#000000';
-    if (typeof color === 'string' && color.startsWith('#')) return color;
-    // Try to parse
+    if (typeof color === 'object') return '#000000'; // gradient
+    if (typeof color === 'string' && color.startsWith('#')) return color.substring(0, 7);
     const temp = document.createElement('div');
     temp.style.color = color;
     document.body.appendChild(temp);
@@ -1348,19 +1344,18 @@ window.updateObjProp = function(prop, value) {
     if (!obj) return;
     obj.set(prop, parseFloat(value));
     canvas.renderAll();
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 window.updateObjScale = function(dim, value) {
     const obj = canvas.getActiveObject();
     if (!obj) return;
     const v = parseFloat(value);
-    if (dim === 'width') {
-        obj.set('scaleX', v / (obj.width || 1));
-    } else {
-        obj.set('scaleY', v / (obj.height || 1));
-    }
+    if (dim === 'width') obj.set('scaleX', v / (obj.width || 1));
+    else obj.set('scaleY', v / (obj.height || 1));
     canvas.renderAll();
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 window.updateTextProp = function(prop, value) {
     const obj = canvas.getActiveObject();
@@ -1368,21 +1363,24 @@ window.updateTextProp = function(prop, value) {
     obj.set(prop, value);
     canvas.renderAll();
     showPropertiesFor(obj);
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 window.updateShapeProp = function(prop, value) {
     const obj = canvas.getActiveObject();
     if (!obj) return;
     obj.set(prop, value);
     canvas.renderAll();
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 window.updateShapeBorderRadius = function(val) {
     const obj = canvas.getActiveObject();
     if (!obj || obj.type !== 'rect') return;
     obj.set({ rx: parseInt(val), ry: parseInt(val) });
     canvas.renderAll();
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 
 // ── TEXT FORMATTING ──
@@ -1393,7 +1391,8 @@ window.toggleBold = function() {
     obj.set('fontWeight', isBold ? 'normal' : 'bold');
     canvas.renderAll();
     showPropertiesFor(obj);
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 window.toggleItalic = function() {
     const obj = canvas.getActiveObject();
@@ -1401,7 +1400,8 @@ window.toggleItalic = function() {
     obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic');
     canvas.renderAll();
     showPropertiesFor(obj);
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 window.toggleUnderline = function() {
     const obj = canvas.getActiveObject();
@@ -1409,7 +1409,8 @@ window.toggleUnderline = function() {
     obj.set('underline', !obj.underline);
     canvas.renderAll();
     showPropertiesFor(obj);
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 window.toggleStrikethrough = function() {
     const obj = canvas.getActiveObject();
@@ -1417,41 +1418,45 @@ window.toggleStrikethrough = function() {
     obj.set('linethrough', !obj.linethrough);
     canvas.renderAll();
     showPropertiesFor(obj);
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 window.setTextAlign = function(align) {
     const obj = canvas.getActiveObject();
     if (!obj) return;
     obj.set('textAlign', align);
     canvas.renderAll();
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 
 // ── ALIGNMENT ──
 window.alignObject = function(type) {
     const obj = canvas.getActiveObject();
     if (!obj) return;
+    const cW = canvas.getWidth(), cH = canvas.getHeight();
     switch (type) {
         case 'left': obj.set('left', 0); break;
-        case 'right': obj.set('left', CANVAS_W - obj.getScaledWidth()); break;
-        case 'centerH': obj.set('left', (CANVAS_W - obj.getScaledWidth()) / 2); break;
+        case 'right': obj.set('left', cW - obj.getScaledWidth()); break;
+        case 'centerH': obj.set('left', (cW - obj.getScaledWidth()) / 2); break;
         case 'top': obj.set('top', 0); break;
-        case 'bottom': obj.set('top', CANVAS_H - obj.getScaledHeight()); break;
-        case 'centerV': obj.set('top', (CANVAS_H - obj.getScaledHeight()) / 2); break;
+        case 'bottom': obj.set('top', cH - obj.getScaledHeight()); break;
+        case 'centerV': obj.set('top', (cH - obj.getScaledHeight()) / 2); break;
     }
     obj.setCoords();
     canvas.renderAll();
-    saveState();
+    saveUndoState();
+    scheduleAutoSave();
 };
 
 // ── OBJECT ACTIONS ──
 window.bringForward = function() {
     const obj = canvas.getActiveObject();
-    if (obj) { canvas.bringForward(obj); updateLayers(); saveState(); }
+    if (obj) { canvas.bringForward(obj); updateLayers(); saveUndoState(); scheduleAutoSave(); }
 };
 window.sendBackward = function() {
     const obj = canvas.getActiveObject();
-    if (obj) { canvas.sendBackwards(obj); updateLayers(); saveState(); }
+    if (obj) { canvas.sendBackwards(obj); updateLayers(); saveUndoState(); scheduleAutoSave(); }
 };
 window.duplicateObject = function() {
     const obj = canvas.getActiveObject();
@@ -1484,21 +1489,18 @@ function updateLayers() {
     }
 
     let html = '';
-    // Show in reverse order (top first)
     for (let i = objects.length - 1; i >= 0; i--) {
         const obj = objects[i];
         const isSelected = active === obj;
         const icon = getLayerIcon(obj);
         const name = getLayerName(obj, i);
-        html += `<div class="layer-item ${isSelected ? 'selected' : ''}" onclick="selectLayer(${i})">
-            <span class="layer-icon"><i class="${icon}"></i></span>
-            <span class="layer-name">${name}</span>
-            <span class="layer-actions">
-                <button onclick="event.stopPropagation(); toggleLayerVisibility(${i})" title="Visibilidade">
-                    <i class="fas fa-${obj.visible !== false ? 'eye' : 'eye-slash'}"></i>
-                </button>
-            </span>
-        </div>`;
+        html += '<div class="layer-item ' + (isSelected ? 'selected' : '') + '" onclick="selectLayer(' + i + ')">' +
+            '<span class="layer-icon"><i class="' + icon + '"></i></span>' +
+            '<span class="layer-name">' + name + '</span>' +
+            '<span class="layer-actions">' +
+            '<button onclick="event.stopPropagation(); toggleLayerVisibility(' + i + ')" title="Visibilidade">' +
+            '<i class="fas fa-' + (obj.visible !== false ? 'eye' : 'eye-slash') + '"></i>' +
+            '</button></span></div>';
     }
     list.innerHTML = html;
 }
@@ -1518,7 +1520,7 @@ function getLayerIcon(obj) {
 
 function getLayerName(obj, idx) {
     if (obj.type === 'i-text' || obj.type === 'textbox') {
-        const txt = obj.text || '';
+        const txt = (obj.text || '').replace(/</g, '&lt;');
         return txt.substring(0, 20) + (txt.length > 20 ? '...' : '');
     }
     const typeMap = { rect: 'Retângulo', circle: 'Círculo', triangle: 'Triângulo', line: 'Linha', polygon: 'Forma', image: 'Imagem' };
@@ -1527,10 +1529,7 @@ function getLayerName(obj, idx) {
 
 window.selectLayer = function(idx) {
     const obj = canvas.getObjects()[idx];
-    if (obj) {
-        canvas.setActiveObject(obj);
-        canvas.renderAll();
-    }
+    if (obj) { canvas.setActiveObject(obj); canvas.renderAll(); }
 };
 window.toggleLayerVisibility = function(idx) {
     const obj = canvas.getObjects()[idx];
@@ -1538,23 +1537,28 @@ window.toggleLayerVisibility = function(idx) {
         obj.visible = !obj.visible;
         canvas.renderAll();
         updateLayers();
-        saveState();
+        saveUndoState();
+        scheduleAutoSave();
     }
 };
 
 function onObjectModified() {
     const obj = canvas.getActiveObject();
     if (obj) showPropertiesFor(obj);
-    saveState();
+    saveUndoState();
     updateLayers();
+    scheduleAutoSave();
 }
 function onObjectChange() {
-    if (!isUndoRedoing) saveState();
+    if (!isUndoRedoing) {
+        saveUndoState();
+        scheduleAutoSave();
+    }
     updateLayers();
 }
 
 // ── UNDO / REDO ──
-function saveState() {
+function saveUndoState() {
     if (isUndoRedoing) return;
     const json = JSON.stringify(canvas.toJSON());
     undoStack.push(json);
@@ -1570,6 +1574,7 @@ window.undoAction = function() {
         canvas.renderAll();
         updateLayers();
         isUndoRedoing = false;
+        scheduleAutoSave();
     });
 };
 window.redoAction = function() {
@@ -1581,6 +1586,7 @@ window.redoAction = function() {
         canvas.renderAll();
         updateLayers();
         isUndoRedoing = false;
+        scheduleAutoSave();
     });
 };
 
@@ -1591,16 +1597,19 @@ window.toggleSettings = function() {
 window.applyCanvasSize = function() {
     const w = parseInt(document.getElementById('canvasWidth').value) || 1920;
     const h = parseInt(document.getElementById('canvasHeight').value) || 1080;
+    CANVAS_W = w;
+    CANVAS_H = h;
     canvas.setWidth(w);
     canvas.setHeight(h);
     canvas.renderAll();
     zoomFit();
     document.getElementById('settingsDropdown').classList.remove('show');
+    showToast('Dimensões atualizadas: ' + w + '×' + h + 'px');
+    scheduleAutoSave();
 };
 
 // ── KEYBOARD ──
 function handleKeyboard(e) {
-    // Delete
     if (e.key === 'Delete' || e.key === 'Backspace') {
         const obj = canvas.getActiveObject();
         if (obj && !obj.isEditing) {
@@ -1610,13 +1619,9 @@ function handleKeyboard(e) {
             e.preventDefault();
         }
     }
-    // Ctrl+Z
     if (e.ctrlKey && e.key === 'z') { undoAction(); e.preventDefault(); }
-    // Ctrl+Y / Ctrl+Shift+Z
     if ((e.ctrlKey && e.key === 'y') || (e.ctrlKey && e.shiftKey && e.key === 'Z')) { redoAction(); e.preventDefault(); }
-    // Ctrl+D duplicate
     if (e.ctrlKey && e.key === 'd') { duplicateObject(); e.preventDefault(); }
-    // Ctrl+S save
     if (e.ctrlKey && e.key === 's') { saveDesign(); e.preventDefault(); }
 }
 
@@ -1630,30 +1635,49 @@ window.closePreview = function() {
     document.getElementById('previewModal').classList.remove('show');
 };
 
-// ── SAVE ──
+// ── SAVE (manual, with UI feedback) ──
 window.saveDesign = function() {
+    const titulo = document.getElementById('designTitle').value.trim();
+    if (!titulo) {
+        showToast('Preencha o nome do design!', true);
+        return;
+    }
+    performSave(titulo, true);
+};
+
+// ── SAVE (silent, for auto-save) ──
+function saveDesignSilent() {
+    const titulo = document.getElementById('designTitle').value.trim();
+    if (!titulo || isSaving) return;
+    performSave(titulo, false);
+}
+
+function performSave(titulo, showFeedback) {
+    if (isSaving) return;
+    isSaving = true;
+
     const btn = document.getElementById('btnSave');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
+    if (showFeedback) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
+    }
+    updateSaveIndicator();
 
     const designJSON = canvas.toJSON();
     const thumbnailURL = canvas.toDataURL({ format: 'png', multiplier: 0.3 });
-    const titulo = document.getElementById('designTitle').value.trim();
     const largura = parseInt(document.getElementById('canvasWidth').value) || 1920;
     const altura = parseInt(document.getElementById('canvasHeight').value) || 1080;
     const duracao = parseInt(document.getElementById('designDuration').value) || 15;
     const isTemplate = document.getElementById('isTemplate').value === '1';
     const templateCat = document.getElementById('templateCategoria').value.trim();
 
-    if (!titulo) {
-        showToast('Preencha o nome do design!', true);
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-save me-1"></i>Salvar';
-        return;
+    // Build URL - use existing PK URL if available
+    let url;
+    if (CONTEUDO_PK && SAVE_URL_EDIT) {
+        url = SAVE_URL_EDIT;
+    } else {
+        url = SAVE_URL_NEW;
     }
-
-    // Build URL
-    let url = CONTEUDO_PK ? SAVE_URL_EDIT : SAVE_URL_NEW;
 
     const payload = {
         titulo: titulo,
@@ -1674,34 +1698,43 @@ window.saveDesign = function() {
         },
         body: JSON.stringify(payload),
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
         if (data.success) {
-            showToast(data.message);
-            // If new, redirect to edit URL
+            hasUnsavedChanges = false;
+            if (showFeedback) showToast(data.message);
+
+            // If was a new design, update PK and URL without redirecting
             if (!CONTEUDO_PK && data.id) {
-                setTimeout(() => {
-                    window.location.href = '/corporativo/design/' + data.id + '/edit/';
-                }, 800);
+                CONTEUDO_PK = data.id;
+                SAVE_URL_EDIT = '/corporativo/design/' + data.id + '/save/';
+                // Update browser URL without reload
+                if (window.history && window.history.replaceState) {
+                    window.history.replaceState(null, '', '/corporativo/design/' + data.id + '/edit/');
+                }
+                console.log('[DesignEditor] New design saved with PK:', data.id);
             }
         } else {
-            showToast(data.message || 'Erro ao salvar', true);
+            if (showFeedback) showToast(data.message || 'Erro ao salvar', true);
         }
     })
-    .catch(err => {
-        showToast('Erro de conexão: ' + err.message, true);
+    .catch(function(err) {
+        if (showFeedback) showToast('Erro de conexão: ' + err.message, true);
+        console.error('[DesignEditor] Save error:', err);
     })
-    .finally(() => {
+    .finally(function() {
+        isSaving = false;
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-save me-1"></i>Salvar';
+        updateSaveIndicator();
     });
-};
+}
 
 function showToast(msg, isError) {
     const toast = document.getElementById('saveToast');
     toast.textContent = msg;
     toast.className = 'save-toast show' + (isError ? ' error' : '');
-    setTimeout(() => { toast.classList.remove('show'); }, 3000);
+    setTimeout(function() { toast.classList.remove('show'); }, 3000);
 }
 
 // ── INIT ON LOAD ──
