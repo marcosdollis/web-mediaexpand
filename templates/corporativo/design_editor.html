@@ -909,34 +909,35 @@ function init() {
         selection: true,
     });
 
-    // Load existing design
-    if (EXISTING_JSON && typeof EXISTING_JSON === 'object') {
-        // Prefer _canvasWidth/_canvasHeight embedded by our save function.
-        // Falls back to Django model values (CANVAS_W/CANVAS_H from template vars).
-        const savedW = EXISTING_JSON._canvasWidth || 0;
-        const savedH = EXISTING_JSON._canvasHeight || 0;
-        if (savedW > 0 && savedH > 0) {
-            CANVAS_W = savedW;
-            CANVAS_H = savedH;
-        }
+    // Helper: force canvas to CANVAS_W × CANVAS_H and update inputs
+    function enforceCanvasSize() {
         canvas.setWidth(CANVAS_W);
         canvas.setHeight(CANVAS_H);
-        // Sync input fields to actual design dimensions
         document.getElementById('canvasWidth').value = CANVAS_W;
         document.getElementById('canvasHeight').value = CANVAS_H;
+    }
 
-        canvas.loadFromJSON(EXISTING_JSON, function() {
+    // Load existing design
+    if (EXISTING_JSON && typeof EXISTING_JSON === 'object') {
+        // Strip any width/height Fabric may have stored so loadFromJSON can't override our size
+        var jsonCopy = Object.assign({}, EXISTING_JSON);
+        delete jsonCopy.width;
+        delete jsonCopy.height;
+
+        enforceCanvasSize();
+
+        canvas.loadFromJSON(jsonCopy, function() {
+            // Fabric v5 loadFromJSON may internally resize the canvas — enforce our size again
+            enforceCanvasSize();
             canvas.renderAll();
             updateLayers();
             saveUndoState();
+            zoomFit();
             console.log('[DesignEditor] Design loaded: ' + CANVAS_W + 'x' + CANVAS_H + ', objects:', canvas.getObjects().length);
         });
     } else {
-        // New design — sync inputs to defaults
-        document.getElementById('canvasWidth').value = CANVAS_W;
-        document.getElementById('canvasHeight').value = CANVAS_H;
-        canvas.setWidth(CANVAS_W);
-        canvas.setHeight(CANVAS_H);
+        // New design
+        enforceCanvasSize();
         canvas.backgroundColor = '#ffffff';
         canvas.renderAll();
         saveUndoState();
@@ -1682,8 +1683,15 @@ function performSave(titulo, showFeedback) {
     }
     updateSaveIndicator();
 
-    const largura = parseInt(document.getElementById('canvasWidth').value) || 1920;
-    const altura = parseInt(document.getElementById('canvasHeight').value) || 1080;
+    // Use live canvas dimensions as source of truth
+    const largura = canvas.getWidth();
+    const altura = canvas.getHeight();
+    // Keep inputs in sync
+    document.getElementById('canvasWidth').value = largura;
+    document.getElementById('canvasHeight').value = altura;
+    CANVAS_W = largura;
+    CANVAS_H = altura;
+
     const designJSON = canvas.toJSON();
     // Embed dimensions directly in JSON so they survive round-trips (Fabric.js toJSON() omits them)
     designJSON._canvasWidth = largura;
