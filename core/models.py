@@ -816,6 +816,7 @@ class ConteudoCorporativo(models.Model):
         ('PREVISAO_TEMPO', 'Previsão do Tempo'),
         ('COTACOES', 'Cotações (Moedas, Cripto, Commodities)'),
         ('NOTICIAS', 'Notícias'),
+        ('DESIGN', 'Design Personalizado'),
     ]
 
     titulo = models.CharField(max_length=200, help_text='Nome de exibição do conteúdo')
@@ -823,6 +824,32 @@ class ConteudoCorporativo(models.Model):
     duracao_segundos = models.IntegerField(
         default=15,
         help_text='Tempo de exibição na tela (segundos)'
+    )
+    # Campos para Design Personalizado (Fabric.js)
+    design_json = models.JSONField(
+        null=True, blank=True,
+        help_text='JSON do canvas Fabric.js com todos os elementos do design'
+    )
+    design_thumbnail = models.ImageField(
+        upload_to='designs/thumbnails/',
+        null=True, blank=True,
+        help_text='Thumbnail PNG gerada pelo editor'
+    )
+    design_largura = models.IntegerField(
+        default=1920,
+        help_text='Largura do design em pixels'
+    )
+    design_altura = models.IntegerField(
+        default=1080,
+        help_text='Altura do design em pixels'
+    )
+    is_template = models.BooleanField(
+        default=False,
+        help_text='Se marcado, aparece na galeria de modelos para reutilização'
+    )
+    template_categoria = models.CharField(
+        max_length=50, blank=True, default='',
+        help_text='Categoria do template (ex: Promoção, Institucional, Menu...)'
     )
     ativo = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -841,6 +868,7 @@ class ConteudoCorporativo(models.Model):
             'PREVISAO_TEMPO': 'fas fa-cloud-sun',
             'COTACOES': 'fas fa-chart-line',
             'NOTICIAS': 'fas fa-newspaper',
+            'DESIGN': 'fas fa-palette',
         }
         return icones.get(self.tipo, 'fas fa-tv')
 
@@ -849,6 +877,7 @@ class ConteudoCorporativo(models.Model):
             'PREVISAO_TEMPO': 'info',
             'COTACOES': 'success',
             'NOTICIAS': 'warning',
+            'DESIGN': 'purple',
         }
         return cores.get(self.tipo, 'secondary')
 

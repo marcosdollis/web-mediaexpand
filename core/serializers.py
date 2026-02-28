@@ -248,10 +248,15 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                 cc = item.conteudo_corporativo
                 if not cc.ativo:
                     continue
-                html_path = reverse('tv-corporativo-html', kwargs={
-                    'tipo': cc.tipo.lower(),
-                    'playlist_id': obj.id,
-                })
+
+                # DESIGN type → renders via Fabric.js static canvas
+                if cc.tipo == 'DESIGN':
+                    html_path = reverse('design_render_tv', kwargs={'pk': cc.id})
+                else:
+                    html_path = reverse('tv-corporativo-html', kwargs={
+                        'tipo': cc.tipo.lower(),
+                        'playlist_id': obj.id,
+                    })
                 html_url = self._build_url(html_path)
 
                 for _ in range(item.repeticoes):

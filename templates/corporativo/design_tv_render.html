@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width={{ conteudo.design_largura }}, height={{ conteudo.design_altura }}, initial-scale=1.0, user-scalable=no">
+<title>MediaExpand TV — Design: {{ conteudo.titulo }}</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+    width: {{ conteudo.design_largura }}px;
+    height: {{ conteudo.design_altura }}px;
+    overflow: hidden;
+    background: #000;
+}
+canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="tvCanvas" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas>
+<script>
+(function() {
+    var designJSON = {{ design_json|safe }};
+    var canvas = new fabric.StaticCanvas('tvCanvas', {
+        width: {{ conteudo.design_largura }},
+        height: {{ conteudo.design_altura }},
+    });
+    if (designJSON) {
+        canvas.loadFromJSON(designJSON, function() {
+            canvas.renderAll();
+        });
+    }
+})();
+</script>
+</body>
+</html>

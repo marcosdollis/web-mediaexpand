@@ -1,0 +1,186 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Meus Designs - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-palette me-2 text-primary"></i>Meus Designs
+                    </h1>
+                    <p class="text-muted mb-0">Designs personalizados para suas playlists de TV</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'design_template_gallery' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-th-large me-1"></i>Galeria de Modelos
+                    </a>
+                    <a href="{% url 'design_editor_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Novo Design
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search -->
+    <div class="row mb-4">
+        <div class="col-md-6 col-lg-4">
+            <form method="get">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" name="search" class="form-control" placeholder="Buscar design..."
+                           value="{{ search }}">
+                    <button class="btn btn-primary" type="submit">Buscar</button>
+                </div>
+            </form>
+        </div>
+        {% if search %}
+        <div class="col-auto d-flex align-items-center">
+            <a href="{% url 'design_list' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-times me-1"></i>Limpar
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 bg-primary bg-gradient text-white">
+                <div class="card-body text-center py-3">
+                    <h3 class="mb-0">{{ designs.count }}</h3>
+                    <small>Designs Criados</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 bg-success bg-gradient text-white">
+                <div class="card-body text-center py-3">
+                    <h3 class="mb-0">{{ designs|length }}</h3>
+                    <small>Ativos</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-0" style="background: linear-gradient(135deg, #764ba2, #667eea); color:#fff;">
+                <div class="card-body text-center py-3">
+                    <a href="{% url 'design_template_gallery' %}" class="text-white text-decoration-none">
+                        <h3 class="mb-0"><i class="fas fa-th-large"></i></h3>
+                        <small>Ver Modelos</small>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Designs Grid -->
+    {% if designs %}
+    <div class="row">
+        {% for d in designs %}
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm design-card-hover">
+                <div class="position-relative">
+                    {% if d.design_thumbnail %}
+                    <img src="{{ d.design_thumbnail.url }}" class="card-img-top"
+                         style="aspect-ratio:16/9; object-fit:cover; background:#f0f0f0;"
+                         alt="{{ d.titulo }}">
+                    {% else %}
+                    <div class="card-img-top d-flex align-items-center justify-content-center"
+                         style="aspect-ratio:16/9; background:linear-gradient(135deg,#667eea,#764ba2);">
+                        <i class="fas fa-palette fa-3x text-white opacity-50"></i>
+                    </div>
+                    {% endif %}
+                    <div class="position-absolute top-0 start-0 m-2">
+                        {% if d.ativo %}
+                        <span class="badge bg-success">Ativo</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inativo</span>
+                        {% endif %}
+                    </div>
+                    <div class="position-absolute top-0 end-0 m-2">
+                        <span class="badge bg-dark bg-opacity-75">
+                            {{ d.design_largura }}×{{ d.design_altura }}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body pb-2">
+                    <h6 class="card-title mb-1">
+                        <i class="fas fa-palette me-1 text-primary"></i>
+                        {{ d.titulo }}
+                    </h6>
+                    <small class="text-muted">
+                        <i class="far fa-clock me-1"></i>{{ d.duracao_segundos }}s
+                        · <i class="fas fa-list me-1"></i>{{ d.playlist_items.count }} playlist{{ d.playlist_items.count|pluralize:"s" }}
+                    </small>
+                    <div class="mt-1">
+                        <small class="text-muted">
+                            <i class="far fa-calendar me-1"></i>{{ d.updated_at|date:"d/m/Y H:i" }}
+                        </small>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 pt-0">
+                    <div class="d-flex gap-1">
+                        <a href="{% url 'design_editor_edit' d.pk %}" class="btn btn-sm btn-primary flex-fill"
+                           title="Editar design">
+                            <i class="fas fa-edit me-1"></i>Editar
+                        </a>
+                        <a href="{% url 'design_duplicate' d.pk %}" class="btn btn-sm btn-outline-info"
+                           title="Duplicar">
+                            <i class="fas fa-clone"></i>
+                        </a>
+                        <a href="{% url 'design_delete' d.pk %}" class="btn btn-sm btn-outline-danger"
+                           title="Excluir">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-palette fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nenhum design criado ainda</h5>
+                    <p class="text-muted mb-4">
+                        {% if search %}
+                        Nenhum design encontrado com "{{ search }}". Tente outro termo.
+                        {% else %}
+                        Crie designs personalizados para exibir nas TVs dos seus clientes.
+                        {% endif %}
+                    </p>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <a href="{% url 'design_editor_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Criar Design em Branco
+                        </a>
+                        <a href="{% url 'design_template_gallery' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-th-large me-1"></i>Usar um Modelo
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.design-card-hover {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.design-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+}
+</style>
+{% endblock %}

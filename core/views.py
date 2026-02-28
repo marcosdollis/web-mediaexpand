@@ -3288,3 +3288,226 @@ def configuracao_api_view(request):
     }
     return render(request, 'corporativo/configuracao_api.html', context)
 
+
+# ═══════════════════════════════════════════════════════════
+#  DESIGN EDITOR — Editor Canva/PPT dentro do Corporativo
+# ═══════════════════════════════════════════════════════════
+
+@login_required
+def design_editor_view(request, pk=None):
+    """
+    Editor visual (Fabric.js) para criar ou editar um design corporativo.
+    Se pk=None → novo design. Se pk → editar existente.
+    """
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Sem permissão.')
+        return redirect('dashboard')
+
+    conteudo = None
+    if pk:
+        conteudo = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
+
+    # Categorias de template para seletor
+    categorias = (
+        ConteudoCorporativo.objects
+        .filter(tipo='DESIGN', is_template=True, template_categoria__gt='')
+        .values_list('template_categoria', flat=True)
+        .distinct()
+        .order_by('template_categoria')
+    )
+
+    context = {
+        'conteudo': conteudo,
+        'categorias': list(categorias),
+    }
+    return render(request, 'corporativo/design_editor.html', context)
+
+
+@login_required
+def design_save_api(request, pk=None):
+    """
+    AJAX POST → salva ou atualiza design (JSON canvas + thumbnail base64).
+    Retorna JSON {success, id, message}.
+    """
+    import json, base64, uuid
+    from django.core.files.base import ContentFile
+    from django.http import JsonResponse
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
+
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        return JsonResponse({'success': False, 'message': 'Sem permissão'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'JSON inválido'}, status=400)
+
+    titulo = data.get('titulo', '').strip()
+    design_json = data.get('design_json')
+    thumbnail_b64 = data.get('thumbnail')  # data:image/png;base64,...
+    largura = int(data.get('largura', 1920))
+    altura = int(data.get('altura', 1080))
+    duracao = int(data.get('duracao_segundos', 15))
+    is_template = bool(data.get('is_template', False))
+    template_cat = data.get('template_categoria', '')
+
+    if not titulo:
+        return JsonResponse({'success': False, 'message': 'Título é obrigatório'}, status=400)
+    if not design_json:
+        return JsonResponse({'success': False, 'message': 'Design vazio'}, status=400)
+
+    if pk:
+        conteudo = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
+    else:
+        conteudo = ConteudoCorporativo(tipo='DESIGN')
+
+    conteudo.titulo = titulo
+    conteudo.design_json = design_json
+    conteudo.design_largura = largura
+    conteudo.design_altura = altura
+    conteudo.duracao_segundos = duracao
+    conteudo.is_template = is_template
+    conteudo.template_categoria = template_cat
+
+    # Salvar thumbnail PNG
+    if thumbnail_b64 and ',' in thumbnail_b64:
+        fmt, imgstr = thumbnail_b64.split(',', 1)
+        ext = 'png'
+        filename = f'design_{uuid.uuid4().hex[:8]}.{ext}'
+        conteudo.design_thumbnail.save(filename, ContentFile(base64.b64decode(imgstr)), save=False)
+
+    conteudo.save()
+
+    return JsonResponse({
+        'success': True,
+        'id': conteudo.pk,
+        'message': 'Design salvo com sucesso!',
+    })
+
+
+@login_required
+def design_list_view(request):
+    """Lista de designs criados (não-templates) com grid de thumbnails."""
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Sem permissão.')
+        return redirect('dashboard')
+
+    designs = ConteudoCorporativo.objects.filter(tipo='DESIGN', is_template=False).order_by('-updated_at')
+
+    search = request.GET.get('search', '')
+    if search:
+        designs = designs.filter(titulo__icontains=search)
+
+    context = {
+        'designs': designs,
+        'search': search,
+    }
+    return render(request, 'corporativo/design_list.html', context)
+
+
+@login_required
+def design_template_gallery_view(request):
+    """Galeria de modelos (templates reutilizáveis)."""
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Sem permissão.')
+        return redirect('dashboard')
+
+    templates = ConteudoCorporativo.objects.filter(tipo='DESIGN', is_template=True, ativo=True).order_by('template_categoria', 'titulo')
+
+    categoria = request.GET.get('categoria', '')
+    search = request.GET.get('search', '')
+    if categoria:
+        templates = templates.filter(template_categoria=categoria)
+    if search:
+        templates = templates.filter(titulo__icontains=search)
+
+    categorias = (
+        ConteudoCorporativo.objects
+        .filter(tipo='DESIGN', is_template=True, template_categoria__gt='')
+        .values_list('template_categoria', flat=True)
+        .distinct()
+        .order_by('template_categoria')
+    )
+
+    context = {
+        'templates': templates,
+        'categorias': list(categorias),
+        'categoria_selecionada': categoria,
+        'search': search,
+    }
+    return render(request, 'corporativo/design_template_gallery.html', context)
+
+
+@login_required
+def design_duplicate_view(request, pk):
+    """Duplica um design existente (ou template) como novo design pessoal."""
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Sem permissão.')
+        return redirect('dashboard')
+
+    original = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
+
+    novo = ConteudoCorporativo(
+        titulo=f'{original.titulo} (Cópia)',
+        tipo='DESIGN',
+        duracao_segundos=original.duracao_segundos,
+        design_json=original.design_json,
+        design_largura=original.design_largura,
+        design_altura=original.design_altura,
+        is_template=False,
+        template_categoria='',
+        ativo=True,
+    )
+    # Copiar thumbnail
+    if original.design_thumbnail:
+        from django.core.files.base import ContentFile
+        import uuid
+        novo.design_thumbnail.save(
+            f'design_{uuid.uuid4().hex[:8]}.png',
+            ContentFile(original.design_thumbnail.read()),
+            save=False,
+        )
+    novo.save()
+    messages.success(request, f'Design duplicado! Editando "{novo.titulo}".')
+    return redirect('design_editor_edit', pk=novo.pk)
+
+
+@login_required
+def design_delete_view(request, pk):
+    """Deletar design."""
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        messages.error(request, 'Sem permissão.')
+        return redirect('dashboard')
+
+    conteudo = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
+
+    if request.method == 'POST':
+        titulo = conteudo.titulo
+        conteudo.delete()
+        messages.success(request, f'Design "{titulo}" removido.')
+        return redirect('design_list')
+
+    return render(request, 'corporativo/design_confirm_delete.html', {'conteudo': conteudo})
+
+
+def design_render_tv_view(request, pk):
+    """
+    Renderiza o design como HTML/SVG estático para o app de TV (WebView).
+    Usa Fabric.js para gerar canvas a partir do JSON salvo.
+    """
+    conteudo = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
+    import json
+    context = {
+        'conteudo': conteudo,
+        'design_json': json.dumps(conteudo.design_json) if conteudo.design_json else '{}',
+    }
+    return render(request, 'corporativo/design_tv_render.html', context)
+

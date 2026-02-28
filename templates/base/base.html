@@ -138,6 +138,16 @@
                             <li><a class="dropdown-item" href="{% url 'conteudo_corporativo_create' %}">
                                 <i class="bi bi-plus-circle me-2"></i>Novo Conteúdo
                             </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'design_list' %}">
+                                <i class="bi bi-palette me-2"></i>Meus Designs
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'design_editor_create' %}">
+                                <i class="bi bi-brush me-2"></i>Editor de Design
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'design_template_gallery' %}">
+                                <i class="bi bi-grid-3x3-gap me-2"></i>Galeria de Modelos
+                            </a></li>
                             {% if user.is_owner %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'configuracao_api' %}">

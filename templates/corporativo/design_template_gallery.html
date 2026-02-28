@@ -1,0 +1,162 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Galeria de Modelos - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-th-large me-2 text-primary"></i>Galeria de Modelos
+                    </h1>
+                    <p class="text-muted mb-0">Escolha um modelo para criar um novo design rapidamente</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'design_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-images me-1"></i>Meus Designs
+                    </a>
+                    <a href="{% url 'design_editor_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Design em Branco
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body py-3">
+                    <form method="get" class="d-flex flex-wrap gap-3 align-items-end">
+                        <div style="min-width:200px;">
+                            <label class="form-label small mb-1">Buscar</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" name="search" class="form-control" placeholder="Nome do modelo..."
+                                       value="{{ search }}">
+                            </div>
+                        </div>
+                        <div style="min-width:180px;">
+                            <label class="form-label small mb-1">Categoria</label>
+                            <select name="categoria" class="form-select">
+                                <option value="">Todas</option>
+                                {% for cat in categorias %}
+                                <option value="{{ cat }}" {% if cat == categoria_selecionada %}selected{% endif %}>{{ cat }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-filter me-1"></i>Filtrar
+                            </button>
+                            {% if search or categoria_selecionada %}
+                            <a href="{% url 'design_template_gallery' %}" class="btn btn-outline-secondary ms-1">Limpar</a>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Pills -->
+    {% if categorias %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{% url 'design_template_gallery' %}"
+                   class="btn btn-sm {% if not categoria_selecionada %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    Todas
+                </a>
+                {% for cat in categorias %}
+                <a href="{% url 'design_template_gallery' %}?categoria={{ cat }}"
+                   class="btn btn-sm {% if cat == categoria_selecionada %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    {{ cat }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Template Grid -->
+    {% if templates %}
+    <div class="row">
+        {% for t in templates %}
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm template-card-hover">
+                <div class="position-relative">
+                    {% if t.design_thumbnail %}
+                    <img src="{{ t.design_thumbnail.url }}" class="card-img-top"
+                         style="aspect-ratio:16/9; object-fit:cover; background:#f0f0f0;"
+                         alt="{{ t.titulo }}">
+                    {% else %}
+                    <div class="card-img-top d-flex align-items-center justify-content-center"
+                         style="aspect-ratio:16/9; background:linear-gradient(135deg,#667eea,#764ba2);">
+                        <i class="fas fa-palette fa-3x text-white opacity-50"></i>
+                    </div>
+                    {% endif %}
+                    {% if t.template_categoria %}
+                    <span class="badge bg-primary position-absolute top-0 end-0 m-2">
+                        {{ t.template_categoria }}
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="card-body pb-2">
+                    <h6 class="card-title mb-1">{{ t.titulo }}</h6>
+                    <small class="text-muted">{{ t.design_largura }}×{{ t.design_altura }}px · {{ t.duracao_segundos }}s</small>
+                </div>
+                <div class="card-footer bg-transparent border-0 pt-0">
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'design_duplicate' t.pk %}" class="btn btn-sm btn-primary flex-fill">
+                            <i class="fas fa-copy me-1"></i>Usar Modelo
+                        </a>
+                        <a href="{% url 'design_editor_edit' t.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar modelo">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-th-large fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhum modelo encontrado</h5>
+                <p class="text-muted mb-4">
+                    {% if search or categoria_selecionada %}
+                    Tente limpar os filtros ou buscar por outro termo.
+                    {% else %}
+                    Crie designs e marque-os como "Template" para que apareçam aqui.
+                    {% endif %}
+                </p>
+                <a href="{% url 'design_editor_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Criar Primeiro Modelo
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.template-card-hover {
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: default;
+}
+.template-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+}
+</style>
+{% endblock %}

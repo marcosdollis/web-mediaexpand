@@ -83,4 +83,15 @@ urlpatterns = [
     path('corporativo/<int:pk>/delete/', views.conteudo_corporativo_delete_view, name='conteudo_corporativo_delete'),
     path('corporativo/<int:pk>/preview/', views.conteudo_corporativo_preview_view, name='conteudo_corporativo_preview'),
     path('corporativo/configuracao/', views.configuracao_api_view, name='configuracao_api'),
+
+    # Design Editor (Corporativo)
+    path('corporativo/designs/', views.design_list_view, name='design_list'),
+    path('corporativo/design/create/', views.design_editor_view, name='design_editor_create'),
+    path('corporativo/design/<int:pk>/edit/', views.design_editor_view, name='design_editor_edit'),
+    path('corporativo/design/save/', views.design_save_api, name='design_save_new'),
+    path('corporativo/design/<int:pk>/save/', views.design_save_api, name='design_save'),
+    path('corporativo/design/<int:pk>/duplicate/', views.design_duplicate_view, name='design_duplicate'),
+    path('corporativo/design/<int:pk>/delete/', views.design_delete_view, name='design_delete'),
+    path('corporativo/design/templates/', views.design_template_gallery_view, name='design_template_gallery'),
+    path('corporativo/design/<int:pk>/render/', views.design_render_tv_view, name='design_render_tv'),
 ]
