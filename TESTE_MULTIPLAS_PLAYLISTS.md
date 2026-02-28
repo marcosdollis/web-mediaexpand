@@ -83,26 +83,28 @@ POST https://seu-dominio.com/api/tv/auth/
 - [ ] Logs mostram total correto de vídeos
 - [ ] Não há erro de "playlist não encontrada"
 
-## 🧪 Teste 3: Cenário com Horários Específicos
+## 🧪 Teste 3: Cenário com Horários Específicos (ATUALIZADO v2)
 
 ### Setup
-- Manter Playlist A como 24/7
-- Mudar Playlist B para ter horário:
-  - hora_inicio: 08:00
-  - hora_fim: 18:00
+- Playlist A: 24/7
+- Playlist B: 24/7
+- Playlist C: horário específico 12:30-13:30
 
-### Comportamento Esperado
+### Comportamento Esperado (CORRIGIDO)
 
-**Durante 08:00 - 18:00:**
-- API retorna: Playlist B (só ela, horário tem prioridade)
+**Durante 12:30 - 13:30:**
+- API retorna: Playlist C + Playlist A + Playlist B mescladas
+- Vídeos: C1 → C2 → A1 → A2 → B1 → B2 → loop
 
-**Fora de 08:00 - 18:00:**
-- API retorna: Playlist A (só ela, única 24/7)
+**Fora de 12:30 - 13:30:**
+- API retorna: Playlist A + Playlist B mescladas
+- Vídeos: A1 → A2 → B1 → B2 → loop
 
 ### ✅ Validações
-- [ ] Às 10:00 → API retorna só Playlist B
-- [ ] Às 22:00 → API retorna só Playlist A
-- [ ] Nunca retorna as duas mescladas (horário específico tem prioridade)
+- [ ] Às 13:00 → API retorna C + A + B (horário + base 24/7)
+- [ ] Às 15:00 → API retorna apenas A + B (base 24/7)
+- [ ] **`playlists_mescladas` muda conforme horário**
+- [ ] Transição suave quando horário específico começa/termina
 
 ## 🧪 Teste 4: Prioridades Diferentes
 
@@ -119,6 +121,66 @@ POST https://seu-dominio.com/api/tv/auth/
 ### ✅ Validações
 - [ ] Vídeos de maior prioridade aparecem primeiro
 - [ ] `playlists_mescladas`: [ID_A, ID_B] (ordem por prioridade)
+
+## 🧪 Teste 5: Múltiplos Horários Específicos (NOVO)
+
+### Setup
+- Playlist A: 24/7 (base)
+- Playlist B: 08:00-12:00
+- Playlist C: 12:00-18:00
+- Playlist D: 18:00-22:00
+
+### Comportamento Esperado
+
+**Durante 08:00-12:00:**
+- API retorna: B + A
+- Vídeos: B1 → B2 → A1 → A2
+
+**Durante 12:00-18:00:**
+- API retorna: C + A
+- Vídeos: C1 → C2 → A1 → A2
+
+**Durante 18:00-22:00:**
+- API retorna: D + A
+- Vídeos: D1 → D2 → A1 → A2
+
+**Fora desses horários (22:00-08:00):**
+- API retorna: apenas A
+- Vídeos: A1 → A2
+
+### ✅ Validações
+- [ ] Base 24/7 sempre presente nos horários ativos
+- [ ] Base 24/7 é a única fora dos horários específicos
+- [ ] Transição suave entre horários
+
+## 🧪 Teste 6: Horários Sobrepostos (NOVO)
+
+### Setup
+- Playlist A: 24/7 (base)
+- Playlist B: 12:00-14:00 (prioridade 10)
+- Playlist C: 13:00-15:00 (prioridade 10)
+
+### Comportamento Esperado
+
+**Durante 12:00-13:00:**
+- API retorna: B + A
+- Vídeos: B1 → B2 → A1 → A2
+
+**Durante 13:00-14:00 (SOBREPOSIÇÃO):**
+- API retorna: B + C + A
+- Vídeos: B1 → B2 → C1 → C2 → A1 → A2
+
+**Durante 14:00-15:00:**
+- API retorna: C + A
+- Vídeos: C1 → C2 → A1 → A2
+
+**Outros horários:**
+- API retorna: apenas A
+
+### ✅ Validações
+- [ ] Durante sobreposição, ambos horários aparecem
+- [ ] Base 24/7 sempre no final
+- [ ] Ordem respeitada por prioridade
 
 ## 🐛 Troubleshooting
 

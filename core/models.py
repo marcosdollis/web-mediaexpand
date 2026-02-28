@@ -461,12 +461,18 @@ class DispositivoTV(models.Model):
     def get_playlists_ativas_por_horario(self):
         """
         Retorna TODAS as playlists que devem ser exibidas agora.
-        Se há agendamento com horário específico, retorna apenas ele.
-        Se há múltiplos agendamentos 24/7, retorna TODOS.
-        Prioridade:
-        1. Agendamentos com horário que batem agora (retorna todos)
-        2. Agendamentos 24/7 (sem horário) (retorna todos)
-        3. playlist_atual (fallback legado)
+        Lógica:
+        - Playlists 24/7 estão SEMPRE no merge (base contínua)
+        - Playlists com horário específico são ADICIONADAS quando dentro do horário
+        
+        Exemplo:
+        - Playlist A: 24/7
+        - Playlist B: 24/7
+        - Playlist C: 12:30-13:30
+        
+        Resultado:
+        - Fora de 12:30-13:30: [A, B]
+        - Durante 12:30-13:30: [C, A, B] (horário específico + 24/7)
         """
         from django.utils import timezone
 
@@ -488,24 +494,32 @@ class DispositivoTV(models.Model):
             dias = ag.dias_efetivos
 
             if ag.is_fulltime:
-                # Playlist 24/7
+                # Playlist 24/7 - sempre incluída
                 if dia_semana in dias:
                     agendamentos_fulltime.append(ag)
             else:
-                # Playlist com horário específico
+                # Playlist com horário específico - só incluída se bater o horário
                 if dia_semana in dias and ag.hora_inicio <= hora_atual <= ag.hora_fim:
                     agendamentos_horario.append(ag)
 
-        # Prioridade: horário específico > 24/7 > playlist_atual
+        # Monta lista de playlists ativas
+        playlists_ativas = []
+
+        # 1. Adiciona playlists de horário específico (se houver e estiver no horário)
         if agendamentos_horario:
-            # Ordena por prioridade e retorna todas
             agendamentos_horario.sort(key=lambda x: x.prioridade, reverse=True)
-            return [ag.playlist for ag in agendamentos_horario]
+            playlists_ativas.extend([ag.playlist for ag in agendamentos_horario])
+
+        # 2. SEMPRE adiciona as playlists 24/7 (base contínua)
         if agendamentos_fulltime:
-            # Ordena por prioridade e retorna todas
             agendamentos_fulltime.sort(key=lambda x: x.prioridade, reverse=True)
-            return [ag.playlist for ag in agendamentos_fulltime]
-        return [self.playlist_atual] if self.playlist_atual else []
+            playlists_ativas.extend([ag.playlist for ag in agendamentos_fulltime])
+
+        # 3. Fallback: se não tem nenhuma, usa playlist_atual
+        if not playlists_ativas:
+            return [self.playlist_atual] if self.playlist_atual else []
+
+        return playlists_ativas
 
     def get_playlist_atual_por_horario(self):
         """

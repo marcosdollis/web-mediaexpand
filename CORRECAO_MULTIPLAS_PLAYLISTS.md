@@ -1,137 +1,116 @@
-# Correção: Múltiplas Playlists 24/7 em Loop
+# Correção: Múltiplas Playlists com Mesclagem Inteligente
 
 **Data:** 28/02/2026  
-**Status:** ✅ RESOLVIDO NO BACKEND  
-**Impacto:** Dispositivos com múltiplas playlists 24/7 agora tocam TODAS em sequência
+**Status:** ✅ RESOLVIDO NO BACKEND (v2)  
+**Impacto:** Playlists 24/7 + horários específicos agora funcionam corretamente
 
 ---
 
-## 🐛 Problema Reportado
+## 🐛 Problema Reportado (v2)
 
-Cliente reportou:
-> "Tenho 2 playlists vinculadas a um dispositivo e só toca a primeira de maior prioridade. As duas estão sem cadastro de hora (24/7), elas tem que tocar em loop as 2, não uma só."
+Cliente reportou após primeira correção:
+> "Fiz um agendamento de 12:30-13:30 e só tocou essa playlist naquele horário, mas tem que incluir as que estão como 24h também. Se tem playlist com horário específico, ela só vai pro merge no horário cadastrado, as outras 24h ficam no merge sempre."
 
-### Comportamento Anterior (INCORRETO)
-- Dispositivo com 2 playlists 24/7 (sem horário definido)
-- API retornava apenas UMA playlist (a de maior prioridade)
-- App tocava só os vídeos dessa playlist em loop
-- Segunda playlist era ignorada
+### Comportamento v1 (INCORRETO)
+- Playlist A: 24/7
+- Playlist B: 24/7  
+- Playlist C: 12:30-13:30
 
-### Comportamento Esperado
-- Tocar TODAS as playlists 24/7 em sequência
-- Playlist 1 completa → Playlist 2 completa → volta para Playlist 1
+**Durante 12:30-13:30:** API retornava SOMENTE C ❌  
+**Fora do horário:** API retornava A + B ✓
+
+### Comportamento v2 (CORRETO)
+**Durante 12:30-13:30:** API retorna C + A + B ✅  
+**Fora do horário:** API retorna A + B ✓
 
 ---
 
-## ✅ Solução Implementada
+## ✅ Solução Implementada (v2)
 
-### Mudanças no Backend
+### Mudança na Lógica
 
-#### 1. Novo Método: `get_playlists_ativas_por_horario()`
+**Arquivo:** [`core/models.py`](core/models.py) - Método `get_playlists_ativas_por_horario()`
 
-**Arquivo:** [`core/models.py`](core/models.py) - Classe `DispositivoTV`
-
-**O que faz:**
-- Retorna TODAS as playlists que devem tocar no momento atual
-- Se há agendamentos com horário específico → retorna todos os que batem agora
-- Se há agendamentos 24/7 (fulltime) → retorna TODOS
-- Ordena por prioridade
-- Fallback para `playlist_atual` se não há agendamentos
-
-**Código:**
+**Lógica Anterior (v1 - incorreta):**
 ```python
-def get_playlists_ativas_por_horario(self):
-    """Retorna lista de playlists ativas (múltiplas se 24/7)"""
-    # ... lógica de filtragem por horário e dias ...
-    
-    if agendamentos_horario:
-        # Retorna TODAS as playlists com horário específico ativo
-        return [ag.playlist for ag in agendamentos_horario]
-    
-    if agendamentos_fulltime:
-        # Retorna TODAS as playlists 24/7
-        return [ag.playlist for ag in agendamentos_fulltime]
-    
-    return [self.playlist_atual] if self.playlist_atual else []
+if agendamentos_horario:
+    return [ag.playlist for ag in agendamentos_horario]  # Retorna SOMENTE horário
+if agendamentos_fulltime:
+    return [ag.playlist for ag in agendamentos_fulltime]  # Retorna SOMENTE 24/7
 ```
 
-#### 2. API Mesclando Múltiplas Playlists
+**Lógica Nova (v2 - correta):**
+```python
+playlists_ativas = []
 
-**Arquivo:** [`core/views.py`](core/views.py) - Classe `TVAPIView`
+# 1. Adiciona playlists de horário específico (se dentro do horário)
+if agendamentos_horario:
+    playlists_ativas.extend([ag.playlist for ag in agendamentos_horario])
 
-**O que faz:**
-- Busca todas as playlists ativas com `get_playlists_ativas_por_horario()`
-- Serializa os vídeos de CADA playlist
-- Mescla todos os vídeos em uma única lista
-- Retorna "mega-playlist" com vídeos de todas
+# 2. SEMPRE adiciona playlists 24/7 (base contínua)
+if agendamentos_fulltime:
+    playlists_ativas.extend([ag.playlist for ag in agendamentos_fulltime])
 
-**Response exemplo:**
-```json
-{
-  "playlist": {
-    "id": 0,  // 0 = múltiplas mescladas
-    "nome": "Playlist A + Playlist B",
-    "duracao_total_segundos": 600,
-    "playlists_mescladas": [1, 2],
-    "videos": [
-      // Vídeos da Playlist 1
-      {...}, {...},
-      // Vídeos da Playlist 2
-      {...}, {...}
-    ]
-  }
-}
+return playlists_ativas
 ```
-
-#### 3. Endpoint `check-schedule` Atualizado
-
-**Arquivo:** [`core/views.py`](core/views.py) - Classe `TVCheckScheduleView`
-
-**O que faz:**
-- Retorna `playlist_id = 0` quando múltiplas playlists mescladas
-- Adiciona campo `playlists_mescladas` com IDs originais
-- Nome concatenado: "Playlist A + Playlist B"
 
 ---
 
-## 📊 Impacto
+## 📊 Impacto (Atualizado)
 
 ### Cenários Suportados
 
-#### Cenário 1: Múltiplas Playlists 24/7 ✅
+#### Cenário 1: Apenas Playlists 24/7 ✅
 ```
-Agendamento 1: Playlist A (sem horário, prioridade 10)
-Agendamento 2: Playlist B (sem horário, prioridade 10)
+Playlist A: 24/7
+Playlist B: 24/7
 
-Resultado: API retorna vídeos de A + vídeos de B mesclados
-App toca: A1 → A2 → B1 → B2 → loop
-```
-
-#### Cenário 2: Uma Playlist 24/7, Outra com Horário ✅
-```
-Agendamento 1: Playlist A (sem horário)
-Agendamento 2: Playlist B (08:00-18:00)
-
-Durante 08:00-18:00: API retorna só Playlist B (horário tem prioridade)
-Fora do horário: API retorna só Playlist A (única 24/7)
+Resultado: SEMPRE toca A + B mescladas
 ```
 
-#### Cenário 3: Prioridades Diferentes ✅
+#### Cenário 2: Playlists 24/7 + Horário Específico ✅ (CORRIGIDO v2)
 ```
-Agendamento 1: Playlist A (sem horário, prioridade 20)
-Agendamento 2: Playlist B (sem horário, prioridade 10)
+Playlist A: 24/7
+Playlist B: 24/7
+Playlist C: 12:30-13:30
 
-Resultado: API retorna A + B, mas A vem primeiro (maior prioridade)
-App toca: A1 → A2 → B1 → B2 → loop
+Durante 12:30-13:30: toca C + A + B (horário + base)
+Fora do horário: toca A + B (apenas base)
 ```
 
-### Compatibilidade
+#### Cenário 3: Múltiplos Horários Específicos ✅
+```
+Playlist A: 24/7 (base)
+Playlist B: 08:00-12:00
+Playlist C: 12:00-18:00
+Playlist D: 18:00-22:00
 
-✅ **Backward Compatible:** Dispositivos com apenas 1 playlist continuam funcionando normalmente
+08:00-12:00: B + A
+12:00-18:00: C + A
+18:00-22:00: D + A
+Outros horários: apenas A
+```
 
-✅ **App Android:** NÃO precisa de atualização! Já funciona com as mudanças
+#### Cenário 4: Horários Sobrepostos ✅
+```
+Playlist A: 24/7
+Playlist B: 12:00-14:00
+Playlist C: 13:00-15:00
 
-✅ **API Existente:** Endpoints mantidos, apenas resposta expandida
+12:00-13:00: B + A
+13:00-14:00: B + C + A (ambos horários + base)
+14:00-15:00: C + A
+Outros: apenas A
+```
+
+---
+
+## 📋 Regras de Mesclagem (Final)
+
+1. **Playlists 24/7:** Base contínua, SEMPRE no merge
+2. **Playlists com horário:** Adicionadas quando dentro do horário
+3. **Ordem no merge:** Horário específico (por prioridade) → 24/7 (por prioridade)
+4. **Sobreposição:** Múltiplos horários ativos simultaneamente são todos incluídos
 
 ---
 

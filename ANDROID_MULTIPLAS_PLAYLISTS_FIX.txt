@@ -8,16 +8,36 @@
 ✅ PROBLEMA RESOLVIDO NA API!
 
 A API foi ATUALIZADA para retornar múltiplas playlists mescladas automaticamente:
-  ✓ Se há 2+ playlists 24/7, a API mescla TODAS em uma única sequência
-  ✓ Retorna campo 'playlists_mescladas' com os IDs de todas as playlists
-  ✓ O campo 'videos' contém TODOS os vídeos em sequência (Playlist A completa + Playlist B completa)
+  ✓ Playlists 24/7 estão SEMPRE no merge (base contínua)
+  ✓ Playlists com horário específico são ADICIONADAS quando dentro do horário
+  ✓ O campo 'videos' contém TODOS os vídeos em sequência
 
-COMO FUNCIONA AGORA:
-  • Dispositivo tem 2 playlists sem horário (24/7)
-  • API retorna uma "mega-playlist" com:
-    - videos: [vídeos da playlist 1... vídeos da playlist 2...]
-    - nome: "Playlist A + Playlist B"
-    - playlists_mescladas: [1, 2]
+EXEMPLOS DE FUNCIONAMENTO:
+
+📌 Cenário 1: Apenas playlists 24/7
+  • Playlist A: 24/7 (sem horário)
+  • Playlist B: 24/7 (sem horário)
+  
+  Resultado: SEMPRE toca A + B mescladas
+
+📌 Cenário 2: Playlist 24/7 + Playlist com horário específico
+  • Playlist A: 24/7
+  • Playlist B: 24/7
+  • Playlist C: 12:30-13:30
+  
+  Resultado:
+    - Fora de 12:30-13:30: toca A + B
+    - Durante 12:30-13:30: toca C + A + B (horário específico primeiro)
+
+📌 Cenário 3: Múltiplas playlists com horários
+  • Playlist A: 24/7
+  • Playlist B: 08:00-12:00
+  • Playlist C: 12:00-18:00
+  
+  Resultado:
+    - 08:00-12:00: toca B + A
+    - 12:00-18:00: toca C + A
+    - Fora desses horários: toca apenas A
   
 O APP ANDROID não precisa fazer nada especial, basta tocar os vídeos em loop!
 
@@ -63,7 +83,13 @@ MAS ISSO É OPCIONAL! O app atual já vai funcionar após reiniciar.
 📊 RESPOSTA DA API /api/tv/auth/ (ATUALIZADA!)
 ═══════════════════════════════════════════════════════════════════════════════
 
-Se você tem 2 playlists 24/7 vinculadas ao dispositivo, a API agora retorna:
+EXEMPLO 1: Durante horário específico (12:30-13:30)
+Configuração:
+  • Playlist A: 24/7
+  • Playlist B: 24/7
+  • Playlist C: 12:30-13:30
+
+API retorna:
 
 ```json
 {
@@ -72,11 +98,19 @@ Se você tem 2 playlists 24/7 vinculadas ao dispositivo, a API agora retorna:
   "municipio": "São Paulo/SP",
   "playlist": {
     "id": 0,  // 0 = múltiplas playlists mescladas
-    "nome": "Playlist Manhã + Playlist Tarde",
-    "duracao_total_segundos": 600,
-    "playlists_mescladas": [3, 5],  // IDs das playlists originais
+    "nome": "Playlist Almoço + Playlist A + Playlist B",
+    "duracao_total_segundos": 900,
+    "playlists_mescladas": [3, 1, 2],  // Horário específico primeiro, depois 24/7
     "videos": [
-      // ── Vídeos da Playlist 1 ──
+      // ── Vídeos da Playlist C (horário específico) ──
+      {
+        "id": 30,
+        "tipo": "video",
+        "titulo": "Video Almoço 1",
+        "arquivo_url": "https://...",
+        "duracao_segundos": 30
+      },
+      // ── Vídeos da Playlist A (24/7) ──
       {
         "id": 10,
         "tipo": "video",
@@ -91,28 +125,67 @@ Se você tem 2 playlists 24/7 vinculadas ao dispositivo, a API agora retorna:
         "arquivo_url": "https://...",
         "duracao_segundos": 45
       },
-      // ── Vídeos da Playlist 2 ──
+      // ── Vídeos da Playlist B (24/7) ──
       {
         "id": 20,
         "tipo": "video",
         "titulo": "Video B1",
         "arquivo_url": "https://...",
         "duracao_segundos": 30
-      },
-      {
-        "id": 21,
-        "tipo": "video",
-        "titulo": "Video B2",
-        "arquivo_url": "https://...",
-        "duracao_segundos": 40
       }
     ]
   }
 }
 ```
 
-O APP ANDROID APENAS TOCA EM LOOP ESSA LISTA COMPLETA!
-Automaticamente vai tocar: A1 → A2 → B1 → B2 → volta para A1...
+EXEMPLO 2: Fora do horário específico (ex: 15:00)
+Mesma configuração acima.
+
+API retorna:
+
+```json
+{
+  "dispositivo_id": 1,
+  "dispositivo_nome": "TV Shopping Center",
+  "municipio": "São Paulo/SP",
+  "playlist": {
+    "id": 0,
+    "nome": "Playlist A + Playlist B",  // Apenas as 24/7
+    "duracao_total_segundos": 600,
+    "playlists_mescladas": [1, 2],  // Apenas IDs das 24/7
+    "videos": [
+      // ── Vídeos da Playlist A (24/7) ──
+      {
+        "id": 10,
+        "tipo": "video",
+        "titulo": "Video A1",
+        "arquivo_url": "https://...",
+        "duracao_segundos": 30
+      },
+      {
+        "id": 11,
+        "tipo": "video",
+        "titulo": "Video A2",
+        "arquivo_url": "https://...",
+        "duracao_segundos": 45
+      },
+      // ── Vídeos da Playlist B (24/7) ──
+      {
+        "id": 20,
+        "tipo": "video",
+        "titulo": "Video B1",
+        "arquivo_url": "https://...",
+        "duracao_segundos": 30
+      }
+    ]
+  }
+}
+```
+
+RESUMO:
+  ✓ Playlists 24/7 = BASE que sempre toca
+  ✓ Playlists com horário = ADICIONADAS quando dentro do horário
+  ✓ App toca tudo em loop e automaticamente muda quando horário específico começa/termina
 
 ═══════════════════════════════════════════════════════════════════════════════
 🎯 LÓGICA DE FUNCIONAMENTO (SIMPLIFICADA)
@@ -204,21 +277,27 @@ COM A MUDANÇA NA API:
 🐛 TROUBLESHOOTING
 ═══════════════════════════════════════════════════════════════════════════════
 
-PROBLEMA: Ainda toca só uma playlist
-└─> Verifique a resposta da API /api/tv/auth/ no log
-└─> Deve conter campo 'playlists_mescladas' se há múltiplas
-└─> Confirme que ambas playlists estão ATIVAS no admin
-└─> Confirme que os agendamentos estão ATIVOS no admin
-└─> Verifique se hora_inicio/hora_fim são NULL (24/7)
+PROBLEMA: Playlist com horário específico não aparece
+└─> Verifique se está DENTRO do horário cadastrado
+└─> Confirme que dias_semana incluem o dia atual (0=seg, 6=dom)
+└─> Verifique se o agendamento está ATIVO no admin
+
+PROBLEMA: Playlists 24/7 somem quando horário específico está ativo
+└─> ✅ CORRIGIDO! Agora playlists 24/7 sempre fazem parte do merge
+└─> Se ainda acontece, verifique se backend foi atualizado
 
 PROBLEMA: Vídeos duplicados
 └─> Normal! Se você adicionou o mesmo vídeo em 2 playlists, ele vai aparecer 2 vezes
 └─> Solução: remover vídeo duplicado de uma das playlists
 
 PROBLEMA: Ordem errada dos vídeos
-└─> A API mescla na ordem de prioridade dos agendamentos
-└─> Playlist de maior prioridade vem primeiro
+└─> Playlists de horário específico aparecem PRIMEIRO no merge
+└─> Depois vêm as playlists 24/7 ordenadas por prioridade
 └─> Ajuste a prioridade no admin se necessário
+
+PROBLEMA: App não detecta mudança de horário
+└─> Implemente verificação periódica (ver seção OPCIONAL)
+└─> Ou aguarde próxima sincronização automática do app
 
 ═══════════════════════════════════════════════════════════════════════════════
 ✅ CHECKLIST - TESTE SE ESTÁ FUNCIONANDO
@@ -250,21 +329,41 @@ NO APP ANDROID:
 ✅ PROBLEMA RESOLVIDO NO BACKEND!
 
 O que foi feito:
-  • API modificada para retornar múltiplas playlists 24/7 mescladas automaticamente
-  • Campo 'videos' agora contém vídeos de TODAS as playlists em sequência
-  • App Android vai receber lista completa e tocar em loop normal
+  • API modificada para mesclar playlists corretamente
+  • Playlists 24/7 são a BASE e estão sempre presentes
+  • Playlists com horário específico são ADICIONADAS quando dentro do horário
+  • App Android recebe lista completa e toca em loop normal
+
+REGRAS DE MESCLAGEM:
+  1. Playlists 24/7: SEMPRE no merge (base contínua)
+  2. Playlists com horário: ADICIONADAS quando horário bate
+  3. Ordem no merge: horário específico primeiro, depois 24/7 por prioridade
+
+EXEMPLOS PRÁTICOS:
+  • 2 playlists 24/7 (A, B):
+    → SEMPRE toca: A + B
+  
+  • 2 playlists 24/7 (A, B) + 1 horário 12:30-13:30 (C):
+    → 12:30-13:30: C + A + B
+    → Fora do horário: A + B
+  
+  • 1 playlist 24/7 (A) + 2 horários (B: 08-12h, C: 12-18h):
+    → 08:00-12:00: B + A
+    → 12:00-18:00: C + A
+    → Outros horários: apenas A
 
 Próximos passos:
   1. Reinicie o app Android para forçar nova sincronização
-  2. Verifique no admin que ambas playlists estão ATIVAS
-  3. Verifique que os agendamentos estão sem horário (hora_inicio e hora_fim vazios)
-  4. O app deve automaticamente tocar todos os vídeos das 2 playlists em sequência!
+  2. Verifique no admin que todas playlists estão ATIVAS
+  3. Verifique que agendamentos estão configurados corretamente
+  4. O app deve automaticamente mesclar conforme as regras acima!
 
 Se ainda não funcionar após reiniciar o app:
   • Teste a API manualmente: POST https://seu-dominio.com/api/tv/auth/
   • Envie: {"identificador_unico": "UUID-DO-SEU-DISPOSITIVO"}
   • Verifique se retorna campo 'playlists_mescladas' na resposta
-  • Conte quantos vídeos estão no array 'videos' - deve ser soma das 2 playlists
+  • Durante horário específico: deve incluir playlist do horário + 24/7
+  • Fora do horário específico: deve incluir apenas 24/7
 
 ═══════════════════════════════════════════════════════════════════════════════
 
