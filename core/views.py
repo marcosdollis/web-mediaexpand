@@ -3529,8 +3529,6 @@ def design_import_pptx_view(request):
     import json as json_mod
     import base64
     import io
-    import zipfile
-    import re as re_mod
     from django.http import JsonResponse
 
     if request.method != 'POST':
@@ -3547,73 +3545,13 @@ def design_import_pptx_view(request):
     if not pptx_file.name.lower().endswith('.pptx'):
         return JsonResponse({'success': False, 'message': 'Arquivo deve ser .pptx'}, status=400)
 
-    # BLIP namespace constant
-    A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
-    R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
-    BLIP_TAG = f'{{{A_NS}}}blip'
-
-    def get_blip_data_url(shape_el, rid_map, pptx_zip):
-        """Find <a:blip r:embed=...> anywhere in shape XML, return data URL or None."""
-        blips = shape_el.findall(f'.//{BLIP_TAG}')
-        if not blips:
-            return None
-        rid = blips[0].get(f'{{{R_NS}}}embed')
-        if not rid:
-            return None
-        media_path = rid_map.get(rid, '')
-        # Normalize path: ../media/imageX.png → ppt/media/imageX.png
-        media_path = re_mod.sub(r'^\.\./', 'ppt/', media_path)
-        if not media_path or media_path not in pptx_zip.namelist():
-            return None
-        try:
-            img_bytes = pptx_zip.read(media_path)
-            ext = media_path.rsplit('.', 1)[-1].lower()
-            ct_map = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-                      'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml'}
-            content_type = ct_map.get(ext, 'image/png')
-            b64 = base64.b64encode(img_bytes).decode('utf-8')
-            return f'data:{content_type};base64,{b64}', img_bytes
-        except Exception:
-            return None
-
-    def make_fabric_image(data_url, img_bytes, left_px, top_px, width_px, height_px):
-        """Build a Fabric.js image JSON object with correct scale."""
-        try:
-            from PIL import Image as PILImage
-            pil_img = PILImage.open(io.BytesIO(img_bytes))
-            natural_w, natural_h = pil_img.size
-            pil_img.close()
-        except Exception:
-            natural_w = width_px or 100
-            natural_h = height_px or 100
-        natural_w = max(natural_w, 1)
-        natural_h = max(natural_h, 1)
-        target_w = width_px if width_px > 0 else natural_w
-        target_h = height_px if height_px > 0 else natural_h
-        return {
-            'type': 'image',
-            'version': '5.3.1',
-            'originX': 'left', 'originY': 'top',
-            'left': left_px, 'top': top_px,
-            'width': natural_w, 'height': natural_h,
-            'scaleX': round(target_w / natural_w, 6),
-            'scaleY': round(target_h / natural_h, 6),
-            'angle': 0, 'opacity': 1,
-            'flipX': False, 'flipY': False,
-            'src': data_url, 'crossOrigin': 'anonymous',
-            'filters': [],
-        }
-
     try:
         from pptx import Presentation
-        from pptx.enum.shapes import MSO_SHAPE_TYPE
+        from pptx.util import Inches, Pt, Emu
+        from pptx.dml.color import RGBColor
         from pptx.enum.text import PP_ALIGN
 
-        # Read file bytes once so we can open as both pptx and zip
-        pptx_bytes = pptx_file.read()
-
-        prs = Presentation(io.BytesIO(pptx_bytes))
-        pptx_zip = zipfile.ZipFile(io.BytesIO(pptx_bytes))
+        prs = Presentation(pptx_file)
 
         # Slide dimensions (EMUs → px at 96 DPI)
         slide_w_px = int(prs.slide_width / 914400 * 96)
@@ -3622,19 +3560,6 @@ def design_import_pptx_view(request):
         pages = []
         for slide_idx, slide in enumerate(prs.slides):
             fabric_objects = []
-
-            # Build rId → media path map for this slide from its .rels file
-            part_name = slide.part.partname  # e.g. /ppt/slides/slide1.xml
-            # .rels sits at e.g. ppt/slides/_rels/slide1.xml.rels
-            part_bare = part_name.lstrip('/')  # ppt/slides/slide1.xml
-            rels_path = part_bare.replace('slides/', 'slides/_rels/') + '.rels'
-            rid_map = {}
-            try:
-                rels_xml = pptx_zip.read(rels_path).decode('utf-8')
-                for m in re_mod.finditer(r'Id="(rId\d+)"[^>]*Target="([^"]+)"', rels_xml):
-                    rid_map[m.group(1)] = m.group(2)
-            except Exception:
-                pass
 
             # Extract background color
             bg_color = '#ffffff'
@@ -3646,40 +3571,105 @@ def design_import_pptx_view(request):
             except Exception:
                 pass
 
-            def extract_shape(shape):
+            def extract_shape(shape, fabric_objects):
                 """Recursively extract objects from a shape (handles groups)."""
+                from pptx.enum.shapes import MSO_SHAPE_TYPE
+
                 left_px = int((shape.left or 0) / 914400 * 96)
                 top_px = int((shape.top or 0) / 914400 * 96)
                 width_px = int((shape.width or 0) / 914400 * 96)
                 height_px = int((shape.height or 0) / 914400 * 96)
 
-                # Recurse groups
+                # Handle GROUP shapes — recurse into children
                 if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
                     try:
                         for child in shape.shapes:
-                            extract_shape(child)
+                            extract_shape(child, fabric_objects)
                     except Exception:
                         pass
                     return
 
-                # --- Check for image fill via XML blipFill (works for Freeforms, Pics, etc.) ---
-                blip_result = get_blip_data_url(shape.element, rid_map, pptx_zip)
-                if blip_result:
-                    data_url, img_bytes = blip_result
-                    # SVG: skip (Fabric.js can't load SVG from data URL directly)
-                    if 'svg' not in data_url[:30]:
-                        obj = make_fabric_image(data_url, img_bytes, left_px, top_px, width_px, height_px)
-                        fabric_objects.append(obj)
-                    return  # image found — don't also add as text/rect
+                # Shape fill color
+                fill_color = '#cccccc'
+                try:
+                    if hasattr(shape, 'fill') and shape.fill and shape.fill.type is not None:
+                        if shape.fill.fore_color and shape.fill.fore_color.rgb:
+                            fill_color = '#' + str(shape.fill.fore_color.rgb)
+                except Exception:
+                    pass
 
-                # --- Text frame ---
+                # --- IMAGE: detect via hasattr(shape, 'image') — most reliable ---
+                is_picture = False
+                try:
+                    is_picture = (shape.shape_type == MSO_SHAPE_TYPE.PICTURE or
+                                  shape.shape_type == MSO_SHAPE_TYPE.LINKED_PICTURE)
+                except Exception:
+                    pass
+                if not is_picture:
+                    # fallback: try accessing shape.image directly
+                    try:
+                        _ = shape.image
+                        is_picture = True
+                    except Exception:
+                        pass
+
+                if is_picture:
+                    try:
+                        image = shape.image
+                        img_bytes = image.blob
+                        content_type = (image.content_type or 'image/png').split(';')[0].strip()
+                        if content_type not in ('image/png', 'image/jpeg', 'image/gif', 'image/webp'):
+                            content_type = 'image/png'
+
+                        b64 = base64.b64encode(img_bytes).decode('utf-8')
+                        data_url = f'data:{content_type};base64,{b64}'
+
+                        # Get natural pixel dimensions via PIL
+                        try:
+                            from PIL import Image as PILImage
+                            pil_img = PILImage.open(io.BytesIO(img_bytes))
+                            natural_w, natural_h = pil_img.size
+                            pil_img.close()
+                        except Exception:
+                            natural_w = width_px or 100
+                            natural_h = height_px or 100
+
+                        natural_w = max(natural_w, 1)
+                        natural_h = max(natural_h, 1)
+                        target_w = width_px if width_px > 0 else natural_w
+                        target_h = height_px if height_px > 0 else natural_h
+
+                        fabric_objects.append({
+                            'type': 'image',
+                            'version': '5.3.1',
+                            'originX': 'left',
+                            'originY': 'top',
+                            'left': left_px,
+                            'top': top_px,
+                            'width': natural_w,
+                            'height': natural_h,
+                            'scaleX': round(target_w / natural_w, 6),
+                            'scaleY': round(target_h / natural_h, 6),
+                            'angle': 0,
+                            'opacity': 1,
+                            'flipX': False,
+                            'flipY': False,
+                            'src': data_url,
+                            'crossOrigin': 'anonymous',
+                            'filters': [],
+                        })
+                        return  # done with this shape
+                    except Exception:
+                        pass  # fall through to text/shape handling
+
                 if shape.has_text_frame:
-                    cur_top = top_px
+                    # TEXT SHAPE
                     for para in shape.text_frame.paragraphs:
                         full_text = para.text.strip()
                         if not full_text:
                             continue
 
+                        # Gather text properties from first run
                         font_size = 24
                         font_family = 'Inter'
                         font_color = '#333333'
@@ -3691,7 +3681,7 @@ def design_import_pptx_view(request):
                         if para.runs:
                             run = para.runs[0]
                             if run.font.size:
-                                font_size = max(8, int(run.font.size / 12700))
+                                font_size = int(run.font.size / 12700)  # EMU → pt
                             if run.font.name:
                                 font_family = run.font.name
                             if run.font.bold:
@@ -3716,12 +3706,10 @@ def design_import_pptx_view(request):
 
                         fabric_objects.append({
                             'type': 'i-text',
-                            'version': '5.3.1',
-                            'originX': 'left', 'originY': 'top',
                             'text': full_text,
                             'left': left_px,
-                            'top': cur_top,
-                            'width': width_px if width_px > 0 else 400,
+                            'top': top_px,
+                            'width': width_px,
                             'fontFamily': font_family,
                             'fontSize': font_size,
                             'fill': font_color,
@@ -3731,43 +3719,38 @@ def design_import_pptx_view(request):
                             'textAlign': text_align,
                             'editable': True,
                         })
-                        cur_top += int(font_size * 1.5)
-                    return
+                        # Offset subsequent paragraphs vertically
+                        top_px += int(font_size * 1.4)
 
-                # --- Geometric shape fallback → rect ---
-                if width_px > 0 and height_px > 0:
-                    fill_color = '#cccccc'
-                    try:
-                        if hasattr(shape, 'fill') and shape.fill and shape.fill.type is not None:
-                            if shape.fill.fore_color and shape.fill.fore_color.rgb:
-                                fill_color = '#' + str(shape.fill.fore_color.rgb)
-                    except Exception:
-                        pass
+                else:
+                    # GEOMETRIC SHAPE → rect (fallback for non-text, non-image shapes)
                     stroke_color = 'transparent'
                     stroke_width = 0
                     try:
-                        if shape.line and shape.line.width:
-                            stroke_width = max(1, int(shape.line.width / 12700))
-                            stroke_color = '#000000'
-                            if shape.line.color and shape.line.color.rgb:
-                                stroke_color = '#' + str(shape.line.color.rgb)
+                        if shape.line and shape.line.fill and shape.line.fill.fore_color:
+                            stroke_color = '#' + str(shape.line.fill.fore_color.rgb)
+                            stroke_width = int((shape.line.width or 0) / 12700)
                     except Exception:
                         pass
+
+                    rx = 0
                     fabric_objects.append({
                         'type': 'rect',
-                        'version': '5.3.1',
-                        'originX': 'left', 'originY': 'top',
-                        'left': left_px, 'top': top_px,
-                        'width': width_px, 'height': height_px,
+                        'left': left_px,
+                        'top': top_px,
+                        'width': width_px,
+                        'height': height_px,
                         'fill': fill_color,
                         'stroke': stroke_color,
                         'strokeWidth': stroke_width,
-                        'rx': 0, 'ry': 0,
+                        'rx': rx,
+                        'ry': rx,
                     })
 
             for shape in slide.shapes:
-                extract_shape(shape)
+                extract_shape(shape, fabric_objects)
 
+            # Build Fabric-compatible canvas JSON for this slide
             fabric_json = {
                 'version': '5.3.1',
                 'objects': fabric_objects,
@@ -3785,8 +3768,6 @@ def design_import_pptx_view(request):
                 'animations': [],
             })
 
-        pptx_zip.close()
-
         return JsonResponse({
             'success': True,
             'canvasWidth': slide_w_px,
@@ -3803,6 +3784,7 @@ def design_import_pptx_view(request):
             'success': False,
             'message': f'Erro ao processar PPTX: {str(e)}'
         }, status=400)
+
 
 @login_required
 def design_audio_upload_view(request):
