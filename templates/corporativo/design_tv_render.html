@@ -8,18 +8,48 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
-    width: {{ conteudo.design_largura }}px;
-    height: {{ conteudo.design_altura }}px;
+    width: 100vw;
+    height: 100vh;
     overflow: hidden;
     background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#tv-container {
+    position: relative;
+    width: {{ conteudo.design_largura }}px;
+    height: {{ conteudo.design_altura }}px;
+    transform-origin: center center;
 }
 canvas { display: block; position: absolute; top: 0; left: 0; }
 </style>
+<script>
+// Auto-scale to fit viewport
+window.addEventListener('DOMContentLoaded', function() {
+    var container = document.getElementById('tv-container');
+    if (!container) return;
+    
+    function scaleToFit() {
+        var designW = {{ conteudo.design_largura }};
+        var designH = {{ conteudo.design_altura }};
+        var scaleX = window.innerWidth / designW;
+        var scaleY = window.innerHeight / designH;
+        var scale = Math.min(scaleX, scaleY, 1); // Limita escala máxima para 1 (100%)
+        container.style.transform = 'scale(' + scale + ')';
+    }
+    
+    scaleToFit();
+    window.addEventListener('resize', scaleToFit);
+});
+</script>
 </head>
 <body>
-<canvas id="canvasA" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas>
-<canvas id="canvasB" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas>
-<audio id="pageAudio" preload="auto"></audio>
+<div id="tv-container">
+    <canvas id="canvasA" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas>
+    <canvas id="canvasB" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas>
+    <audio id="pageAudio" preload="auto"></audio>
+</div>
 
 <script>
 (function() {

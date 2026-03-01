@@ -3857,6 +3857,8 @@ def design_search_images_view(request):
         return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
 
     PIXABAY_API_KEY = getattr(settings, 'PIXABAY_API_KEY', '') or os.environ.get('PIXABAY_API_KEY', '')
+    
+    print(f"[DEBUG] PIXABAY_API_KEY configured: {bool(PIXABAY_API_KEY)}")
 
     query = request.GET.get('q', '').strip()
     page = int(request.GET.get('page', 1))
@@ -3867,6 +3869,7 @@ def design_search_images_view(request):
     editors_choice = request.GET.get('editors_choice', 'false')
 
     if not PIXABAY_API_KEY:
+        print("[DEBUG] No Pixabay API key found, using fallback")
         # Return curated fallback using Lorem Picsum (no API key needed)
         return _fallback_image_search(query, page, per_page)
 
