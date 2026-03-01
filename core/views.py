@@ -3849,29 +3849,47 @@ def design_search_images_view(request):
     Params: q (query), page, per_page, image_type (photo, illustration, vector), category
     Returns JSON with results array of {id, thumbnail, preview, fullUrl, tags, width, height, user}.
     """
+    from django.conf import settings
     import urllib.parse
     import urllib.request
+    import urllib.error
     import json as json_mod
 
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
 
-    PIXABAY_API_KEY = getattr(settings, 'PIXABAY_API_KEY', '') or os.environ.get('PIXABAY_API_KEY', '')
-    
-    print(f"[DEBUG] PIXABAY_API_KEY configured: {bool(PIXABAY_API_KEY)}")
+    try:
+        # Tenta pegar a chave do settings (que lê do .env via python-decouple)
+        PIXABAY_API_KEY = getattr(settings, 'PIXABAY_API_KEY', '')
+        if not PIXABAY_API_KEY:
+            # Fallback: tenta pegar diretamente da variável de ambiente
+            PIXABAY_API_KEY = os.environ.get('PIXABAY_API_KEY', '')
+        
+        print(f"[DEBUG] PIXABAY_API_KEY configured: {bool(PIXABAY_API_KEY)}")
+        if PIXABAY_API_KEY:
+            print(f"[DEBUG] API Key: {PIXABAY_API_KEY[:10]}...{PIXABAY_API_KEY[-5:]}")
 
-    query = request.GET.get('q', '').strip()
-    page = int(request.GET.get('page', 1))
-    per_page = min(int(request.GET.get('per_page', 40)), 200)
-    image_type = request.GET.get('image_type', 'all')  # photo, illustration, vector, all
-    category = request.GET.get('category', '')
-    colors = request.GET.get('colors', '')  # for filtering by color
-    editors_choice = request.GET.get('editors_choice', 'false')
+        query = request.GET.get('q', '').strip()
+        page = int(request.GET.get('page', 1))
+        per_page = min(int(request.GET.get('per_page', 40)), 200)
+        image_type = request.GET.get('image_type', 'all')  # photo, illustration, vector, all
+        category = request.GET.get('category', '')
+        colors = request.GET.get('colors', '')  # for filtering by color
+        editors_choice = request.GET.get('editors_choice', 'false')
 
-    if not PIXABAY_API_KEY:
-        print("[DEBUG] No Pixabay API key found, using fallback")
-        # Return curated fallback using Lorem Picsum (no API key needed)
-        return _fallback_image_search(query, page, per_page)
+        if not PIXABAY_API_KEY:
+            print("[DEBUG] No Pixabay API key found, using fallback (Lorem Picsum)")
+            # Return curated fallback using Lorem Picsum (no API key needed)
+            return _fallback_image_search(query, page, per_page)
+    except Exception as e:
+        print(f"[ERROR] Error in initial setup: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro na configuração: {str(e)}',
+            'results': [],
+        }, status=500)
 
     # Build Pixabay API URL
     params = {
@@ -3890,11 +3908,15 @@ def design_search_images_view(request):
         params['colors'] = colors
 
     url = 'https://pixabay.com/api/?' + urllib.parse.urlencode(params)
+    
+    print(f"[DEBUG] Calling Pixabay API: {url.replace(PIXABAY_API_KEY, 'KEY_HIDDEN')}")
 
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'MediaExpand/1.0'})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json_mod.loads(resp.read().decode())
+
+        print(f"[DEBUG] Pixabay response: totalHits={data.get('totalHits', 0)}, hits={len(data.get('hits', []))}")
 
         results = []
         for hit in data.get('hits', []):
@@ -3917,7 +3939,37 @@ def design_search_images_view(request):
             'page': page,
             'per_page': per_page,
         })
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode() if hasattr(e, 'read') else ''
+        print(f"[ERROR] Pixabay HTTP {e.code}: {e.reason}")
+        print(f"[ERROR] Response body: {error_body}")
+        
+        if e.code == 400:
+            message = 'API Key inválida ou parâmetros incorretos'
+        elif e.code == 429:
+            message = 'Limite de requisições excedido. Usando fallback...'
+            return _fallback_image_search(query, page, per_page)
+        else:
+            message = f'Erro da API Pixabay ({e.code}): {e.reason}'
+        
+        return JsonResponse({
+            'success': False,
+            'message': message,
+            'results': [],
+            'fallback_available': True,
+        }, status=200)  # Retorna 200 para o cliente processar o fallback
+    except urllib.error.URLError as e:
+        print(f"[ERROR] Pixabay connection error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro de conexão com Pixabay. Usando fallback...',
+            'results': [],
+        }, status=200)
     except Exception as e:
+        print(f"[ERROR] Pixabay unexpected error: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
         return JsonResponse({
             'success': False,
             'message': f'Erro ao buscar imagens: {str(e)}',
@@ -3931,13 +3983,18 @@ def _fallback_image_search(query, page, per_page):
     Not searchable by keyword, but provides free high-quality photos.
     """
     import urllib.request
+    import urllib.error
     import json as json_mod
+
+    print(f"[DEBUG] Using fallback (Lorem Picsum) for query: {query}")
 
     try:
         url = f'https://picsum.photos/v2/list?page={page}&limit={per_page}'
         req = urllib.request.Request(url, headers={'User-Agent': 'MediaExpand/1.0'})
         with urllib.request.urlopen(req, timeout=10) as resp:
             items = json_mod.loads(resp.read().decode())
+
+        print(f"[DEBUG] Fallback returned {len(items)} images")
 
         results = []
         for item in items:
@@ -3960,13 +4017,18 @@ def _fallback_image_search(query, page, per_page):
             'total': 1000,
             'page': page,
             'per_page': per_page,
+            'message': 'Usando imagens gratuitas (Lorem Picsum)',
         })
     except Exception as e:
+        print(f"[ERROR] Fallback error: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
         return JsonResponse({
             'success': False,
-            'message': f'Erro: {str(e)}',
+            'message': f'Erro no fallback: {str(e)}',
             'results': [],
-        })
+        }, status=500)
 
 
 # ═══════════════════════════════════════════════════════════════
