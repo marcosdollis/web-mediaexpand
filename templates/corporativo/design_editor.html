@@ -3019,6 +3019,293 @@ window.handlePPTXImport = function(e) {
     e.target.value = '';
 };
 
+// ═══════════════════════════════════════════════════════════════
+//  MEDIA LIBRARY — Free Image/Icon Search & Add to Canvas
+// ═══════════════════════════════════════════════════════════════
+
+var currentMediaTab = 'photos';
+var currentMediaPage = 1;
+var currentMediaQuery = '';
+var isMediaLoading = false;
+
+window.switchMediaTab = function(tab) {
+    currentMediaTab = tab;
+    currentMediaPage = 1;
+    currentMediaQuery = '';
+    
+    // Update active tab UI
+    document.querySelectorAll('.media-lib-tab').forEach(function(el) {
+        el.classList.remove('active');
+    });
+    var tabId = {
+        'photos': 'tabPhotos',
+        'illustrations': 'tabIllust',
+        'icons': 'tabIcons',
+        'stickers': 'tabStickers'
+    }[tab];
+    if (tabId) document.getElementById(tabId).classList.add('active');
+    
+    // Update placeholder
+    var input = document.getElementById('mediaSearchInput');
+    var placeholders = {
+        'photos': 'Buscar fotos...',
+        'illustrations': 'Buscar ilustrações...',
+        'icons': 'Buscar ícones...',
+        'stickers': 'Buscar PNGs transparentes...'
+    };
+    input.placeholder = placeholders[tab] || 'Buscar...';
+    
+    // Show/hide categories bar (only for photos/illustrations)
+    var catBar = document.getElementById('mediaCategoriesBar');
+    catBar.style.display = (tab === 'photos' || tab === 'illustrations') ? 'flex' : 'none';
+    
+    // Clear results
+    document.getElementById('mediaResultsContainer').innerHTML = '<div class="media-status" id="mediaStatusMsg"><i class="fas fa-search"></i>Digite algo e busque</div>';
+};
+
+window.searchMedia = function() {
+    var query = document.getElementById('mediaSearchInput').value.trim();
+    if (!query) {
+        showToast('Digite algo para buscar', true);
+        return;
+    }
+    currentMediaQuery = query;
+    currentMediaPage = 1;
+    performMediaSearch(false);
+};
+
+window.searchMediaCategory = function(category) {
+    document.getElementById('mediaSearchInput').value = category;
+    currentMediaQuery = category;
+    currentMediaPage = 1;
+    performMediaSearch(false);
+};
+
+function performMediaSearch(append) {
+    if (isMediaLoading) return;
+    isMediaLoading = true;
+    
+    var container = document.getElementById('mediaResultsContainer');
+    if (!append) {
+        container.innerHTML = '<div class="media-status"><i class="fas fa-spinner fa-spin"></i>Buscando...</div>';
+    }
+    
+    var url, params;
+    
+    if (currentMediaTab === 'icons') {
+        // Iconify search
+        url = '{% url "design_search_icons" %}';
+        params = new URLSearchParams({
+            q: currentMediaQuery,
+            limit: 60
+        });
+    } else if (currentMediaTab === 'stickers') {
+        // PNG/stickers
+        url = '{% url "design_search_stickers" %}';
+        params = new URLSearchParams({
+            q: currentMediaQuery,
+            page: currentMediaPage,
+            per_page: 40
+        });
+    } else {
+        // Photos or illustrations
+        url = '{% url "design_search_images" %}';
+        var imageType = currentMediaTab === 'illustrations' ? 'illustration' : 'photo';
+        params = new URLSearchParams({
+            q: currentMediaQuery,
+            page: currentMediaPage,
+            per_page: 40,
+            image_type: imageType
+        });
+    }
+    
+    fetch(url + '?' + params.toString(), {
+        method: 'GET',
+        headers: { 'X-CSRFToken': CSRF }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        isMediaLoading = false;
+        
+        if (!data.success) {
+            container.innerHTML = '<div class="media-status"><i class="fas fa-exclamation-triangle"></i>' + (data.message || 'Erro ao buscar') + '</div>';
+            return;
+        }
+        
+        if (currentMediaTab === 'icons') {
+            renderIconResults(data.icons || [], append);
+        } else {
+            renderImageResults(data.results || [], data.total || 0, append);
+        }
+    })
+    .catch(function(err) {
+        isMediaLoading = false;
+        container.innerHTML = '<div class="media-status"><i class="fas fa-exclamation-triangle"></i>Erro: ' + err.message + '</div>';
+    });
+}
+
+function renderImageResults(results, total, append) {
+    var container = document.getElementById('mediaResultsContainer');
+    
+    if (!append) {
+        if (results.length === 0) {
+            container.innerHTML = '<div class="media-status"><i class="fas fa-images"></i>Nenhum resultado encontrado</div>';
+            return;
+        }
+        container.innerHTML = '<div class="media-results-grid" id="mediaResultsGrid"></div>';
+    }
+    
+    var grid = document.getElementById('mediaResultsGrid');
+    if (!grid) return;
+    
+    results.forEach(function(item) {
+        var div = document.createElement('div');
+        div.className = 'media-result-item';
+        div.onclick = function() { addImageToCanvas(item.preview || item.fullUrl || item.thumbnail); };
+        
+        var img = document.createElement('img');
+        img.src = item.thumbnail;
+        img.alt = item.tags || '';
+        img.loading = 'lazy';
+        
+        var overlay = document.createElement('div');
+        overlay.className = 'media-item-overlay';
+        overlay.textContent = item.user || item.source || '';
+        
+        div.appendChild(img);
+        div.appendChild(overlay);
+        grid.appendChild(div);
+    });
+    
+    // Load more button (not for icons)
+    if (total > results.length && results.length >= 20) {
+        var loadMoreDiv = document.createElement('div');
+        loadMoreDiv.className = 'media-load-more';
+        loadMoreDiv.innerHTML = '<button onclick="loadMoreMedia()"><i class="fas fa-plus me-1"></i>Carregar mais</button>';
+        grid.appendChild(loadMoreDiv);
+    }
+}
+
+function renderIconResults(icons, append) {
+    var container = document.getElementById('mediaResultsContainer');
+    
+    if (!append) {
+        if (icons.length === 0) {
+            container.innerHTML = '<div class="media-status"><i class="fas fa-icons"></i>Nenhum ícone encontrado</div>';
+            return;
+        }
+        container.innerHTML = '<div class="icon-results-grid" id="iconResultsGrid"></div>';
+    }
+    
+    var grid = document.getElementById('iconResultsGrid');
+    if (!grid) return;
+    
+    icons.forEach(function(icon) {
+        var div = document.createElement('div');
+        div.className = 'icon-result-item';
+        div.onclick = function() { addIconToCanvas(icon.fullName, icon.svgUrl); };
+        
+        var img = document.createElement('img');
+        img.src = icon.previewUrl;
+        img.alt = icon.name;
+        img.loading = 'lazy';
+        
+        var span = document.createElement('span');
+        span.textContent = icon.name;
+        
+        div.appendChild(img);
+        div.appendChild(span);
+        grid.appendChild(div);
+    });
+}
+
+window.loadMoreMedia = function() {
+    currentMediaPage++;
+    performMediaSearch(true);
+};
+
+function addImageToCanvas(imageUrl) {
+    if (!imageUrl) return;
+    showToast('Adicionando imagem...');
+    
+    fabric.Image.fromURL(imageUrl, function(img) {
+        if (!img || !img.width || !img.height) {
+            showToast('Erro ao carregar imagem', true);
+            return;
+        }
+        
+        // Scale to fit 50% of canvas
+        var maxW = CANVAS_W * 0.5;
+        var maxH = CANVAS_H * 0.5;
+        var scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        
+        img.set({
+            left: CANVAS_W / 2 - (img.width * scale) / 2,
+            top: CANVAS_H / 2 - (img.height * scale) / 2,
+            scaleX: scale,
+            scaleY: scale
+        });
+        
+        canvas.add(img);
+        canvas.setActiveObject(img);
+        canvas.renderAll();
+        showToast('Imagem adicionada!');
+    }, { crossOrigin: 'anonymous' });
+}
+
+function addIconToCanvas(iconFullName, svgUrl) {
+    if (!iconFullName) return;
+    showToast('Adicionando ícone...');
+    
+    // Fetch SVG via our proxy
+    var url = '{% url "design_get_icon_svg" %}?' + new URLSearchParams({
+        icon: iconFullName,
+        color: '#333333',
+        size: 256
+    }).toString();
+    
+    fetch(url, {
+        method: 'GET',
+        headers: { 'X-CSRFToken': CSRF }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (!data.success || !data.svg) {
+            showToast('Erro ao carregar ícone', true);
+            return;
+        }
+        
+        // Create blob URL from SVG string
+        var blob = new Blob([data.svg], { type: 'image/svg+xml' });
+        var url = URL.createObjectURL(blob);
+        
+        fabric.loadSVGFromURL(url, function(objects, options) {
+            var obj = fabric.util.groupSVGElements(objects, options);
+            
+            // Scale to ~200px
+            var targetSize = 200;
+            var scale = targetSize / Math.max(obj.width, obj.height);
+            
+            obj.set({
+                left: CANVAS_W / 2 - (obj.width * scale) / 2,
+                top: CANVAS_H / 2 - (obj.height * scale) / 2,
+                scaleX: scale,
+                scaleY: scale
+            });
+            
+            canvas.add(obj);
+            canvas.setActiveObject(obj);
+            canvas.renderAll();
+            showToast('Ícone adicionado!');
+            
+            URL.revokeObjectURL(url);
+        });
+    })
+    .catch(function(err) {
+        showToast('Erro: ' + err.message, true);
+    });
+}
+
 // ── INIT ON LOAD ──
 document.addEventListener('DOMContentLoaded', init);
 
