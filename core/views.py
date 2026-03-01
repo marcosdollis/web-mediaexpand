@@ -4175,26 +4175,43 @@ def design_search_stickers_view(request):
     Uses Pixabay with transparent filter or vector type.
     Params: q (query), page, per_page
     """
+    from django.conf import settings
     import urllib.parse
     import urllib.request
+    import urllib.error
     import json as json_mod
 
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
 
-    PIXABAY_API_KEY = getattr(settings, 'PIXABAY_API_KEY', '') or os.environ.get('PIXABAY_API_KEY', '')
+    try:
+        PIXABAY_API_KEY = getattr(settings, 'PIXABAY_API_KEY', '')
+        if not PIXABAY_API_KEY:
+            PIXABAY_API_KEY = os.environ.get('PIXABAY_API_KEY', '')
+        
+        print(f"[DEBUG] Stickers - PIXABAY_API_KEY configured: {bool(PIXABAY_API_KEY)}")
 
-    query = request.GET.get('q', '').strip()
-    page = int(request.GET.get('page', 1))
-    per_page = min(int(request.GET.get('per_page', 40)), 200)
+        query = request.GET.get('q', '').strip()
+        page = int(request.GET.get('page', 1))
+        per_page = min(int(request.GET.get('per_page', 40)), 200)
 
-    if not PIXABAY_API_KEY:
+        if not PIXABAY_API_KEY:
+            print("[DEBUG] Stickers - No API key, returning empty results")
+            return JsonResponse({
+                'success': True,
+                'results': [],
+                'total': 0,
+                'message': 'Configure PIXABAY_API_KEY para buscar PNGs transparentes',
+            })
+    except Exception as e:
+        print(f"[ERROR] Stickers - Setup error: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
-            'success': True,
+            'success': False,
+            'message': f'Erro na configuração: {str(e)}',
             'results': [],
-            'total': 0,
-            'message': 'Configure PIXABAY_API_KEY para buscar PNGs transparentes',
-        })
+        }, status=500)
 
     # Search for vectors/illustrations (usually have transparency)
     params = {
@@ -4208,11 +4225,14 @@ def design_search_stickers_view(request):
     }
 
     url = 'https://pixabay.com/api/?' + urllib.parse.urlencode(params)
+    print(f"[DEBUG] Stickers - Calling Pixabay API for vectors")
 
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'MediaExpand/1.0'})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json_mod.loads(resp.read().decode())
+        
+        print(f"[DEBUG] Stickers - Got {len(data.get('hits', []))} results")
 
         results = []
         for hit in data.get('hits', []):
@@ -4235,7 +4255,19 @@ def design_search_stickers_view(request):
             'page': page,
             'per_page': per_page,
         })
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode() if hasattr(e, 'read') else ''
+        print(f"[ERROR] Stickers HTTP {e.code}: {e.reason}")
+        print(f"[ERROR] Response: {error_body}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro da API ({e.code}): {e.reason}',
+            'results': [],
+        }, status=200)
     except Exception as e:
+        print(f"[ERROR] Stickers error: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
             'success': False,
             'message': f'Erro ao buscar PNGs: {str(e)}',
