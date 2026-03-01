@@ -766,10 +766,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Animate counters
-    document.querySelectorAll('.dashboard-card .card-title').forEach(counter => {
-        const target = parseInt(counter.textContent.replace(/\D/g, ''));
-        if (target > 0) {
+    // Animate counters - apenas nos cards de estatísticas com números
+    document.querySelectorAll('.dashboard-card .card-body h5.card-title').forEach(counter => {
+        const text = counter.textContent.trim();
+        const target = parseInt(text.replace(/\D/g, ''));
+        // Apenas anima se o target for válido e maior que 0
+        if (!isNaN(target) && target > 0 && text.match(/^\d+$/)) {
             animateCounter(counter, target);
         }
     });
@@ -788,6 +790,11 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function animateCounter(element, target) {
+    // Validação adicional para evitar loops infinitos
+    if (!target || target <= 0 || isNaN(target)) {
+        return;
+    }
+    
     let current = 0;
     const increment = target / 50;
     const timer = setInterval(() => {
@@ -796,7 +803,7 @@ function animateCounter(element, target) {
             current = target;
             clearInterval(timer);
         }
-        element.textContent = Math.floor(current).toLocaleString();
+        element.textContent = Math.floor(current).toLocaleString('pt-BR');
     }, 30);
 }
 </script>
