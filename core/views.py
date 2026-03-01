@@ -3224,6 +3224,11 @@ def conteudo_corporativo_preview_view(request, pk):
         return redirect('dashboard')
 
     conteudo = get_object_or_404(ConteudoCorporativo, pk=pk)
+    
+    # Se for um DESIGN, redireciona para a visualização TV
+    if conteudo.tipo == 'DESIGN':
+        return redirect('design_render_tv', pk=pk)
+    
     from .services import buscar_dados_corporativos
 
     # Playlists que contêm este conteúdo

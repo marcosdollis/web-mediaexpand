@@ -2056,9 +2056,12 @@ function handleKeyboard(e) {
 
 // ── PREVIEW ──
 window.previewDesign = function() {
-    const dataURL = canvas.toDataURL({ format: 'png', multiplier: 1 });
-    document.getElementById('previewImage').src = dataURL;
-    document.getElementById('previewModal').classList.add('show');
+    // Se o design já foi salvo, abre a visualização TV completa com transições
+    if (CONTEUDO_PK) {
+        window.open(`/corporativo/design/${CONTEUDO_PK}/render/`, '_blank');
+    } else {
+        alert('Por favor, salve o design primeiro para visualizar com transições.');
+    }
 };
 window.closePreview = function() {
     document.getElementById('previewModal').classList.remove('show');
