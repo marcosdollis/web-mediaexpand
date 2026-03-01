@@ -236,10 +236,11 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
     config = _get_config()
     cached = cache.get(cache_key)
     if cached:
+        logger.info(f'[COTAÇÕES] Retornando dados do cache: {pares_str}')
         return cached
 
     if not config.pode_requisitar('COTACOES'):
-        logger.warning('Limite diário de requisições de cotações atingido.')
+        logger.warning('[COTAÇÕES] Limite diário de requisições atingido')
         return _cotacoes_fallback()
 
     result = {
@@ -251,13 +252,48 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
         'atualizado_em': timezone.now().isoformat(),
     }
 
+    # Retry com backoff exponencial para lidar com erro 429
+    max_retries = 3
+    import time
+    
+    for tentativa in range(max_retries):
+        try:
+            # AwesomeAPI — moedas e cripto
+            url = f'https://economia.awesomeapi.com.br/json/last/{pares_str}'
+            logger.info(f'[COTAÇÕES] Chamando AwesomeAPI (tentativa {tentativa + 1}/{max_retries}): {url}')
+            resp = requests.get(url, timeout=10)
+            
+            # Tratamento específico para 429
+            if resp.status_code == 429:
+                wait_time = (2 ** tentativa) * 2  # 2s, 4s, 8s
+                logger.warning(f'[COTAÇÕES] Erro 429 - aguardando {wait_time}s antes de retry')
+                if tentativa < max_retries - 1:
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error('[COTAÇÕES] Limite de tentativas atingido após erro 429')
+                    return _cotacoes_fallback()
+            
+            resp.raise_for_status()
+            data = resp.json()
+            logger.info(f'[COTAÇÕES] Sucesso - {len(data)} cotações obtidas')
+            config.registrar_requisicao('COTACOES')
+            break  # Sucesso, sair do loop
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f'[COTAÇÕES] Erro na tentativa {tentativa + 1}: {e}')
+            if tentativa < max_retries - 1:
+                wait_time = (2 ** tentativa) * 2
+                logger.info(f'[COTAÇÕES] Aguardando {wait_time}s antes de retry')
+                time.sleep(wait_time)
+            else:
+                logger.error('[COTAÇÕES] Todas as tentativas falharam')
+                return _cotacoes_fallback()
+    else:
+        # Loop completou sem break
+        return _cotacoes_fallback()
+
     try:
-        # AwesomeAPI — moedas e cripto
-        url = f'https://economia.awesomeapi.com.br/json/last/{pares_str}'
-        resp = requests.get(url, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-        config.registrar_requisicao('COTACOES')
 
         # Mapear moedas solicitadas
         for cod in moedas_codigos:
@@ -337,7 +373,7 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
                         item['unidade'] = 'USD/bushel'
                     result['commodities'].append(item)
         except Exception as e:
-            logger.error(f'Erro ao buscar {nome} via Yahoo Finance: {e}')
+            logger.error(f'[COTAÇÕES] Erro ao buscar {nome} via Yahoo Finance: {e}')
 
     # Fallback — adicionar itens faltantes como placeholder
     if not result['indices']:
@@ -350,8 +386,10 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
             result['commodities'].append(
                 {'nome': nome, 'codigo': cod, 'valor': None, 'variacao_pct': None, 'direcao': 'stable'})
 
-    cache_ttl = config.cache_cotacoes_minutos * 60
+    # Cache por 30 minutos (aumentado para reduzir chamadas à API)
+    cache_ttl = max(config.cache_cotacoes_minutos * 60, 1800)  # Mínimo 30min
     cache.set(cache_key, result, cache_ttl)
+    logger.info(f'[COTAÇÕES] Dados cacheados por {cache_ttl}s')
     return result
 
 
