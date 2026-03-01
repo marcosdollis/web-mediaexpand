@@ -438,6 +438,20 @@ class AppVersionForm(forms.ModelForm):
 
 class ConteudoCorporativoForm(forms.ModelForm):
     """Formulário para criar/editar conteúdo corporativo"""
+    
+    # Checkboxes para cotações - Moedas
+    cotacao_usd = forms.BooleanField(required=False, label='Dólar Americano (USD)', initial=True)
+    cotacao_eur = forms.BooleanField(required=False, label='Euro (EUR)', initial=True)
+    cotacao_gbp = forms.BooleanField(required=False, label='Libra Esterlina (GBP)')
+    cotacao_ars = forms.BooleanField(required=False, label='Peso Argentino (ARS)')
+    cotacao_jpy = forms.BooleanField(required=False, label='Iene Japonês (JPY)')
+    
+    # Checkboxes para cotações - Criptomoedas
+    cotacao_btc = forms.BooleanField(required=False, label='Bitcoin (BTC)', initial=True)
+    cotacao_eth = forms.BooleanField(required=False, label='Ethereum (ETH)')
+    cotacao_usdt = forms.BooleanField(required=False, label='Tether (USDT)')
+    cotacao_xrp = forms.BooleanField(required=False, label='Ripple (XRP)')
+    cotacao_ada = forms.BooleanField(required=False, label='Cardano (ADA)')
 
     class Meta:
         model = ConteudoCorporativo
@@ -448,6 +462,53 @@ class ConteudoCorporativoForm(forms.ModelForm):
             'duracao_segundos': forms.NumberInput(attrs={'class': 'form-control', 'min': '5', 'max': '120'}),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Se estiver editando e tiver dados salvos, pré-marcar os checkboxes
+        if self.instance and self.instance.pk:
+            moedas = self.instance.cotacoes_moedas or []
+            cripto = self.instance.cotacoes_cripto or []
+            
+            self.fields['cotacao_usd'].initial = 'USD' in moedas
+            self.fields['cotacao_eur'].initial = 'EUR' in moedas
+            self.fields['cotacao_gbp'].initial = 'GBP' in moedas
+            self.fields['cotacao_ars'].initial = 'ARS' in moedas
+            self.fields['cotacao_jpy'].initial = 'JPY' in moedas
+            
+            self.fields['cotacao_btc'].initial = 'BTC' in cripto
+            self.fields['cotacao_eth'].initial = 'ETH' in cripto
+            self.fields['cotacao_usdt'].initial = 'USDT' in cripto
+            self.fields['cotacao_xrp'].initial = 'XRP' in cripto
+            self.fields['cotacao_ada'].initial = 'ADA' in cripto
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        
+        # Coletar moedas selecionadas
+        moedas = []
+        if self.cleaned_data.get('cotacao_usd'): moedas.append('USD')
+        if self.cleaned_data.get('cotacao_eur'): moedas.append('EUR')
+        if self.cleaned_data.get('cotacao_gbp'): moedas.append('GBP')
+        if self.cleaned_data.get('cotacao_ars'): moedas.append('ARS')
+        if self.cleaned_data.get('cotacao_jpy'): moedas.append('JPY')
+        
+        # Coletar criptos selecionadas
+        cripto = []
+        if self.cleaned_data.get('cotacao_btc'): cripto.append('BTC')
+        if self.cleaned_data.get('cotacao_eth'): cripto.append('ETH')
+        if self.cleaned_data.get('cotacao_usdt'): cripto.append('USDT')
+        if self.cleaned_data.get('cotacao_xrp'): cripto.append('XRP')
+        if self.cleaned_data.get('cotacao_ada'): cripto.append('ADA')
+        
+        instance.cotacoes_moedas = moedas
+        instance.cotacoes_cripto = cripto
+        instance.cotacoes_commodities = []  # Para futuro
+        
+        if commit:
+            instance.save()
+        return instance
 
 
 class ConfiguracaoAPIForm(forms.ModelForm):

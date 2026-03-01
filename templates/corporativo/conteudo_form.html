@@ -68,6 +68,59 @@
                             <small class="text-muted">Tempo que ficará exibido na TV antes de passar para o próximo item</small>
                         </div>
 
+                        <!-- Configuração de Cotações (aparece apenas quando tipo = COTACOES) -->
+                        <div id="cotacoesConfig" style="display: none;">
+                            <div class="card bg-light mb-3">
+                                <div class="card-header bg-success text-white">
+                                    <i class="fas fa-chart-line me-2"></i>Selecione as Cotações para Exibir
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-success mb-3"><i class="fas fa-dollar-sign me-2"></i>Moedas</h6>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_usd }} <label class="form-check-label" for="{{ form.cotacao_usd.id_for_label }}">{{ form.cotacao_usd.label }}</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_eur }} <label class="form-check-label" for="{{ form.cotacao_eur.id_for_label }}">{{ form.cotacao_eur.label }}</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_gbp }} <label class="form-check-label" for="{{ form.cotacao_gbp.id_for_label }}">{{ form.cotacao_gbp.label }}</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_ars }} <label class="form-check-label" for="{{ form.cotacao_ars.id_for_label }}">{{ form.cotacao_ars.label }}</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_jpy }} <label class="form-check-label" for="{{ form.cotacao_jpy.id_for_label }}">{{ form.cotacao_jpy.label }}</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-warning mb-3"><i class="fab fa-bitcoin me-2"></i>Criptomoedas</h6>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_btc }} <label class="form-check-label" for="{{ form.cotacao_btc.id_for_label }}">{{ form.cotacao_btc.label }}</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_eth }} <label class="form-check-label" for="{{ form.cotacao_eth.id_for_label }}">{{ form.cotacao_eth.label }}</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_usdt }} <label class="form-check-label" for="{{ form.cotacao_usdt.id_for_label }}">{{ form.cotacao_usdt.label }}</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_xrp }} <label class="form-check-label" for="{{ form.cotacao_xrp.id_for_label }}">{{ form.cotacao_xrp.label }}</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_ada }} <label class="form-check-label" for="{{ form.cotacao_ada.id_for_label }}">{{ form.cotacao_ada.label }}</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <small class="text-muted mt-2 d-block">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Selecione pelo menos uma cotação. As cotações são atualizadas automaticamente em tempo real.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <div class="form-check">
                                 {{ form.ativo }}
@@ -76,6 +129,25 @@
                                 </label>
                             </div>
                         </div>
+
+                        <script>
+                        // Mostrar/ocultar seção de cotações baseado no tipo selecionado
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const tipoSelect = document.getElementById('{{ form.tipo.id_for_label }}');
+                            const cotacoesDiv = document.getElementById('cotacoesConfig');
+                            
+                            function toggleCotacoes() {
+                                if (tipoSelect.value === 'COTACOES') {
+                                    cotacoesDiv.style.display = 'block';
+                                } else {
+                                    cotacoesDiv.style.display = 'none';
+                                }
+                            }
+                            
+                            tipoSelect.addEventListener('change', toggleCotacoes);
+                            toggleCotacoes(); // Executa ao carregar a página
+                        });
+                        </script>
 
                         <div class="d-flex justify-content-between mt-4">
                             <a href="{% url 'conteudo_corporativo_list' %}" class="btn btn-outline-secondary">

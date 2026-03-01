@@ -187,15 +187,52 @@ def _previsao_fallback(nome_municipio):
 #  COTAÇÕES — AwesomeAPI (100% grátis, sem chave)
 # ══════════════════════════════════════════════
 
-# Pares de moedas: Dólar, Euro, Bitcoin, Ethereum, Ibovespa (via proxy), Soja, Milho, Trigo
-COTACOES_PARES = 'USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL'
+# Pares de moedas disponíveis
+MOEDAS_DISPONIVEIS = {
+    'USD': ('Dólar Americano', 'USDBRL'),
+    'EUR': ('Euro', 'EURBRL'),
+    'GBP': ('Libra Esterlina', 'GBPBRL'),
+    'ARS': ('Peso Argentino', 'ARSBRL'),
+    'JPY': ('Iene Japonês', 'JPYBRL'),
+}
 
-def buscar_cotacoes():
+CRIPTO_DISPONIVEIS = {
+    'BTC': ('Bitcoin', 'BTCBRL'),
+    'ETH': ('Ethereum', 'ETHBRL'),
+    'USDT': ('Tether', 'USDTBRL'),
+    'XRP': ('Ripple', 'XRPBRL'),
+    'ADA': ('Cardano', 'ADABRL'),
+}
+
+def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
     """
     Busca cotações de moedas, cripto via AwesomeAPI.
-    Busca commodities (soja, milho, trigo) e Ibovespa de fontes gratuitas.
+    
+    Args:
+        moedas_codigos: lista de códigos (ex: ['USD', 'EUR']) ou None para todas
+        cripto_codigos: lista de códigos (ex: ['BTC', 'ETH']) ou None para todas
     """
-    cache_key = 'cotacoes_all'
+    # Defaults se nada foi passado
+    if moedas_codigos is None:
+        moedas_codigos = ['USD', 'EUR']
+    if cripto_codigos is None:
+        cripto_codigos = ['BTC']
+    
+    # Construir string de pares para a API
+    pares = []
+    for cod in moedas_codigos:
+        if cod in MOEDAS_DISPONIVEIS:
+            pares.append(MOEDAS_DISPONIVEIS[cod][1])
+    for cod in cripto_codigos:
+        if cod in CRIPTO_DISPONIVEIS:
+            pares.append(CRIPTO_DISPONIVEIS[cod][1])
+    
+    if not pares:
+        pares = ['USDBRL', 'EURBRL', 'BTCBRL']  # Fallback
+    
+    pares_str = ','.join(pares)
+    cache_key = f'cotacoes_{pares_str}'
+    
     config = _get_config()
     cached = cache.get(cache_key)
     if cached:
@@ -216,36 +253,47 @@ def buscar_cotacoes():
 
     try:
         # AwesomeAPI — moedas e cripto
-        url = f'https://economia.awesomeapi.com.br/json/last/{COTACOES_PARES}'
+        url = f'https://economia.awesomeapi.com.br/json/last/{pares_str}'
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         data = resp.json()
         config.registrar_requisicao('COTACOES')
 
-        moedas_map = {
-            'USDBRL': ('Dólar', 'USD', 'moeda'),
-            'EURBRL': ('Euro', 'EUR', 'moeda'),
-            'BTCBRL': ('Bitcoin', 'BTC', 'cripto'),
-            'ETHBRL': ('Ethereum', 'ETH', 'cripto'),
-        }
-
-        for key, (nome, codigo, categoria) in moedas_map.items():
-            if key in data:
-                d = data[key]
-                variacao = float(d.get('pctChange', 0))
-                item = {
-                    'nome': nome,
-                    'codigo': codigo,
-                    'valor': float(d.get('bid', 0)),
-                    'variacao_pct': variacao,
-                    'direcao': 'up' if variacao > 0 else ('down' if variacao < 0 else 'stable'),
-                    'high': float(d.get('high', 0)),
-                    'low': float(d.get('low', 0)),
-                }
-                if categoria == 'moeda':
-                    result['moedas'].append(item)
-                else:
-                    result['cripto'].append(item)
+        # Mapear moedas solicitadas
+        for cod in moedas_codigos:
+            if cod in MOEDAS_DISPONIVEIS:
+                nome, par = MOEDAS_DISPONIVEIS[cod]
+                key = par.replace('-', '')  # USDBRL, EURBRL, etc
+                if key in data:
+                    d = data[key]
+                    variacao = float(d.get('pctChange', 0))
+                    result['moedas'].append({
+                        'nome': nome,
+                        'codigo': cod,
+                        'valor': float(d.get('bid', 0)),
+                        'variacao_pct': variacao,
+                        'direcao': 'up' if variacao > 0 else ('down' if variacao < 0 else 'stable'),
+                        'high': float(d.get('high', 0)),
+                        'low': float(d.get('low', 0)),
+                    })
+        
+        # Mapear criptos solicitadas
+        for cod in cripto_codigos:
+            if cod in CRIPTO_DISPONIVEIS:
+                nome, par = CRIPTO_DISPONIVEIS[cod]
+                key = par.replace('-', '')  # BTCBRL, ETHBRL, etc
+                if key in data:
+                    d = data[key]
+                    variacao = float(d.get('pctChange', 0))
+                    result['cripto'].append({
+                        'nome': nome,
+                        'codigo': cod,
+                        'valor': float(d.get('bid', 0)),
+                        'variacao_pct': variacao,
+                        'direcao': 'up' if variacao > 0 else ('down' if variacao < 0 else 'stable'),
+                        'high': float(d.get('high', 0)),
+                        'low': float(d.get('low', 0)),
+                    })
 
     except Exception as e:
         logger.error(f'Erro ao buscar cotações AwesomeAPI: {e}')
@@ -332,25 +380,39 @@ def buscar_noticias():
     config = _get_config()
     cached = cache.get(cache_key)
     if cached:
+        logger.info('[NOTÍCIAS] Retornando dados do cache')
         return cached
 
     if not config.pode_requisitar('NOTICIAS'):
-        logger.warning('Limite diário de requisições de notícias atingido.')
+        logger.warning('[NOTÍCIAS] Limite diário de requisições atingido')
         return _noticias_fallback()
 
     api_key = config.noticias_api_key
-    if not api_key:
-        logger.warning('Chave da NewsAPI não configurada.')
+    if not api_key or api_key.strip() == '':
+        logger.warning('[NOTÍCIAS] Chave da NewsAPI não configurada ou vazia')
+        logger.info('[NOTÍCIAS] Usando fallback RSS')
         return _noticias_fallback_rss()
+    
+    logger.info(f'[NOTÍCIAS] API Key configurada: {api_key[:10]}...{api_key[-5:]}')
 
     try:
         url = (
             f'https://newsapi.org/v2/top-headlines'
             f'?country=br&pageSize=10&apiKey={api_key}'
         )
+        logger.info(f'[NOTÍCIAS] Chamando NewsAPI: {url.replace(api_key, "KEY_HIDDEN")}')
         resp = requests.get(url, timeout=10)
+        logger.info(f'[NOTÍCIAS] Status code: {resp.status_code}')
         resp.raise_for_status()
         data = resp.json()
+        logger.info(f'[NOTÍCIAS] Artigos recebidos: {len(data.get("articles", []))}')
+        
+        # Verificar se há erro na resposta
+        if data.get('status') == 'error':
+            error_msg = data.get('message', 'Erro desconhecido')
+            logger.error(f'[NOTÍCIAS] Erro da API: {error_msg}')
+            return _noticias_fallback_rss()
+        
         config.registrar_requisicao('NOTICIAS')
 
         articles = data.get('articles', [])
@@ -439,13 +501,14 @@ def _noticias_fallback():
 #  FUNÇÃO PRINCIPAL — chamada pela API da TV
 # ══════════════════════════════════════════════
 
-def buscar_dados_corporativos(tipo, municipio=None):
+def buscar_dados_corporativos(tipo, municipio=None, conteudo=None):
     """
     Busca dados para um conteúdo corporativo específico.
     
     Args:
         tipo: 'PREVISAO_TEMPO', 'COTACOES' ou 'NOTICIAS'
         municipio: instância de Municipio (necessário para previsão do tempo)
+        conteudo: instância de ConteudoCorporativo (usado para filtros, ex: cotações)
     
     Returns:
         dict com os dados formatados para o app renderizar
@@ -457,7 +520,20 @@ def buscar_dados_corporativos(tipo, municipio=None):
         return buscar_previsao_tempo(lat, lon, nome)
 
     elif tipo == 'COTACOES':
-        return buscar_cotacoes()
+        # Filtrar cotações baseado nas seleções do conteudo
+        moedas_selecionadas = []
+        cripto_selecionadas = []
+        
+        if conteudo:
+            moedas_selecionadas = conteudo.cotacoes_moedas or []
+            cripto_selecionadas = conteudo.cotacoes_cripto or []
+        
+        # Se nada foi selecionado, usar defaults
+        if not moedas_selecionadas and not cripto_selecionadas:
+            moedas_selecionadas = ['USD', 'EUR']
+            cripto_selecionadas = ['BTC']
+        
+        return buscar_cotacoes(moedas_selecionadas, cripto_selecionadas)
 
     elif tipo == 'NOTICIAS':
         return buscar_noticias()

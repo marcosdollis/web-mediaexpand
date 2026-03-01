@@ -588,7 +588,7 @@ class TVCorporativoHTMLView(APIView):
         except Playlist.DoesNotExist:
             pass
 
-        dados = buscar_dados_corporativos(tipo_upper, municipio=municipio)
+        dados = buscar_dados_corporativos(tipo_upper, municipio=municipio, conteudo=None)
 
         context = {
             'conteudo_tipo': tipo_upper,
@@ -3253,7 +3253,7 @@ def conteudo_corporativo_preview_view(request, pk):
         if playlist_selecionada:
             municipio = playlist_selecionada.municipio
 
-    dados = buscar_dados_corporativos(conteudo.tipo, municipio=municipio)
+    dados = buscar_dados_corporativos(conteudo.tipo, municipio=municipio, conteudo=conteudo)
     config = ConfiguracaoAPI.get_config()
 
     context = {

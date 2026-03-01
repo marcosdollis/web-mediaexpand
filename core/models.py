@@ -847,6 +847,23 @@ class ConteudoCorporativo(models.Model):
         default=False,
         help_text='Se marcado, aparece na galeria de modelos para reutilização'
     )
+    
+    # Configurações de Cotações (quais exibir)
+    cotacoes_moedas = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Lista de códigos de moedas para exibir (ex: ["USD", "EUR", "GBP"])'
+    )
+    cotacoes_cripto = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Lista de códigos de criptomoedas para exibir (ex: ["BTC", "ETH"])'
+    )
+    cotacoes_commodities = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Lista de códigos de commodities para exibir (ex: ["gold", "oil"])'
+    )
     template_categoria = models.CharField(
         max_length=50, blank=True, default='',
         help_text='Categoria do template (ex: Promoção, Institucional, Menu...)'
