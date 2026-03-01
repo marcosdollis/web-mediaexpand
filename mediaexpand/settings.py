@@ -190,6 +190,9 @@ SIMPLE_JWT = {
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # App de TV precisa acessar a API e mídia de qualquer origem
 
+# External API Keys (for design editor media library)
+PIXABAY_API_KEY = config('PIXABAY_API_KEY', default='')
+
 # Security settings for production
 if not DEBUG:
     # Railway usa proxy reverso, então precisamos confiar no header X-Forwarded-Proto

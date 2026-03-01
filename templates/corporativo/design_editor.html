@@ -516,6 +516,112 @@
     overflow: hidden; text-overflow: ellipsis;
     white-space: nowrap; max-width: 150px;
 }
+
+/* ── MEDIA LIBRARY PANEL ── */
+.media-lib-tabs {
+    display: flex; gap: 2px; margin-bottom: 8px;
+    background: var(--panel-surface); border-radius: 6px; padding: 2px;
+}
+.media-lib-tab {
+    flex: 1; text-align: center; padding: 6px 4px;
+    font-size: 10px; font-weight: 600;
+    color: var(--panel-text-muted); cursor: pointer;
+    border-radius: 5px; border: none; background: transparent;
+    transition: all 0.15s; white-space: nowrap;
+}
+.media-lib-tab:hover { color: var(--panel-text); }
+.media-lib-tab.active { background: var(--accent); color: #fff; }
+.media-lib-tab i { display: block; font-size: 14px; margin-bottom: 2px; }
+.media-search-box {
+    display: flex; gap: 4px; margin-bottom: 8px;
+}
+.media-search-box input {
+    flex: 1; background: var(--panel-surface); border: 1px solid var(--panel-border);
+    color: var(--panel-text); border-radius: 6px; padding: 6px 8px; font-size: 12px;
+}
+.media-search-box input:focus { outline: none; border-color: var(--accent); }
+.media-search-box input::placeholder { color: var(--panel-text-muted); }
+.media-search-box button {
+    background: var(--accent); border: none; color: #fff; border-radius: 6px;
+    padding: 6px 10px; cursor: pointer; font-size: 12px;
+}
+.media-search-box button:hover { opacity: 0.85; }
+.media-results-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;
+    max-height: 400px; overflow-y: auto; padding-right: 2px;
+}
+.media-results-grid::-webkit-scrollbar { width: 4px; }
+.media-results-grid::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 2px; }
+.media-result-item {
+    position: relative; border-radius: 6px; overflow: hidden;
+    cursor: pointer; border: 2px solid transparent;
+    transition: all 0.15s; background: var(--panel-surface);
+    aspect-ratio: 1;
+}
+.media-result-item:hover { border-color: var(--accent); transform: scale(1.02); }
+.media-result-item img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.media-result-item .media-item-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    padding: 4px 6px; font-size: 9px; color: #fff;
+    opacity: 0; transition: opacity 0.15s;
+}
+.media-result-item:hover .media-item-overlay { opacity: 1; }
+.media-load-more {
+    grid-column: 1 / -1; text-align: center; padding: 8px;
+}
+.media-load-more button {
+    background: var(--panel-surface); border: 1px solid var(--panel-border);
+    color: var(--panel-text); border-radius: 6px; padding: 6px 16px;
+    cursor: pointer; font-size: 11px; width: 100%;
+}
+.media-load-more button:hover { border-color: var(--accent); color: var(--accent); }
+.media-status {
+    text-align: center; padding: 12px 8px; font-size: 11px;
+    color: var(--panel-text-muted);
+}
+.media-status i { font-size: 20px; display: block; margin-bottom: 4px; }
+/* Icon results (3 cols) */
+.icon-results-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+    max-height: 400px; overflow-y: auto; padding-right: 2px;
+}
+.icon-results-grid::-webkit-scrollbar { width: 4px; }
+.icon-results-grid::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 2px; }
+.icon-result-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 8px 4px; border-radius: 6px; cursor: pointer;
+    background: var(--panel-surface); border: 2px solid transparent;
+    transition: all 0.15s; min-height: 64px;
+}
+.icon-result-item:hover { border-color: var(--accent); background: rgba(102,126,234,0.1); }
+.icon-result-item img {
+    width: 32px; height: 32px; filter: invert(0.9);
+}
+.icon-result-item span {
+    font-size: 8px; color: var(--panel-text-muted); margin-top: 2px;
+    text-align: center; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; max-width: 100%;
+}
+/* Categories / quick filters */
+.media-categories {
+    display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px;
+}
+.media-cat-btn {
+    font-size: 10px; padding: 3px 8px; border-radius: 12px;
+    background: var(--panel-surface); border: 1px solid var(--panel-border);
+    color: var(--panel-text-muted); cursor: pointer; transition: all 0.15s;
+}
+.media-cat-btn:hover, .media-cat-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* Animation preview */
+.anim-preview-btn {
+    background: var(--accent); border: none; color: #fff;
+    border-radius: 4px; padding: 4px 8px; cursor: pointer;
+    font-size: 11px; width: 100%; margin-top: 4px;
+}
+.anim-preview-btn:hover { opacity: 0.85; }
 </style>
 {% endblock %}
 
@@ -720,6 +826,50 @@
                     </button>
                     <input type="file" id="bgImageUpload" accept="image/*" style="display:none;"
                            onchange="handleBgImageUpload(event)">
+                </div>
+            </div>
+
+            <!-- ═══ MEDIA LIBRARY ═══ -->
+            <div class="panel-section" id="mediaLibraryPanel">
+                <div class="panel-section-title">Banco de Mídia</div>
+                <!-- Tabs -->
+                <div class="media-lib-tabs">
+                    <button class="media-lib-tab active" onclick="switchMediaTab('photos')" id="tabPhotos">
+                        <i class="fas fa-camera"></i>Fotos
+                    </button>
+                    <button class="media-lib-tab" onclick="switchMediaTab('illustrations')" id="tabIllust">
+                        <i class="fas fa-paint-brush"></i>Ilustr.
+                    </button>
+                    <button class="media-lib-tab" onclick="switchMediaTab('icons')" id="tabIcons">
+                        <i class="fas fa-icons"></i>Ícones
+                    </button>
+                    <button class="media-lib-tab" onclick="switchMediaTab('stickers')" id="tabStickers">
+                        <i class="fas fa-shapes"></i>PNGs
+                    </button>
+                </div>
+                <!-- Search -->
+                <div class="media-search-box">
+                    <input type="text" id="mediaSearchInput" placeholder="Buscar imagens..."
+                           onkeydown="if(event.key==='Enter')searchMedia()">
+                    <button onclick="searchMedia()" title="Buscar"><i class="fas fa-search"></i></button>
+                </div>
+                <!-- Quick categories (photos/illustrations) -->
+                <div class="media-categories" id="mediaCategoriesBar">
+                    <button class="media-cat-btn" onclick="searchMediaCategory('natureza')">Natureza</button>
+                    <button class="media-cat-btn" onclick="searchMediaCategory('negócios')">Negócios</button>
+                    <button class="media-cat-btn" onclick="searchMediaCategory('tecnologia')">Tech</button>
+                    <button class="media-cat-btn" onclick="searchMediaCategory('comida')">Comida</button>
+                    <button class="media-cat-btn" onclick="searchMediaCategory('pessoas')">Pessoas</button>
+                    <button class="media-cat-btn" onclick="searchMediaCategory('cidade')">Cidade</button>
+                    <button class="media-cat-btn" onclick="searchMediaCategory('abstrato')">Abstrato</button>
+                    <button class="media-cat-btn" onclick="searchMediaCategory('saúde')">Saúde</button>
+                </div>
+                <!-- Results container -->
+                <div id="mediaResultsContainer">
+                    <div class="media-status" id="mediaStatusMsg">
+                        <i class="fas fa-image"></i>
+                        Busque fotos, ilustrações, ícones e PNGs gratuitos
+                    </div>
                 </div>
             </div>
         </div>
@@ -938,13 +1088,32 @@
                         <label>Tipo de Animação</label>
                         <select id="animType" onchange="updateSelectedObjectAnimation()">
                             <option value="none">Nenhuma</option>
-                            <option value="fadeIn">Fade In</option>
-                            <option value="slideLeft">Deslizar da Direita</option>
-                            <option value="slideRight">Deslizar da Esquerda</option>
-                            <option value="slideUp">Deslizar de Baixo</option>
-                            <option value="slideDown">Deslizar de Cima</option>
-                            <option value="zoomIn">Zoom In</option>
-                            <option value="bounceIn">Bounce In</option>
+                            <optgroup label="Entrada">
+                                <option value="fadeIn">Fade In</option>
+                                <option value="slideLeft">Deslizar da Esquerda</option>
+                                <option value="slideRight">Deslizar da Direita</option>
+                                <option value="slideUp">Deslizar de Baixo</option>
+                                <option value="slideDown">Deslizar de Cima</option>
+                                <option value="zoomIn">Zoom In</option>
+                                <option value="zoomOut">Zoom Out</option>
+                                <option value="bounceIn">Bounce In</option>
+                                <option value="rotateIn">Rotação Entrada</option>
+                                <option value="flipIn">Flip In</option>
+                            </optgroup>
+                            <optgroup label="Ênfase">
+                                <option value="pulse">Pulsar</option>
+                                <option value="shake">Tremer</option>
+                                <option value="swing">Balançar</option>
+                                <option value="rubberBand">Elástico</option>
+                                <option value="float">Flutuar</option>
+                                <option value="glow">Brilhar</option>
+                            </optgroup>
+                            <optgroup label="Contínua">
+                                <option value="spinCW">Girar (Horário)</option>
+                                <option value="spinCCW">Girar (Anti-Horário)</option>
+                                <option value="breathe">Respirar</option>
+                                <option value="blink">Piscar</option>
+                            </optgroup>
                         </select>
                     </div>
                     <div class="prop-row" style="margin-bottom:8px;">
@@ -957,6 +1126,21 @@
                             <input type="number" id="animDuration" value="1" min="0.1" max="5" step="0.1" onchange="updateSelectedObjectAnimation()">
                         </div>
                     </div>
+                    <div style="margin-bottom:4px;">
+                        <label>Easing</label>
+                        <select id="animEasing" onchange="updateSelectedObjectAnimation()" style="width:100%; background:var(--panel-bg); border:1px solid var(--panel-border); color:var(--panel-text); border-radius:4px; padding:2px 4px; font-size:11px;">
+                            <option value="easeInOut">Ease In Out</option>
+                            <option value="easeIn">Ease In</option>
+                            <option value="easeOut">Ease Out</option>
+                            <option value="linear">Linear</option>
+                            <option value="easeOutBounce">Bounce</option>
+                            <option value="easeOutElastic">Elastic</option>
+                            <option value="easeOutBack">Overshoot</option>
+                        </select>
+                    </div>
+                    <button class="anim-preview-btn" onclick="previewAnimation()">
+                        <i class="fas fa-play me-1"></i>Preview Animação
+                    </button>
                 </div>
             </div>
 
@@ -1001,6 +1185,11 @@
             <option value="slideUp">Deslizar Cima</option>
             <option value="slideDown">Deslizar Baixo</option>
             <option value="zoom">Zoom</option>
+            <option value="zoomRotate">Zoom + Rotação</option>
+            <option value="flip">Flip</option>
+            <option value="dissolve">Dissolve</option>
+            <option value="wipeLeft">Wipe Esq.</option>
+            <option value="wipeRight">Wipe Dir.</option>
         </select>
         <label>Dur. Trans.:</label>
         <input type="number" id="pageTransDuration" value="0.5" min="0.1" max="3" step="0.1" onchange="updateCurrentPageSetting('transitionDuration', parseFloat(this.value))"> <span>s</span>
@@ -2219,6 +2408,7 @@ function showAnimationPanel(obj) {
     document.getElementById('animType').value = anim ? anim.type : 'none';
     document.getElementById('animDelay').value = anim ? anim.delay : 0;
     document.getElementById('animDuration').value = anim ? anim.duration : 1;
+    document.getElementById('animEasing').value = anim ? (anim.easing || 'easeInOut') : 'easeInOut';
 }
 
 window.updateSelectedObjectAnimation = function() {
@@ -2232,14 +2422,495 @@ window.updateSelectedObjectAnimation = function() {
     var type = document.getElementById('animType').value;
     var delay = parseFloat(document.getElementById('animDelay').value) || 0;
     var duration = parseFloat(document.getElementById('animDuration').value) || 1;
+    var easing = document.getElementById('animEasing').value || 'easeInOut';
 
     // Remove old entry for this object
     page.animations = page.animations.filter(function(a) { return a.objectIndex !== idx; });
 
     if (type !== 'none') {
-        page.animations.push({ objectIndex: idx, type: type, delay: delay, duration: duration });
+        page.animations.push({ objectIndex: idx, type: type, delay: delay, duration: duration, easing: easing });
     }
     scheduleAutoSave();
+};
+
+// ── Animation Preview (plays the selected animation on canvas) ──
+window.previewAnimation = function() {
+    var obj = canvas.getActiveObject();
+    if (!obj) { showToast('Selecione um objeto primeiro', true); return; }
+
+    var type = document.getElementById('animType').value;
+    var delay = (parseFloat(document.getElementById('animDelay').value) || 0) * 1000;
+    var duration = (parseFloat(document.getElementById('animDuration').value) || 1) * 1000;
+    var easingName = document.getElementById('animEasing').value || 'easeInOut';
+
+    if (type === 'none') { showToast('Selecione um tipo de animação', true); return; }
+
+    // Save original state
+    var orig = {
+        left: obj.left, top: obj.top,
+        scaleX: obj.scaleX, scaleY: obj.scaleY,
+        opacity: obj.opacity, angle: obj.angle,
+    };
+
+    var easingFn = fabric.util.ease['easeInOutCubic'];
+    var easingMap = {
+        'linear': fabric.util.ease.easeLinear || null,
+        'easeIn': fabric.util.ease.easeInCubic,
+        'easeOut': fabric.util.ease.easeOutCubic,
+        'easeInOut': fabric.util.ease.easeInOutCubic,
+        'easeOutBounce': fabric.util.ease.easeOutBounce,
+        'easeOutElastic': fabric.util.ease.easeOutElastic,
+        'easeOutBack': fabric.util.ease.easeOutBack,
+    };
+    if (easingMap[easingName]) easingFn = easingMap[easingName];
+
+    function restoreObj() {
+        obj.set(orig);
+        obj.setCoords();
+        canvas.renderAll();
+    }
+
+    function runAnim() {
+        // Set starting state based on animation type
+        switch(type) {
+            case 'fadeIn':
+                obj.set({ opacity: 0 });
+                canvas.renderAll();
+                obj.animate('opacity', orig.opacity, { duration: duration, easing: easingFn, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                break;
+            case 'slideLeft':
+                obj.set({ left: -obj.getScaledWidth() });
+                canvas.renderAll();
+                obj.animate('left', orig.left, { duration: duration, easing: easingFn, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                break;
+            case 'slideRight':
+                obj.set({ left: CANVAS_W + 50 });
+                canvas.renderAll();
+                obj.animate('left', orig.left, { duration: duration, easing: easingFn, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                break;
+            case 'slideUp':
+                obj.set({ top: CANVAS_H + 50 });
+                canvas.renderAll();
+                obj.animate('top', orig.top, { duration: duration, easing: easingFn, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                break;
+            case 'slideDown':
+                obj.set({ top: -obj.getScaledHeight() });
+                canvas.renderAll();
+                obj.animate('top', orig.top, { duration: duration, easing: easingFn, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                break;
+            case 'zoomIn':
+                obj.set({ scaleX: 0.01, scaleY: 0.01, opacity: 0 });
+                canvas.renderAll();
+                obj.animate({ scaleX: orig.scaleX, scaleY: orig.scaleY, opacity: orig.opacity }, { duration: duration, easing: easingFn, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                break;
+            case 'zoomOut':
+                obj.set({ scaleX: orig.scaleX * 3, scaleY: orig.scaleY * 3, opacity: 0 });
+                canvas.renderAll();
+                obj.animate({ scaleX: orig.scaleX, scaleY: orig.scaleY, opacity: orig.opacity }, { duration: duration, easing: easingFn, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                break;
+            case 'bounceIn':
+                obj.set({ scaleX: 0.01, scaleY: 0.01 });
+                canvas.renderAll();
+                obj.animate({ scaleX: orig.scaleX, scaleY: orig.scaleY }, {
+                    duration: duration,
+                    easing: fabric.util.ease.easeOutBounce,
+                    onChange: canvas.renderAll.bind(canvas),
+                    onComplete: restoreObj
+                });
+                break;
+            case 'rotateIn':
+                obj.set({ angle: orig.angle - 180, opacity: 0, scaleX: 0.01, scaleY: 0.01 });
+                canvas.renderAll();
+                obj.animate({ angle: orig.angle, opacity: orig.opacity, scaleX: orig.scaleX, scaleY: orig.scaleY }, { duration: duration, easing: easingFn, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                break;
+            case 'flipIn':
+                obj.set({ scaleX: 0.01, opacity: 0 });
+                canvas.renderAll();
+                obj.animate({ scaleX: orig.scaleX, opacity: orig.opacity }, { duration: duration, easing: easingFn, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                break;
+            case 'pulse':
+                obj.animate({ scaleX: orig.scaleX * 1.15, scaleY: orig.scaleY * 1.15 }, {
+                    duration: duration / 2, easing: easingFn,
+                    onChange: canvas.renderAll.bind(canvas),
+                    onComplete: function() {
+                        obj.animate({ scaleX: orig.scaleX, scaleY: orig.scaleY }, {
+                            duration: duration / 2, easing: easingFn,
+                            onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj
+                        });
+                    }
+                });
+                break;
+            case 'shake':
+                var shakeSeq = [orig.left + 15, orig.left - 15, orig.left + 10, orig.left - 10, orig.left + 5, orig.left];
+                var step = 0;
+                function doShake() {
+                    if (step >= shakeSeq.length) { restoreObj(); return; }
+                    obj.animate('left', shakeSeq[step], {
+                        duration: duration / shakeSeq.length, onChange: canvas.renderAll.bind(canvas),
+                        onComplete: function() { step++; doShake(); }
+                    });
+                }
+                doShake();
+                break;
+            case 'swing':
+                obj.animate('angle', orig.angle + 15, {
+                    duration: duration / 4, easing: easingFn, onChange: canvas.renderAll.bind(canvas),
+                    onComplete: function() {
+                        obj.animate('angle', orig.angle - 10, { duration: duration / 4, easing: easingFn, onChange: canvas.renderAll.bind(canvas),
+                            onComplete: function() {
+                                obj.animate('angle', orig.angle + 5, { duration: duration / 4, easing: easingFn, onChange: canvas.renderAll.bind(canvas),
+                                    onComplete: function() {
+                                        obj.animate('angle', orig.angle, { duration: duration / 4, easing: easingFn, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+                break;
+            case 'rubberBand':
+                obj.animate({ scaleX: orig.scaleX * 1.25, scaleY: orig.scaleY * 0.75 }, {
+                    duration: duration / 3, easing: easingFn, onChange: canvas.renderAll.bind(canvas),
+                    onComplete: function() {
+                        obj.animate({ scaleX: orig.scaleX * 0.75, scaleY: orig.scaleY * 1.25 }, {
+                            duration: duration / 3, easing: easingFn, onChange: canvas.renderAll.bind(canvas),
+                            onComplete: function() {
+                                obj.animate({ scaleX: orig.scaleX, scaleY: orig.scaleY }, {
+                                    duration: duration / 3, easing: easingFn, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj
+                                });
+                            }
+                        });
+                    }
+                });
+                break;
+            case 'float':
+                obj.animate('top', orig.top - 20, {
+                    duration: duration / 2, easing: fabric.util.ease.easeInOutSine || easingFn,
+                    onChange: canvas.renderAll.bind(canvas),
+                    onComplete: function() {
+                        obj.animate('top', orig.top, {
+                            duration: duration / 2, easing: fabric.util.ease.easeInOutSine || easingFn,
+                            onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj
+                        });
+                    }
+                });
+                break;
+            case 'glow':
+                obj.set({ shadow: new fabric.Shadow({ color: 'rgba(102,126,234,0.8)', blur: 0, offsetX: 0, offsetY: 0 }) });
+                canvas.renderAll();
+                var shadowObj = obj.shadow;
+                fabric.util.animate({
+                    startValue: 0, endValue: 30, duration: duration / 2, easing: easingFn,
+                    onChange: function(v) { if (shadowObj) { shadowObj.blur = v; canvas.renderAll(); } },
+                    onComplete: function() {
+                        fabric.util.animate({
+                            startValue: 30, endValue: 0, duration: duration / 2, easing: easingFn,
+                            onChange: function(v) { if (shadowObj) { shadowObj.blur = v; canvas.renderAll(); } },
+                            onComplete: function() { obj.set({ shadow: null }); restoreObj(); }
+                        });
+                    }
+                });
+                break;
+            case 'spinCW':
+                obj.animate('angle', orig.angle + 360, { duration: duration, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                break;
+            case 'spinCCW':
+                obj.animate('angle', orig.angle - 360, { duration: duration, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj });
+                break;
+            case 'breathe':
+                obj.animate({ scaleX: orig.scaleX * 1.08, scaleY: orig.scaleY * 1.08 }, {
+                    duration: duration / 2, easing: fabric.util.ease.easeInOutSine || easingFn,
+                    onChange: canvas.renderAll.bind(canvas),
+                    onComplete: function() {
+                        obj.animate({ scaleX: orig.scaleX, scaleY: orig.scaleY }, {
+                            duration: duration / 2, easing: fabric.util.ease.easeInOutSine || easingFn,
+                            onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj
+                        });
+                    }
+                });
+                break;
+            case 'blink':
+                obj.animate('opacity', 0, {
+                    duration: duration / 2, onChange: canvas.renderAll.bind(canvas),
+                    onComplete: function() {
+                        obj.animate('opacity', orig.opacity, {
+                            duration: duration / 2, onChange: canvas.renderAll.bind(canvas), onComplete: restoreObj
+                        });
+                    }
+                });
+                break;
+            default:
+                restoreObj();
+        }
+    }
+
+    // Run with delay
+    setTimeout(runAnim, delay);
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  MEDIA LIBRARY — Image, Icon, PNG Search
+// ═══════════════════════════════════════════════════════════════
+
+var mediaState = {
+    currentTab: 'photos',
+    query: '',
+    page: 1,
+    loading: false,
+    results: [],
+    total: 0,
+};
+
+window.switchMediaTab = function(tab) {
+    mediaState.currentTab = tab;
+    mediaState.page = 1;
+    mediaState.results = [];
+
+    // Update active tab
+    document.querySelectorAll('.media-lib-tab').forEach(function(t) { t.classList.remove('active'); });
+    var tabId = { photos: 'tabPhotos', illustrations: 'tabIllust', icons: 'tabIcons', stickers: 'tabStickers' };
+    var el = document.getElementById(tabId[tab]);
+    if (el) el.classList.add('active');
+
+    // Update search placeholder
+    var input = document.getElementById('mediaSearchInput');
+    var placeholders = {
+        photos: 'Buscar fotos...',
+        illustrations: 'Buscar ilustrações...',
+        icons: 'Buscar ícones...',
+        stickers: 'Buscar PNGs transparentes...',
+    };
+    input.placeholder = placeholders[tab] || 'Buscar...';
+
+    // Show/hide categories bar
+    var catBar = document.getElementById('mediaCategoriesBar');
+    catBar.style.display = (tab === 'photos' || tab === 'illustrations' || tab === 'stickers') ? 'flex' : 'none';
+
+    // Clear results
+    showMediaStatus(getTabEmptyMsg(tab));
+};
+
+function getTabEmptyMsg(tab) {
+    var msgs = {
+        photos: '<i class="fas fa-camera"></i>Busque fotos gratuitas de alta qualidade',
+        illustrations: '<i class="fas fa-paint-brush"></i>Busque ilustrações e vetores gratuitos',
+        icons: '<i class="fas fa-icons"></i>Busque entre +100.000 ícones gratuitos',
+        stickers: '<i class="fas fa-shapes"></i>Busque PNGs e vetores transparentes',
+    };
+    return msgs[tab] || '<i class="fas fa-image"></i>Buscar mídia gratuita';
+}
+
+function showMediaStatus(html) {
+    document.getElementById('mediaResultsContainer').innerHTML = '<div class="media-status">' + html + '</div>';
+}
+
+window.searchMedia = function() {
+    var query = document.getElementById('mediaSearchInput').value.trim();
+    if (!query) return;
+    mediaState.query = query;
+    mediaState.page = 1;
+    mediaState.results = [];
+    executeMediaSearch();
+};
+
+window.searchMediaCategory = function(cat) {
+    document.getElementById('mediaSearchInput').value = cat;
+    mediaState.query = cat;
+    mediaState.page = 1;
+    mediaState.results = [];
+    // Highlight active category
+    document.querySelectorAll('.media-cat-btn').forEach(function(b) { b.classList.remove('active'); });
+    event.target.classList.add('active');
+    executeMediaSearch();
+};
+
+function executeMediaSearch() {
+    if (mediaState.loading) return;
+    mediaState.loading = true;
+
+    var tab = mediaState.currentTab;
+    var q = mediaState.query;
+    var page = mediaState.page;
+
+    showMediaStatus('<i class="fas fa-spinner fa-spin"></i>Buscando...');
+
+    var url, isIconSearch = false;
+
+    if (tab === 'icons') {
+        url = '{% url "design_search_icons" %}?q=' + encodeURIComponent(q) + '&limit=60';
+        isIconSearch = true;
+    } else if (tab === 'stickers') {
+        url = '{% url "design_search_stickers" %}?q=' + encodeURIComponent(q) + '&page=' + page + '&per_page=40';
+    } else {
+        var imageType = (tab === 'illustrations') ? 'illustration' : 'photo';
+        url = '{% url "design_search_images" %}?q=' + encodeURIComponent(q) + '&page=' + page + '&per_page=40&image_type=' + imageType;
+    }
+
+    fetch(url, { headers: { 'X-CSRFToken': CSRF } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        mediaState.loading = false;
+        if (isIconSearch) {
+            renderIconResults(data);
+        } else {
+            if (data.success && data.results) {
+                if (page === 1) {
+                    mediaState.results = data.results;
+                } else {
+                    mediaState.results = mediaState.results.concat(data.results);
+                }
+                mediaState.total = data.total || 0;
+                renderImageResults();
+            } else {
+                showMediaStatus('<i class="fas fa-exclamation-circle"></i>' + (data.message || 'Nenhum resultado'));
+            }
+        }
+    })
+    .catch(function(err) {
+        mediaState.loading = false;
+        showMediaStatus('<i class="fas fa-exclamation-triangle"></i>Erro: ' + err.message);
+    });
+}
+
+function renderImageResults() {
+    var container = document.getElementById('mediaResultsContainer');
+    if (mediaState.results.length === 0) {
+        showMediaStatus('<i class="fas fa-search"></i>Nenhum resultado encontrado');
+        return;
+    }
+
+    var html = '<div class="media-results-grid">';
+    mediaState.results.forEach(function(item, idx) {
+        html += '<div class="media-result-item" onclick="addMediaImageToCanvas(' + idx + ')" title="' + (item.tags || '').replace(/"/g, '&quot;') + '">';
+        html += '<img src="' + item.thumbnail + '" alt="" loading="lazy">';
+        html += '<div class="media-item-overlay">';
+        html += '<span>' + (item.user || 'Pixabay') + '</span>';
+        html += '</div></div>';
+    });
+
+    // Load more button
+    if (mediaState.results.length < mediaState.total) {
+        html += '<div class="media-load-more"><button onclick="loadMoreMedia()"><i class="fas fa-plus me-1"></i>Carregar mais</button></div>';
+    }
+    html += '</div>';
+
+    // Attribution
+    html += '<div style="text-align:center; font-size:9px; color:var(--panel-text-muted); margin-top:4px; padding:0 4px;">';
+    html += '<i class="fas fa-info-circle me-1"></i>Imagens gratuitas via Pixabay';
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+function renderIconResults(data) {
+    var container = document.getElementById('mediaResultsContainer');
+    if (!data.success || !data.icons || data.icons.length === 0) {
+        if (data.collections && data.collections.length > 0) {
+            // Show collections when no search query
+            var html = '<div style="padding:4px;">';
+            html += '<div style="font-size:10px; color:var(--panel-text-muted); margin-bottom:6px;">Coleções populares:</div>';
+            data.collections.forEach(function(col) {
+                html += '<button class="media-cat-btn" style="margin-bottom:3px;" onclick="searchIconCollection(\'' + col.prefix + '\')">';
+                html += col.name + ' <span style="opacity:0.6;">(' + col.total + ')</span></button> ';
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        } else {
+            showMediaStatus('<i class="fas fa-search"></i>Nenhum ícone encontrado');
+        }
+        return;
+    }
+
+    var html = '<div class="icon-results-grid">';
+    data.icons.forEach(function(icon) {
+        html += '<div class="icon-result-item" onclick="addIconToCanvas(\'' + icon.fullName + '\')" title="' + icon.fullName + '">';
+        html += '<img src="' + icon.previewUrl + '" alt="' + icon.name + '" loading="lazy">';
+        html += '<span>' + icon.name + '</span>';
+        html += '</div>';
+    });
+    html += '</div>';
+    html += '<div style="text-align:center; font-size:9px; color:var(--panel-text-muted); margin-top:4px;">';
+    html += '<i class="fas fa-info-circle me-1"></i>' + data.total + ' ícones encontrados via Iconify';
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+window.searchIconCollection = function(prefix) {
+    document.getElementById('mediaSearchInput').value = prefix;
+    mediaState.query = prefix;
+    mediaState.page = 1;
+    mediaState.results = [];
+    mediaState.currentTab = 'icons';
+    executeMediaSearch();
+};
+
+window.loadMoreMedia = function() {
+    mediaState.page++;
+    executeMediaSearch();
+};
+
+// ── Add Image from Media Library to Canvas ──
+window.addMediaImageToCanvas = function(idx) {
+    var item = mediaState.results[idx];
+    if (!item) return;
+
+    showToast('Adicionando imagem...');
+
+    // Use the full resolution URL
+    var imgUrl = item.fullUrl || item.preview;
+
+    fabric.Image.fromURL(imgUrl, function(img) {
+        if (!img || !img.width) {
+            showToast('Erro ao carregar imagem', true);
+            return;
+        }
+        var maxW = CANVAS_W * 0.5;
+        var maxH = CANVAS_H * 0.5;
+        var scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        img.set({
+            left: CANVAS_W / 2 - (img.width * scale) / 2,
+            top: CANVAS_H / 2 - (img.height * scale) / 2,
+            scaleX: scale, scaleY: scale,
+        });
+        canvas.add(img);
+        canvas.setActiveObject(img);
+        canvas.renderAll();
+        showToast('Imagem adicionada!');
+    }, { crossOrigin: 'anonymous' });
+};
+
+// ── Add Icon (SVG) to Canvas ──
+window.addIconToCanvas = function(iconName) {
+    showToast('Carregando ícone...');
+
+    var url = '{% url "design_get_icon_svg" %}?icon=' + encodeURIComponent(iconName) + '&color=%23333333&size=256';
+
+    fetch(url, { headers: { 'X-CSRFToken': CSRF } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success && data.svg) {
+            fabric.loadSVGFromString(data.svg, function(objects, options) {
+                var svg = fabric.util.groupSVGElements(objects, options);
+                // Scale to reasonable size on canvas
+                var targetSize = Math.min(CANVAS_W, CANVAS_H) * 0.15;
+                var scale = targetSize / Math.max(svg.width || 100, svg.height || 100);
+                svg.set({
+                    left: CANVAS_W / 2 - (svg.width * scale) / 2,
+                    top: CANVAS_H / 2 - (svg.height * scale) / 2,
+                    scaleX: scale, scaleY: scale,
+                });
+                canvas.add(svg);
+                canvas.setActiveObject(svg);
+                canvas.renderAll();
+                showToast('Ícone adicionado!');
+            });
+        } else {
+            showToast(data.message || 'Erro ao carregar ícone', true);
+        }
+    })
+    .catch(function(err) {
+        showToast('Erro: ' + err.message, true);
+    });
 };
 
 // ═══════════════════════════════════════════════════════════════

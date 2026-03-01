@@ -3802,7 +3802,7 @@ def design_audio_upload_view(request):
     if not user.is_owner() and not user.is_franchisee():
         return JsonResponse({'success': False, 'message': 'Sem permissão'}, status=403)
 
-    audio_file = request.FILES.get('audio_file')
+    audio_file = request.FILES.get('audio') or request.FILES.get('audio_file')
     if not audio_file:
         return JsonResponse({'success': False, 'message': 'Nenhum arquivo enviado'}, status=400)
 
@@ -3831,4 +3831,344 @@ def design_audio_upload_view(request):
         'filename': audio_file.name,
         'message': 'Áudio enviado com sucesso!',
     })
+
+
+# ═══════════════════════════════════════════════════════════════
+#  FREE IMAGE BANK — Proxy to Pixabay API
+# ═══════════════════════════════════════════════════════════════
+
+@login_required
+def design_search_images_view(request):
+    """
+    AJAX GET: Busca imagens no Pixabay (gratuito).
+    Params: q (query), page, per_page, image_type (photo, illustration, vector), category
+    Returns JSON with results array of {id, thumbnail, preview, fullUrl, tags, width, height, user}.
+    """
+    import urllib.parse
+    import urllib.request
+    import json as json_mod
+
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
+
+    PIXABAY_API_KEY = getattr(settings, 'PIXABAY_API_KEY', '') or os.environ.get('PIXABAY_API_KEY', '')
+
+    query = request.GET.get('q', '').strip()
+    page = int(request.GET.get('page', 1))
+    per_page = min(int(request.GET.get('per_page', 40)), 200)
+    image_type = request.GET.get('image_type', 'all')  # photo, illustration, vector, all
+    category = request.GET.get('category', '')
+    colors = request.GET.get('colors', '')  # for filtering by color
+    editors_choice = request.GET.get('editors_choice', 'false')
+
+    if not PIXABAY_API_KEY:
+        # Return curated fallback using Lorem Picsum (no API key needed)
+        return _fallback_image_search(query, page, per_page)
+
+    # Build Pixabay API URL
+    params = {
+        'key': PIXABAY_API_KEY,
+        'q': query or 'nature',
+        'page': page,
+        'per_page': per_page,
+        'image_type': image_type if image_type in ('photo', 'illustration', 'vector') else 'all',
+        'lang': 'pt',
+        'safesearch': 'true',
+        'editors_choice': editors_choice,
+    }
+    if category:
+        params['category'] = category
+    if colors:
+        params['colors'] = colors
+
+    url = 'https://pixabay.com/api/?' + urllib.parse.urlencode(params)
+
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'MediaExpand/1.0'})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json_mod.loads(resp.read().decode())
+
+        results = []
+        for hit in data.get('hits', []):
+            results.append({
+                'id': hit.get('id'),
+                'thumbnail': hit.get('previewURL', ''),
+                'preview': hit.get('webformatURL', ''),
+                'fullUrl': hit.get('largeImageURL', hit.get('webformatURL', '')),
+                'tags': hit.get('tags', ''),
+                'width': hit.get('imageWidth', 0),
+                'height': hit.get('imageHeight', 0),
+                'user': hit.get('user', ''),
+                'source': 'pixabay',
+            })
+
+        return JsonResponse({
+            'success': True,
+            'results': results,
+            'total': data.get('totalHits', 0),
+            'page': page,
+            'per_page': per_page,
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao buscar imagens: {str(e)}',
+            'results': [],
+        }, status=500)
+
+
+def _fallback_image_search(query, page, per_page):
+    """
+    Fallback: Return curated images from Lorem Picsum (no API key needed).
+    Not searchable by keyword, but provides free high-quality photos.
+    """
+    import urllib.request
+    import json as json_mod
+
+    try:
+        url = f'https://picsum.photos/v2/list?page={page}&limit={per_page}'
+        req = urllib.request.Request(url, headers={'User-Agent': 'MediaExpand/1.0'})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            items = json_mod.loads(resp.read().decode())
+
+        results = []
+        for item in items:
+            pid = item.get('id', '')
+            results.append({
+                'id': pid,
+                'thumbnail': f'https://picsum.photos/id/{pid}/300/200',
+                'preview': f'https://picsum.photos/id/{pid}/600/400',
+                'fullUrl': f'https://picsum.photos/id/{pid}/1920/1080',
+                'tags': item.get('author', ''),
+                'width': item.get('width', 1920),
+                'height': item.get('height', 1080),
+                'user': item.get('author', ''),
+                'source': 'picsum',
+            })
+
+        return JsonResponse({
+            'success': True,
+            'results': results,
+            'total': 1000,
+            'page': page,
+            'per_page': per_page,
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro: {str(e)}',
+            'results': [],
+        })
+
+
+# ═══════════════════════════════════════════════════════════════
+#  FREE ICON LIBRARY — Proxy to Iconify API (100k+ icons, no key)
+# ═══════════════════════════════════════════════════════════════
+
+@login_required
+def design_search_icons_view(request):
+    """
+    AJAX GET: Busca ícones no Iconify (gratuito, sem API key).
+    Params: q (query), prefix (icon set), limit
+    Returns JSON with icons array of {name, prefix, svg, tags}.
+    """
+    import urllib.parse
+    import urllib.request
+    import json as json_mod
+
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
+
+    query = request.GET.get('q', '').strip()
+    prefix = request.GET.get('prefix', '')  # e.g. 'mdi', 'fa', 'lucide'
+    limit = min(int(request.GET.get('limit', 60)), 999)
+
+    if not query:
+        # Return popular icon sets info
+        return JsonResponse({
+            'success': True,
+            'icons': [],
+            'total': 0,
+            'collections': [
+                {'prefix': 'mdi', 'name': 'Material Design Icons', 'total': 7400},
+                {'prefix': 'fa-solid', 'name': 'Font Awesome Solid', 'total': 1400},
+                {'prefix': 'fa-regular', 'name': 'Font Awesome Regular', 'total': 162},
+                {'prefix': 'lucide', 'name': 'Lucide Icons', 'total': 1500},
+                {'prefix': 'tabler', 'name': 'Tabler Icons', 'total': 4700},
+                {'prefix': 'ph', 'name': 'Phosphor Icons', 'total': 7500},
+                {'prefix': 'ri', 'name': 'Remix Icons', 'total': 2800},
+                {'prefix': 'bi', 'name': 'Bootstrap Icons', 'total': 2000},
+                {'prefix': 'carbon', 'name': 'Carbon Icons', 'total': 2100},
+                {'prefix': 'ion', 'name': 'Ionicons', 'total': 1300},
+                {'prefix': 'fluent', 'name': 'Fluent UI Icons', 'total': 4200},
+                {'prefix': 'heroicons', 'name': 'Heroicons', 'total': 600},
+            ]
+        })
+
+    # Search icons via Iconify API
+    params = {
+        'query': query,
+        'limit': limit,
+    }
+    if prefix:
+        params['prefixes'] = prefix
+
+    url = 'https://api.iconify.design/search?' + urllib.parse.urlencode(params)
+
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'MediaExpand/1.0'})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json_mod.loads(resp.read().decode())
+
+        icons_list = data.get('icons', [])
+        total = data.get('total', len(icons_list))
+
+        # For each icon, build the SVG URL (Iconify serves SVGs directly)
+        results = []
+        for icon_name in icons_list:
+            # icon_name format: "prefix:name" e.g. "mdi:home"
+            parts = icon_name.split(':', 1)
+            if len(parts) == 2:
+                pfx, name = parts
+            else:
+                pfx, name = '', icon_name
+
+            svg_url = f'https://api.iconify.design/{pfx}/{name}.svg'
+            results.append({
+                'name': name,
+                'prefix': pfx,
+                'fullName': icon_name,
+                'svgUrl': svg_url,
+                'previewUrl': f'https://api.iconify.design/{pfx}/{name}.svg?height=64',
+            })
+
+        return JsonResponse({
+            'success': True,
+            'icons': results,
+            'total': total,
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao buscar ícones: {str(e)}',
+            'icons': [],
+        }, status=500)
+
+
+@login_required
+def design_get_icon_svg_view(request):
+    """
+    AJAX GET: Proxy to fetch SVG content from Iconify.
+    Params: icon (full name like "mdi:home"), color, size
+    Returns the SVG string directly for embedding into Fabric.js canvas.
+    """
+    import urllib.parse
+    import urllib.request
+
+    icon = request.GET.get('icon', '').strip()
+    color = request.GET.get('color', '#333333')
+    size = int(request.GET.get('size', 256))
+
+    if not icon or ':' not in icon:
+        return JsonResponse({'success': False, 'message': 'Ícone inválido'}, status=400)
+
+    parts = icon.split(':', 1)
+    pfx, name = parts[0], parts[1]
+
+    svg_url = f'https://api.iconify.design/{pfx}/{name}.svg?color={urllib.parse.quote(color)}&height={size}&width={size}'
+
+    try:
+        req = urllib.request.Request(svg_url, headers={'User-Agent': 'MediaExpand/1.0'})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            svg_content = resp.read().decode()
+
+        return JsonResponse({
+            'success': True,
+            'svg': svg_content,
+            'icon': icon,
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao carregar ícone: {str(e)}',
+        }, status=500)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  FREE PNG/STICKER SEARCH — Proxy to Sticker/PNG APIs
+# ═══════════════════════════════════════════════════════════════
+
+@login_required
+def design_search_stickers_view(request):
+    """
+    AJAX GET: Busca stickers/PNGs transparentes.
+    Uses Pixabay with transparent filter or vector type.
+    Params: q (query), page, per_page
+    """
+    import urllib.parse
+    import urllib.request
+    import json as json_mod
+
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
+
+    PIXABAY_API_KEY = getattr(settings, 'PIXABAY_API_KEY', '') or os.environ.get('PIXABAY_API_KEY', '')
+
+    query = request.GET.get('q', '').strip()
+    page = int(request.GET.get('page', 1))
+    per_page = min(int(request.GET.get('per_page', 40)), 200)
+
+    if not PIXABAY_API_KEY:
+        return JsonResponse({
+            'success': True,
+            'results': [],
+            'total': 0,
+            'message': 'Configure PIXABAY_API_KEY para buscar PNGs transparentes',
+        })
+
+    # Search for vectors/illustrations (usually have transparency)
+    params = {
+        'key': PIXABAY_API_KEY,
+        'q': query or 'icon',
+        'page': page,
+        'per_page': per_page,
+        'image_type': 'vector',
+        'lang': 'pt',
+        'safesearch': 'true',
+    }
+
+    url = 'https://pixabay.com/api/?' + urllib.parse.urlencode(params)
+
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'MediaExpand/1.0'})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json_mod.loads(resp.read().decode())
+
+        results = []
+        for hit in data.get('hits', []):
+            results.append({
+                'id': hit.get('id'),
+                'thumbnail': hit.get('previewURL', ''),
+                'preview': hit.get('webformatURL', ''),
+                'fullUrl': hit.get('largeImageURL', hit.get('webformatURL', '')),
+                'tags': hit.get('tags', ''),
+                'width': hit.get('imageWidth', 0),
+                'height': hit.get('imageHeight', 0),
+                'user': hit.get('user', ''),
+                'source': 'pixabay_vector',
+            })
+
+        return JsonResponse({
+            'success': True,
+            'results': results,
+            'total': data.get('totalHits', 0),
+            'page': page,
+            'per_page': per_page,
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao buscar PNGs: {str(e)}',
+            'results': [],
+        }, status=500)
 

@@ -68,18 +68,173 @@ canvas { display: block; position: absolute; top: 0; left: 0; }
     function transitionTo(pageIdx) {
         var page = pages[pageIdx];
         var dur = (page.transitionDuration || 0.5);
+        var durMs = dur * 1000;
         var showEl = (activeCanvas === 'A') ? elB : elA;
         var hideEl = (activeCanvas === 'A') ? elA : elB;
+        var trans = page.transition || 'fade';
 
-        if (page.transition === 'none') {
-            showEl.style.transition = 'none';
-            hideEl.style.transition = 'none';
-        } else {
-            showEl.style.transition = 'opacity ' + dur + 's ease';
-            hideEl.style.transition = 'opacity ' + dur + 's ease';
+        // Reset all transforms
+        showEl.style.transform = '';
+        hideEl.style.transform = '';
+        showEl.style.clipPath = '';
+        hideEl.style.clipPath = '';
+
+        switch(trans) {
+            case 'none':
+                showEl.style.transition = 'none';
+                hideEl.style.transition = 'none';
+                showEl.style.opacity = '1';
+                hideEl.style.opacity = '0';
+                break;
+
+            case 'fade':
+                showEl.style.transition = 'opacity ' + dur + 's ease';
+                hideEl.style.transition = 'opacity ' + dur + 's ease';
+                showEl.style.opacity = '1';
+                hideEl.style.opacity = '0';
+                break;
+
+            case 'slideLeft':
+                showEl.style.transition = 'none';
+                showEl.style.transform = 'translateX(100%)';
+                showEl.style.opacity = '1';
+                requestAnimationFrame(function() {
+                    showEl.style.transition = 'transform ' + dur + 's ease';
+                    hideEl.style.transition = 'transform ' + dur + 's ease';
+                    showEl.style.transform = 'translateX(0)';
+                    hideEl.style.transform = 'translateX(-100%)';
+                    setTimeout(function() { hideEl.style.opacity = '0'; hideEl.style.transform = ''; }, durMs);
+                });
+                break;
+
+            case 'slideRight':
+                showEl.style.transition = 'none';
+                showEl.style.transform = 'translateX(-100%)';
+                showEl.style.opacity = '1';
+                requestAnimationFrame(function() {
+                    showEl.style.transition = 'transform ' + dur + 's ease';
+                    hideEl.style.transition = 'transform ' + dur + 's ease';
+                    showEl.style.transform = 'translateX(0)';
+                    hideEl.style.transform = 'translateX(100%)';
+                    setTimeout(function() { hideEl.style.opacity = '0'; hideEl.style.transform = ''; }, durMs);
+                });
+                break;
+
+            case 'slideUp':
+                showEl.style.transition = 'none';
+                showEl.style.transform = 'translateY(100%)';
+                showEl.style.opacity = '1';
+                requestAnimationFrame(function() {
+                    showEl.style.transition = 'transform ' + dur + 's ease';
+                    hideEl.style.transition = 'transform ' + dur + 's ease';
+                    showEl.style.transform = 'translateY(0)';
+                    hideEl.style.transform = 'translateY(-100%)';
+                    setTimeout(function() { hideEl.style.opacity = '0'; hideEl.style.transform = ''; }, durMs);
+                });
+                break;
+
+            case 'slideDown':
+                showEl.style.transition = 'none';
+                showEl.style.transform = 'translateY(-100%)';
+                showEl.style.opacity = '1';
+                requestAnimationFrame(function() {
+                    showEl.style.transition = 'transform ' + dur + 's ease';
+                    hideEl.style.transition = 'transform ' + dur + 's ease';
+                    showEl.style.transform = 'translateY(0)';
+                    hideEl.style.transform = 'translateY(100%)';
+                    setTimeout(function() { hideEl.style.opacity = '0'; hideEl.style.transform = ''; }, durMs);
+                });
+                break;
+
+            case 'zoom':
+                showEl.style.transition = 'none';
+                showEl.style.transform = 'scale(0.5)';
+                showEl.style.opacity = '0';
+                requestAnimationFrame(function() {
+                    showEl.style.transition = 'transform ' + dur + 's ease, opacity ' + dur + 's ease';
+                    hideEl.style.transition = 'transform ' + dur + 's ease, opacity ' + dur + 's ease';
+                    showEl.style.transform = 'scale(1)';
+                    showEl.style.opacity = '1';
+                    hideEl.style.transform = 'scale(1.5)';
+                    hideEl.style.opacity = '0';
+                    setTimeout(function() { hideEl.style.transform = ''; }, durMs);
+                });
+                break;
+
+            case 'zoomRotate':
+                showEl.style.transition = 'none';
+                showEl.style.transform = 'scale(0) rotate(-180deg)';
+                showEl.style.opacity = '0';
+                requestAnimationFrame(function() {
+                    showEl.style.transition = 'transform ' + dur + 's ease, opacity ' + dur + 's ease';
+                    hideEl.style.transition = 'transform ' + dur + 's ease, opacity ' + dur + 's ease';
+                    showEl.style.transform = 'scale(1) rotate(0deg)';
+                    showEl.style.opacity = '1';
+                    hideEl.style.transform = 'scale(0) rotate(180deg)';
+                    hideEl.style.opacity = '0';
+                    setTimeout(function() { hideEl.style.transform = ''; }, durMs);
+                });
+                break;
+
+            case 'flip':
+                showEl.style.transition = 'none';
+                showEl.style.transform = 'perspective(1200px) rotateY(-90deg)';
+                showEl.style.opacity = '1';
+                hideEl.style.transition = 'transform ' + (dur/2) + 's ease-in';
+                hideEl.style.transform = 'perspective(1200px) rotateY(90deg)';
+                setTimeout(function() {
+                    hideEl.style.opacity = '0';
+                    showEl.style.transition = 'transform ' + (dur/2) + 's ease-out';
+                    showEl.style.transform = 'perspective(1200px) rotateY(0deg)';
+                    setTimeout(function() { hideEl.style.transform = ''; }, dur * 500);
+                }, dur * 500);
+                break;
+
+            case 'dissolve':
+                showEl.style.opacity = '0';
+                showEl.style.transition = 'none';
+                var steps = 20;
+                var stepDur = durMs / steps;
+                var i = 0;
+                function dissolveStep() {
+                    i++;
+                    var t = i / steps;
+                    showEl.style.opacity = String(t);
+                    hideEl.style.opacity = String(1 - t);
+                    if (i < steps) setTimeout(dissolveStep, stepDur);
+                }
+                dissolveStep();
+                break;
+
+            case 'wipeLeft':
+                showEl.style.opacity = '1';
+                showEl.style.clipPath = 'inset(0 100% 0 0)';
+                showEl.style.transition = 'clip-path ' + dur + 's ease';
+                hideEl.style.transition = 'none';
+                requestAnimationFrame(function() {
+                    showEl.style.clipPath = 'inset(0 0 0 0)';
+                    setTimeout(function() { hideEl.style.opacity = '0'; showEl.style.clipPath = ''; }, durMs);
+                });
+                break;
+
+            case 'wipeRight':
+                showEl.style.opacity = '1';
+                showEl.style.clipPath = 'inset(0 0 0 100%)';
+                showEl.style.transition = 'clip-path ' + dur + 's ease';
+                hideEl.style.transition = 'none';
+                requestAnimationFrame(function() {
+                    showEl.style.clipPath = 'inset(0 0 0 0)';
+                    setTimeout(function() { hideEl.style.opacity = '0'; showEl.style.clipPath = ''; }, durMs);
+                });
+                break;
+
+            default:
+                showEl.style.transition = 'opacity ' + dur + 's ease';
+                hideEl.style.transition = 'opacity ' + dur + 's ease';
+                showEl.style.opacity = '1';
+                hideEl.style.opacity = '0';
         }
-        showEl.style.opacity = '1';
-        hideEl.style.opacity = '0';
+
         activeCanvas = (activeCanvas === 'A') ? 'B' : 'A';
 
         if (page.audioUrl) {
@@ -94,58 +249,180 @@ canvas { display: block; position: absolute; top: 0; left: 0; }
         var page = pages[pageIdx];
         var cvs = (activeCanvas === 'A') ? staticA : staticB;
         var objects = cvs.getObjects();
-        page.animations.forEach(function(anim) {
+        (page.animations || []).forEach(function(anim) {
             var obj = objects[anim.objectIndex];
             if (!obj) return;
             var delay = (anim.delay || 0) * 1000;
             var dur = (anim.duration || 1) * 1000;
+            var easingStr = anim.easing || 'easeInOut';
+
+            var easingFn = easeInOutQuad;
+            var easingMap = {
+                'linear': function(t) { return t; },
+                'easeIn': easeInCubic,
+                'easeOut': easeOutCubic,
+                'easeInOut': easeInOutQuad,
+                'easeOutBounce': easeOutBounce,
+                'easeOutElastic': easeOutElastic,
+                'easeOutBack': easeOutBack,
+            };
+            if (easingMap[easingStr]) easingFn = easingMap[easingStr];
+
             setTimeout(function() {
+                var origLeft = obj.left, origTop = obj.top, origOpacity = obj.opacity;
+                var origSx = obj.scaleX, origSy = obj.scaleY, origAngle = obj.angle;
+
                 switch (anim.type) {
                     case 'fadeIn':
                         obj.set('opacity', 0); cvs.renderAll();
-                        animProp(cvs, obj, 'opacity', 0, 1, dur); break;
+                        animProp(cvs, obj, 'opacity', 0, origOpacity || 1, dur, easingFn); break;
                     case 'slideLeft':
-                        var oL = obj.left; obj.set({left: CW, opacity: 1}); cvs.renderAll();
-                        animProp(cvs, obj, 'left', CW, oL, dur); break;
+                        obj.set({left: -obj.getScaledWidth()}); cvs.renderAll();
+                        animProp(cvs, obj, 'left', -obj.getScaledWidth(), origLeft, dur, easingFn); break;
                     case 'slideRight':
-                        var oL2 = obj.left; obj.set({left: -obj.getScaledWidth(), opacity: 1}); cvs.renderAll();
-                        animProp(cvs, obj, 'left', -obj.getScaledWidth(), oL2, dur); break;
+                        obj.set({left: CW + 50}); cvs.renderAll();
+                        animProp(cvs, obj, 'left', CW + 50, origLeft, dur, easingFn); break;
                     case 'slideUp':
-                        var oT = obj.top; obj.set({top: CH, opacity: 1}); cvs.renderAll();
-                        animProp(cvs, obj, 'top', CH, oT, dur); break;
+                        obj.set({top: CH + 50}); cvs.renderAll();
+                        animProp(cvs, obj, 'top', CH + 50, origTop, dur, easingFn); break;
                     case 'slideDown':
-                        var oT2 = obj.top; obj.set({top: -obj.getScaledHeight(), opacity: 1}); cvs.renderAll();
-                        animProp(cvs, obj, 'top', -obj.getScaledHeight(), oT2, dur); break;
+                        obj.set({top: -obj.getScaledHeight()}); cvs.renderAll();
+                        animProp(cvs, obj, 'top', -obj.getScaledHeight(), origTop, dur, easingFn); break;
                     case 'zoomIn':
-                        var sx = obj.scaleX, sy = obj.scaleY;
-                        obj.set({scaleX:0, scaleY:0, opacity:1}); cvs.renderAll();
-                        animProp(cvs, obj, 'scaleX', 0, sx, dur);
-                        animProp(cvs, obj, 'scaleY', 0, sy, dur); break;
+                        obj.set({scaleX: 0.01, scaleY: 0.01, opacity: 0}); cvs.renderAll();
+                        animProp(cvs, obj, 'scaleX', 0.01, origSx, dur, easingFn);
+                        animProp(cvs, obj, 'scaleY', 0.01, origSy, dur, easingFn);
+                        animProp(cvs, obj, 'opacity', 0, origOpacity || 1, dur, easingFn); break;
+                    case 'zoomOut':
+                        obj.set({scaleX: origSx * 3, scaleY: origSy * 3, opacity: 0}); cvs.renderAll();
+                        animProp(cvs, obj, 'scaleX', origSx * 3, origSx, dur, easingFn);
+                        animProp(cvs, obj, 'scaleY', origSy * 3, origSy, dur, easingFn);
+                        animProp(cvs, obj, 'opacity', 0, origOpacity || 1, dur, easingFn); break;
                     case 'bounceIn':
-                        obj.set('opacity', 0); cvs.renderAll();
-                        animProp(cvs, obj, 'opacity', 0, 1, dur, true); break;
+                        obj.set({scaleX: 0.01, scaleY: 0.01}); cvs.renderAll();
+                        animProp(cvs, obj, 'scaleX', 0.01, origSx, dur, easeOutBounce);
+                        animProp(cvs, obj, 'scaleY', 0.01, origSy, dur, easeOutBounce); break;
+                    case 'rotateIn':
+                        obj.set({angle: origAngle - 180, opacity: 0, scaleX: 0.01, scaleY: 0.01}); cvs.renderAll();
+                        animProp(cvs, obj, 'angle', origAngle - 180, origAngle, dur, easingFn);
+                        animProp(cvs, obj, 'opacity', 0, origOpacity || 1, dur, easingFn);
+                        animProp(cvs, obj, 'scaleX', 0.01, origSx, dur, easingFn);
+                        animProp(cvs, obj, 'scaleY', 0.01, origSy, dur, easingFn); break;
+                    case 'flipIn':
+                        obj.set({scaleX: 0.01, opacity: 0}); cvs.renderAll();
+                        animProp(cvs, obj, 'scaleX', 0.01, origSx, dur, easingFn);
+                        animProp(cvs, obj, 'opacity', 0, origOpacity || 1, dur, easingFn); break;
+                    case 'pulse':
+                        animPulse(cvs, obj, origSx, origSy, dur, easingFn); break;
+                    case 'shake':
+                        animShake(cvs, obj, origLeft, dur); break;
+                    case 'swing':
+                        animSwing(cvs, obj, origAngle, dur, easingFn); break;
+                    case 'rubberBand':
+                        animRubberBand(cvs, obj, origSx, origSy, dur, easingFn); break;
+                    case 'float':
+                        animFloat(cvs, obj, origTop, dur); break;
+                    case 'spinCW':
+                        animProp(cvs, obj, 'angle', origAngle, origAngle + 360, dur, easingFn); break;
+                    case 'spinCCW':
+                        animProp(cvs, obj, 'angle', origAngle, origAngle - 360, dur, easingFn); break;
+                    case 'breathe':
+                        animBreathe(cvs, obj, origSx, origSy, dur); break;
+                    case 'blink':
+                        animBlink(cvs, obj, origOpacity || 1, dur); break;
+                    case 'glow':
+                        // Glow is visual-only, use opacity pulse as fallback
+                        animPulse(cvs, obj, origSx, origSy, dur, easingFn); break;
                 }
             }, delay);
         });
     }
 
-    function animProp(cvs, obj, prop, from, to, dur, bounce) {
+    function animProp(cvs, obj, prop, from, to, dur, easingFn) {
         var start = performance.now();
         function step(now) {
             var t = Math.min((now - start) / dur, 1);
-            var e = bounce ? easeOutBounce(t) : easeInOutQuad(t);
+            var e = easingFn ? easingFn(t) : easeInOutQuad(t);
             obj.set(prop, from + (to - from) * e);
             cvs.renderAll();
             if (t < 1) requestAnimationFrame(step);
         }
         requestAnimationFrame(step);
     }
+
+    function animPulse(cvs, obj, sx, sy, dur, easing) {
+        animProp(cvs, obj, 'scaleX', sx, sx * 1.15, dur / 2, easing);
+        animProp(cvs, obj, 'scaleY', sy, sy * 1.15, dur / 2, easing);
+        setTimeout(function() {
+            animProp(cvs, obj, 'scaleX', sx * 1.15, sx, dur / 2, easing);
+            animProp(cvs, obj, 'scaleY', sy * 1.15, sy, dur / 2, easing);
+        }, dur / 2);
+    }
+
+    function animShake(cvs, obj, origLeft, dur) {
+        var seq = [origLeft + 15, origLeft - 15, origLeft + 10, origLeft - 10, origLeft + 5, origLeft];
+        var stepDur = dur / seq.length;
+        seq.forEach(function(val, i) {
+            setTimeout(function() { animProp(cvs, obj, 'left', obj.left, val, stepDur * 0.8, easeInOutQuad); }, i * stepDur);
+        });
+    }
+
+    function animSwing(cvs, obj, origAngle, dur, easing) {
+        animProp(cvs, obj, 'angle', origAngle, origAngle + 15, dur / 4, easing);
+        setTimeout(function() { animProp(cvs, obj, 'angle', origAngle + 15, origAngle - 10, dur / 4, easing); }, dur / 4);
+        setTimeout(function() { animProp(cvs, obj, 'angle', origAngle - 10, origAngle + 5, dur / 4, easing); }, dur / 2);
+        setTimeout(function() { animProp(cvs, obj, 'angle', origAngle + 5, origAngle, dur / 4, easing); }, dur * 3 / 4);
+    }
+
+    function animRubberBand(cvs, obj, sx, sy, dur, easing) {
+        animProp(cvs, obj, 'scaleX', sx, sx * 1.25, dur / 3, easing);
+        animProp(cvs, obj, 'scaleY', sy, sy * 0.75, dur / 3, easing);
+        setTimeout(function() {
+            animProp(cvs, obj, 'scaleX', sx * 1.25, sx * 0.75, dur / 3, easing);
+            animProp(cvs, obj, 'scaleY', sy * 0.75, sy * 1.25, dur / 3, easing);
+        }, dur / 3);
+        setTimeout(function() {
+            animProp(cvs, obj, 'scaleX', sx * 0.75, sx, dur / 3, easing);
+            animProp(cvs, obj, 'scaleY', sy * 1.25, sy, dur / 3, easing);
+        }, dur * 2 / 3);
+    }
+
+    function animFloat(cvs, obj, origTop, dur) {
+        animProp(cvs, obj, 'top', origTop, origTop - 20, dur / 2, easeInOutQuad);
+        setTimeout(function() { animProp(cvs, obj, 'top', origTop - 20, origTop, dur / 2, easeInOutQuad); }, dur / 2);
+    }
+
+    function animBreathe(cvs, obj, sx, sy, dur) {
+        animProp(cvs, obj, 'scaleX', sx, sx * 1.08, dur / 2, easeInOutQuad);
+        animProp(cvs, obj, 'scaleY', sy, sy * 1.08, dur / 2, easeInOutQuad);
+        setTimeout(function() {
+            animProp(cvs, obj, 'scaleX', sx * 1.08, sx, dur / 2, easeInOutQuad);
+            animProp(cvs, obj, 'scaleY', sy * 1.08, sy, dur / 2, easeInOutQuad);
+        }, dur / 2);
+    }
+
+    function animBlink(cvs, obj, origOpacity, dur) {
+        animProp(cvs, obj, 'opacity', origOpacity, 0, dur / 2, easeInOutQuad);
+        setTimeout(function() { animProp(cvs, obj, 'opacity', 0, origOpacity, dur / 2, easeInOutQuad); }, dur / 2);
+    }
+
+    // Easing functions
     function easeInOutQuad(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+    function easeInCubic(t) { return t*t*t; }
+    function easeOutCubic(t) { return (--t)*t*t+1; }
     function easeOutBounce(t) {
         if (t < 1/2.75) return 7.5625*t*t;
         if (t < 2/2.75) { t -= 1.5/2.75; return 7.5625*t*t + 0.75; }
         if (t < 2.5/2.75) { t -= 2.25/2.75; return 7.5625*t*t + 0.9375; }
         t -= 2.625/2.75; return 7.5625*t*t + 0.984375;
+    }
+    function easeOutElastic(t) {
+        if (t === 0 || t === 1) return t;
+        return Math.pow(2, -10 * t) * Math.sin((t - 0.075) * (2 * Math.PI) / 0.3) + 1;
+    }
+    function easeOutBack(t) {
+        var s = 1.70158;
+        return (t = t - 1) * t * ((s + 1) * t + s) + 1;
     }
 
     // Load first page

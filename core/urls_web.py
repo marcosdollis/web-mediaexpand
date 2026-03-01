@@ -96,4 +96,8 @@ urlpatterns = [
     path('corporativo/design/<int:pk>/render/', views.design_render_tv_view, name='design_render_tv'),
     path('corporativo/design/import-pptx/', views.design_import_pptx_view, name='design_import_pptx'),
     path('corporativo/design/upload-audio/', views.design_audio_upload_view, name='design_audio_upload'),
+    path('corporativo/design/search-images/', views.design_search_images_view, name='design_search_images'),
+    path('corporativo/design/search-icons/', views.design_search_icons_view, name='design_search_icons'),
+    path('corporativo/design/get-icon-svg/', views.design_get_icon_svg_view, name='design_get_icon_svg'),
+    path('corporativo/design/search-stickers/', views.design_search_stickers_view, name='design_search_stickers'),
 ]
