@@ -68,6 +68,34 @@
                             <small class="text-muted">Tempo que ficará exibido na TV antes de passar para o próximo item</small>
                         </div>
 
+                        <!-- Orientação -->
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-mobile-alt me-1 text-primary"></i>Orientação da TV
+                            </label>
+                            <div class="d-flex gap-3">
+                                {% for radio in form.orientacao %}
+                                <div class="flex-fill">
+                                    <input type="radio" class="btn-check" name="{{ radio.data.name }}"
+                                           id="{{ radio.id_for_label }}" value="{{ radio.data.value }}"
+                                           {% if radio.data.selected %}checked{% endif %}>
+                                    <label class="btn btn-outline-primary w-100 py-3 d-flex flex-column align-items-center gap-2"
+                                           for="{{ radio.id_for_label }}">
+                                        {% if radio.data.value == 'HORIZONTAL' %}
+                                        <i class="fas fa-tv fa-2x"></i>
+                                        <span class="fw-bold">Horizontal</span>
+                                        <small class="text-muted" style="font-size:.75rem;">16:9 — 1920×1080px</small>
+                                        {% else %}
+                                        <i class="fas fa-mobile-alt fa-2x"></i>
+                                        <span class="fw-bold">Vertical</span>
+                                        <small class="text-muted" style="font-size:.75rem;">9:16 — 1080×1920px</small>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
                         <!-- Configuração de Cotações (aparece apenas quando tipo = COTACOES) -->
                         <div id="cotacoesConfig" style="display: none;">
                             <div class="card bg-light mb-3">

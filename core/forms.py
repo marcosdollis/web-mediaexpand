@@ -456,10 +456,11 @@ class ConteudoCorporativoForm(forms.ModelForm):
 
     class Meta:
         model = ConteudoCorporativo
-        fields = ['titulo', 'tipo', 'duracao_segundos', 'ativo']
+        fields = ['titulo', 'tipo', 'orientacao', 'duracao_segundos', 'ativo']
         widgets = {
             'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Previsão do Tempo SP'}),
             'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'orientacao': forms.RadioSelect(attrs={'class': 'form-check-input'}),
             'duracao_segundos': forms.NumberInput(attrs={'class': 'form-control', 'min': '5', 'max': '120'}),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }

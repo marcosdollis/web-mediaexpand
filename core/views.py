@@ -588,11 +588,26 @@ class TVCorporativoHTMLView(APIView):
         except Playlist.DoesNotExist:
             pass
 
-        dados = buscar_dados_corporativos(tipo_upper, municipio=municipio, conteudo=None)
+        # Buscar instância ConteudoCorporativo para obter orientação e configurações
+        from .models import ConteudoCorporativo as CC, PlaylistItem
+        conteudo = None
+        try:
+            conteudo = (
+                CC.objects.filter(tipo=tipo_upper, ativo=True)
+                .filter(playlistitem__playlist_id=playlist_id)
+                .first()
+                or CC.objects.filter(tipo=tipo_upper, ativo=True).first()
+            )
+        except Exception:
+            pass
+
+        dados = buscar_dados_corporativos(tipo_upper, municipio=municipio, conteudo=conteudo)
+        orientacao = getattr(conteudo, 'orientacao', 'HORIZONTAL') if conteudo else 'HORIZONTAL'
 
         context = {
             'conteudo_tipo': tipo_upper,
             'dados': dados,
+            'orientacao': orientacao,
         }
         return django_render(request, 'corporativo/conteudo_tv.html', context)
 
@@ -3268,6 +3283,8 @@ def conteudo_corporativo_preview_view(request, pk):
         'municipio': municipio,
         'playlists': playlists_qs if conteudo.tipo == 'PREVISAO_TEMPO' else [],
         'playlist_selecionada': playlist_selecionada,
+        'conteudo_tipo': conteudo.tipo,
+        'orientacao': conteudo.orientacao,
     }
     return render(request, 'corporativo/conteudo_preview.html', context)
 

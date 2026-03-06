@@ -864,6 +864,16 @@ class ConteudoCorporativo(models.Model):
         blank=True,
         help_text='Lista de códigos de commodities para exibir (ex: ["gold", "oil"])'
     )
+    ORIENTACAO_CHOICES = [
+        ('HORIZONTAL', 'Horizontal (16:9 — 1920×1080)'),
+        ('VERTICAL', 'Vertical (9:16 — 1080×1920)'),
+    ]
+    orientacao = models.CharField(
+        max_length=12,
+        choices=ORIENTACAO_CHOICES,
+        default='HORIZONTAL',
+        help_text='Orientação de exibição na TV'
+    )
     template_categoria = models.CharField(
         max_length=50, blank=True, default='',
         help_text='Categoria do template (ex: Promoção, Institucional, Menu...)'
