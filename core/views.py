@@ -3290,6 +3290,45 @@ def conteudo_corporativo_preview_view(request, pk):
 
 
 @login_required
+def conteudo_corporativo_render_view(request, pk):
+    """
+    Renderiza o conteudo_tv.html real (1920×1080 ou 1080×1920) para ser embutido
+    como iframe no preview. Idêntico ao que o app Android recebe.
+    """
+    from django.shortcuts import render as django_render
+    from .services import buscar_dados_corporativos
+
+    conteudo = get_object_or_404(ConteudoCorporativo, pk=pk)
+
+    municipio = None
+    playlist_id = request.GET.get('playlist_id')
+    if playlist_id:
+        try:
+            playlist = Playlist.objects.select_related('municipio').get(pk=playlist_id)
+            municipio = playlist.municipio
+        except Playlist.DoesNotExist:
+            pass
+    if not municipio and conteudo.tipo == 'PREVISAO_TEMPO':
+        playlist = (
+            Playlist.objects.filter(items__conteudo_corporativo=conteudo)
+            .select_related('municipio')
+            .exclude(municipio__latitude=None)
+            .first()
+        )
+        if playlist:
+            municipio = playlist.municipio
+
+    dados = buscar_dados_corporativos(conteudo.tipo, municipio=municipio, conteudo=conteudo)
+
+    context = {
+        'conteudo_tipo': conteudo.tipo,
+        'dados': dados,
+        'orientacao': conteudo.orientacao,
+    }
+    return django_render(request, 'corporativo/conteudo_tv.html', context)
+
+
+@login_required
 def configuracao_api_view(request):
     """Configuração das APIs externas (apenas OWNER)"""
     user = request.user

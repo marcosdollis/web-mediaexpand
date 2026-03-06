@@ -5,102 +5,70 @@
 
 {% block extra_css %}
 <style>
-    .preview-frame {
+    .preview-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 8px 0;
+    }
+
+    /* ── HORIZONTAL: cabe na tela, max 960px de largura ── */
+    .preview-container-horizontal {
         width: 100%;
         max-width: 960px;
-        aspect-ratio: 16/9;
+        aspect-ratio: 16 / 9;
+        position: relative;
         border-radius: 12px;
         overflow: hidden;
-        margin: 0 auto;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        background: #000;
     }
 
-    /* ── Previsão do Tempo ── */
-    .weather-bg {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
+    /* ── VERTICAL: altura fixa de 540px, largura = 540 * 9/16 ── */
+    .preview-container-vertical {
+        width: 304px;   /* 540 * (9/16) */
+        height: 540px;
+        position: relative;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        background: #000;
+        flex-shrink: 0;
+    }
+
+    .preview-iframe {
+        position: absolute;
+        top: 0; left: 0;
+        border: none;
+        transform-origin: top left;
+    }
+
+    /* Horizontal: iframe nativo 1920×1080, escala para caber em max 960px */
+    .preview-container-horizontal .preview-iframe {
+        width: 1920px;
+        height: 1080px;
+    }
+
+    /* Vertical: iframe nativo 1080×1920, escala para caber em 304×540 */
+    .preview-container-vertical .preview-iframe {
+        width: 1080px;
+        height: 1920px;
+    }
+
+    .orientation-badge {
+        display: inline-flex;
         align-items: center;
-        color: #fff;
-        text-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        padding: 2rem;
+        gap: 6px;
+        font-size: .85rem;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 600;
     }
-    .weather-temp { font-size: 5rem; font-weight: 700; line-height: 1; }
-    .weather-desc { font-size: 1.6rem; margin-top: .5rem; }
-    .weather-city { font-size: 1.3rem; opacity: .85; margin-bottom: 1rem; }
-    .weather-details { display: flex; gap: 2rem; font-size: 1rem; opacity: .9; margin-top: .5rem; }
-    .forecast-row { display: flex; gap: 1.5rem; margin-top: 1.5rem; }
-    .forecast-day {
-        background: rgba(255,255,255,0.15);
-        backdrop-filter: blur(4px);
-        border-radius: 10px;
-        padding: .8rem 1.2rem;
-        text-align: center;
-        min-width: 120px;
-    }
-    .forecast-day .date { font-size: .85rem; opacity: .8; }
-    .forecast-day .temps { font-size: 1.1rem; font-weight: 600; }
-    .forecast-day .desc { font-size: .75rem; opacity: .8; }
-
-    /* ── Cotações ── */
-    .quotes-bg {
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        padding: 2rem 3rem;
-        color: #fff;
-    }
-    .quotes-title { font-size: 1.4rem; font-weight: 600; margin-bottom: 1.5rem; text-align: center; }
-    .quote-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-    }
-    .quote-card {
-        background: rgba(255,255,255,0.08);
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-    }
-    .quote-card .code { font-size: .9rem; opacity: .7; }
-    .quote-card .name { font-size: 1.05rem; font-weight: 600; }
-    .quote-card .value { font-size: 1.5rem; font-weight: 700; margin: .3rem 0; }
-    .quote-card .change { font-size: .95rem; font-weight: 600; }
-    .change.up { color: #2ecc71; }
-    .change.down { color: #e74c3c; }
-    .change.stable { color: #95a5a6; }
-
-    /* ── Notícias ── */
-    .news-bg {
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        padding: 2rem 3rem;
-        color: #fff;
-    }
-    .news-title { font-size: 1.4rem; font-weight: 600; margin-bottom: 1rem; text-align: center; }
-    .news-item {
-        background: rgba(255,255,255,0.06);
-        border-left: 3px solid #e74c3c;
-        border-radius: 6px;
-        padding: .8rem 1rem;
-        margin-bottom: .8rem;
-    }
-    .news-item .headline { font-size: 1.05rem; font-weight: 500; }
-    .news-item .source { font-size: .8rem; opacity: .6; margin-top: .3rem; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container-fluid px-3">
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
@@ -110,13 +78,17 @@
     </nav>
 
     <div class="text-center mb-3">
-        <h4>
-            <span class="badge bg-{{ conteudo.get_cor_badge }} me-2">
-                <i class="fas fa-{{ conteudo.get_icone }}"></i>
-            </span>
-            {{ conteudo.titulo }}
+        <h4 class="mb-1">
+            <i class="{{ conteudo.get_icone }} me-2 text-primary"></i>{{ conteudo.titulo }}
             <small class="text-muted ms-2">{{ conteudo.duracao_segundos }}s</small>
         </h4>
+        <span class="orientation-badge {% if conteudo.orientacao == 'VERTICAL' %}bg-warning text-dark{% else %}bg-primary text-white{% endif %}">
+            {% if conteudo.orientacao == 'VERTICAL' %}
+            <i class="fas fa-mobile-alt"></i> Vertical (9:16)
+            {% else %}
+            <i class="fas fa-tv"></i> Horizontal (16:9)
+            {% endif %}
+        </span>
     </div>
 
     {% if dados.erro %}
@@ -125,139 +97,12 @@
     </div>
     {% endif %}
 
-    <!-- ═══ FRAME DE PREVIEW ═══ -->
-    <div class="preview-frame">
-
-        {% if conteudo.tipo == 'PREVISAO_TEMPO' %}
-        <!-- ── PREVISÃO DO TEMPO ── -->
-        <div class="weather-bg" style="background: linear-gradient(135deg, {{ dados.background.gradient_start }}, {{ dados.background.gradient_end }});">
-            {% if municipio %}
-            <div class="weather-city">
-                <i class="fas fa-map-marker-alt me-1"></i>{{ municipio.nome }}{% if municipio.estado %} — {{ municipio.estado }}{% endif %}
-            </div>
-            {% endif %}
-
-            {% if dados.atual.temperatura is not None %}
-            <div class="weather-temp">{{ dados.atual.temperatura }}°C</div>
-            {% else %}
-            <div class="weather-temp">--°C</div>
-            {% endif %}
-            <div class="weather-desc">{{ dados.atual.descricao }}</div>
-
-            {% if dados.atual.umidade is not None %}
-            <div class="weather-details">
-                <span><i class="fas fa-tint me-1"></i>{{ dados.atual.umidade }}%</span>
-                <span><i class="fas fa-wind me-1"></i>{{ dados.atual.vento_kmh }} km/h</span>
-            </div>
-            {% endif %}
-
-            {% if dados.previsao %}
-            <div class="forecast-row">
-                {% for dia in dados.previsao %}
-                <div class="forecast-day">
-                    <div class="date">{{ dia.data }}</div>
-                    <div class="temps">{{ dia.min }}° / {{ dia.max }}°</div>
-                    <div class="desc">{{ dia.descricao }}</div>
-                    {% if dia.precipitacao_pct %}<div class="desc"><i class="fas fa-umbrella"></i> {{ dia.precipitacao_pct }}%</div>{% endif %}
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-
-        {% elif conteudo.tipo == 'COTACOES' %}
-        <!-- ── COTAÇÕES ── -->
-        <div class="quotes-bg">
-            <div class="quotes-title"><i class="fas fa-chart-line me-2"></i>Cotações em Tempo Real</div>
-            <div class="quote-grid">
-                {% for moeda in dados.moedas %}
-                <div class="quote-card">
-                    <div class="code">{{ moeda.codigo }}/BRL</div>
-                    <div class="name">{{ moeda.nome }}</div>
-                    <div class="value">R$ {{ moeda.valor|floatformat:2 }}</div>
-                    {% if moeda.variacao_pct is not None %}
-                    <div class="change {{ moeda.direcao }}">
-                        <i class="fas fa-caret-{% if moeda.direcao == 'up' %}up{% elif moeda.direcao == 'down' %}down{% else %}right{% endif %} me-1"></i>
-                        {{ moeda.variacao_pct }}%
-                    </div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-                {% for cripto in dados.cripto %}
-                <div class="quote-card">
-                    <div class="code">{{ cripto.codigo }}/BRL</div>
-                    <div class="name">{{ cripto.nome }}</div>
-                    <div class="value">R$ {{ cripto.valor|floatformat:2 }}</div>
-                    {% if cripto.variacao_pct is not None %}
-                    <div class="change {{ cripto.direcao }}">
-                        <i class="fas fa-caret-{% if cripto.direcao == 'up' %}up{% elif cripto.direcao == 'down' %}down{% else %}right{% endif %} me-1"></i>
-                        {{ cripto.variacao_pct }}%
-                    </div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-                {% for idx in dados.indices %}
-                <div class="quote-card">
-                    <div class="code">{{ idx.codigo }}</div>
-                    <div class="name">{{ idx.nome }}</div>
-                    <div class="value">{% if idx.valor %}{{ idx.valor|floatformat:0 }} pts{% else %}—{% endif %}</div>
-                    {% if idx.variacao_pct is not None %}
-                    <div class="change {{ idx.direcao }}">
-                        <i class="fas fa-caret-{% if idx.direcao == 'up' %}up{% elif idx.direcao == 'down' %}down{% else %}right{% endif %} me-1"></i>
-                        {{ idx.variacao_pct }}%
-                    </div>
-                    {% else %}
-                    <div class="change stable">—</div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-                {% for comm in dados.commodities %}
-                <div class="quote-card">
-                    <div class="code">{{ comm.codigo }}</div>
-                    <div class="name">{{ comm.nome }}</div>
-                    <div class="value">{% if comm.valor %}$ {{ comm.valor|floatformat:2 }}{% else %}—{% endif %}</div>
-                    {% if comm.variacao_pct is not None %}
-                    <div class="change {{ comm.direcao }}">
-                        <i class="fas fa-caret-{% if comm.direcao == 'up' %}up{% elif comm.direcao == 'down' %}down{% else %}right{% endif %} me-1"></i>
-                        {{ comm.variacao_pct }}%
-                    </div>
-                    {% else %}
-                    <div class="change stable">—</div>
-                    {% endif %}
-                    {% if comm.valor_brl %}<div class="code" style="font-size:.7rem; margin-top:2px;">≈ R$ {{ comm.valor_brl|floatformat:2 }}</div>{% endif %}
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        {% elif conteudo.tipo == 'NOTICIAS' %}
-        <!-- ── NOTÍCIAS ── -->
-        <div class="news-bg">
-            <div class="news-title"><i class="fas fa-newspaper me-2"></i>Notícias do Brasil</div>
-            {% if dados.manchetes %}
-                {% for noticia in dados.manchetes|slice:":5" %}
-                <div class="news-item">
-                    <div class="headline">{{ noticia.titulo }}</div>
-                    <div class="source">{{ noticia.fonte }}{% if noticia.publicado_em %} — {{ noticia.publicado_em }}{% endif %}</div>
-                </div>
-                {% endfor %}
-            {% else %}
-            <div class="text-center py-4" style="opacity:.6;">
-                <i class="fas fa-satellite-dish" style="font-size: 2rem;"></i>
-                <p class="mt-2">Nenhuma notícia disponível no momento</p>
-            </div>
-            {% endif %}
-        </div>
-
-        {% endif %}
-    </div>
-
-    <!-- Info / status -->
-    <div class="row mt-4 justify-content-center">
-        <div class="col-lg-8">
-
-            {% if conteudo.tipo == 'PREVISAO_TEMPO' and playlists %}
-            <div class="card mb-3">
+    <!-- Seletor de playlist para previsão do tempo -->
+    {% if conteudo.tipo == 'PREVISAO_TEMPO' %}
+    <div class="row justify-content-center mb-3">
+        <div class="col-lg-6">
+            {% if playlists %}
+            <div class="card">
                 <div class="card-body py-2">
                     <form method="get" class="d-flex align-items-center gap-3">
                         <label class="text-nowrap mb-0 fw-semibold">
@@ -274,40 +119,75 @@
                     </form>
                 </div>
             </div>
-            {% elif conteudo.tipo == 'PREVISAO_TEMPO' and not playlists %}
-            <div class="alert alert-warning mb-3">
+            {% else %}
+            <div class="alert alert-warning">
                 <i class="fas fa-exclamation-triangle me-2"></i>
-                Este conteúdo ainda não está em nenhuma playlist. Adicione-o a uma playlist para que o município seja determinado automaticamente.
+                Este conteúdo ainda não está em nenhuma playlist. O município não pode ser determinado.
             </div>
             {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
+    <!-- ═══ IFRAME DE PREVIEW — renderiza o conteudo_tv.html real ═══ -->
+    <div class="preview-wrapper">
+        <div id="previewContainer"
+             class="preview-container-{% if conteudo.orientacao == 'VERTICAL' %}vertical{% else %}horizontal{% endif %}">
+            <iframe id="previewIframe"
+                    class="preview-iframe"
+                    src="{% url 'conteudo_corporativo_render' conteudo.pk %}{% if playlist_selecionada %}?playlist_id={{ playlist_selecionada.id }}{% endif %}"
+                    scrolling="no"
+                    loading="lazy">
+            </iframe>
+        </div>
+    </div>
+
+    <!-- Info rodapé -->
+    <div class="row mt-3 justify-content-center">
+        <div class="col-lg-8">
             <div class="card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Os dados exibidos são buscados em tempo real das APIs configuradas.
-                                {% if conteudo.tipo == 'PREVISAO_TEMPO' and municipio %}
-                                    Município da playlist <strong>{{ playlist_selecionada.nome }}</strong>:
-                                    <strong>{{ municipio.nome }}/{{ municipio.estado }}</strong>
-                                    {% if municipio.latitude %}
-                                        ({{ municipio.latitude }}, {{ municipio.longitude }})
-                                    {% else %}
-                                        <span class="text-warning"> — sem coordenadas cadastradas</span>
-                                    {% endif %}
-                                {% endif %}
-                            </small>
-                        </div>
-                        <div>
-                            <a href="{% url 'conteudo_corporativo_list' %}" class="btn btn-outline-secondary btn-sm">
-                                <i class="fas fa-arrow-left me-1"></i>Voltar
-                            </a>
-                        </div>
-                    </div>
+                <div class="card-body py-2 d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Preview idêntico ao que o app Android exibe.
+                        {% if conteudo.tipo == 'PREVISAO_TEMPO' and municipio %}
+                            Município: <strong>{{ municipio.nome }}/{{ municipio.estado }}</strong>
+                            {% if municipio.latitude %}({{ municipio.latitude }}, {{ municipio.longitude }}){% else %}<span class="text-warning"> — sem coordenadas</span>{% endif %}
+                        {% endif %}
+                    </small>
+                    <a href="{% url 'conteudo_corporativo_list' %}" class="btn btn-outline-secondary btn-sm ms-3">
+                        <i class="fas fa-arrow-left me-1"></i>Voltar
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// Calcula o scale do iframe para preencher o container
+function scaleIframe() {
+    var container = document.getElementById('previewContainer');
+    var iframe    = document.getElementById('previewIframe');
+    if (!container || !iframe) return;
+
+    var cw = container.offsetWidth;
+    var ch = container.offsetHeight;
+    var iw = parseInt(iframe.style.width  || iframe.getAttribute('width'))  || {% if conteudo.orientacao == 'VERTICAL' %}1080{% else %}1920{% endif %};
+    var ih = parseInt(iframe.style.height || iframe.getAttribute('height')) || {% if conteudo.orientacao == 'VERTICAL' %}1920{% else %}1080{% endif %};
+
+    // Busca no CSS (.preview-iframe width/height não estão no atributo, mas no estilo)
+    iw = {% if conteudo.orientacao == 'VERTICAL' %}1080{% else %}1920{% endif %};
+    ih = {% if conteudo.orientacao == 'VERTICAL' %}1920{% else %}1080{% endif %};
+
+    var scale = Math.min(cw / iw, ch / ih);
+    iframe.style.transform = 'scale(' + scale + ')';
+    // Centralizar no container
+    iframe.style.left = ((cw - iw * scale) / 2) + 'px';
+    iframe.style.top  = ((ch - ih * scale) / 2) + 'px';
+}
+
+scaleIframe();
+window.addEventListener('resize', scaleIframe);
+</script>
 {% endblock %}

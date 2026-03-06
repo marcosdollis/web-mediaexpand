@@ -82,6 +82,7 @@ urlpatterns = [
     path('corporativo/<int:pk>/update/', views.conteudo_corporativo_update_view, name='conteudo_corporativo_update'),
     path('corporativo/<int:pk>/delete/', views.conteudo_corporativo_delete_view, name='conteudo_corporativo_delete'),
     path('corporativo/<int:pk>/preview/', views.conteudo_corporativo_preview_view, name='conteudo_corporativo_preview'),
+    path('corporativo/<int:pk>/render/', views.conteudo_corporativo_render_view, name='conteudo_corporativo_render'),
     path('corporativo/configuracao/', views.configuracao_api_view, name='configuracao_api'),
 
     # Design Editor (Corporativo)
