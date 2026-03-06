@@ -35,7 +35,7 @@ window.addEventListener('DOMContentLoaded', function() {
         var designH = {{ conteudo.design_altura }};
         var scaleX = window.innerWidth / designW;
         var scaleY = window.innerHeight / designH;
-        var scale = Math.min(scaleX, scaleY, 1); // Limita escala máxima para 1 (100%)
+        var scale = Math.min(scaleX, scaleY); // Escala para caber na tela (mantém proporção)
         container.style.transform = 'scale(' + scale + ')';
     }
     

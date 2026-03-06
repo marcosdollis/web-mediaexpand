@@ -400,6 +400,66 @@
     margin-bottom: 10px;
 }
 
+/* Orientation picker */
+.orientation-picker {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.orientation-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 6px;
+    background: var(--panel-surface);
+    border: 2px solid var(--panel-border);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--panel-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 0.2s;
+    line-height: 1;
+}
+.orientation-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.orientation-btn.active {
+    border-color: var(--accent);
+    background: rgba(99,102,241,0.15);
+    color: #fff;
+}
+.orientation-btn .orient-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.orient-landscape {
+    width: 36px;
+    height: 22px;
+    border: 2px solid currentColor;
+    border-radius: 3px;
+    position: relative;
+}
+.orient-portrait {
+    width: 22px;
+    height: 36px;
+    border: 2px solid currentColor;
+    border-radius: 3px;
+    position: relative;
+}
+.orient-landscape::after, .orient-portrait::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    background: currentColor;
+    opacity: 0.25;
+    border-radius: 1px;
+}
+
 /* Save feedback */
 .save-toast {
     position: fixed;
@@ -662,10 +722,24 @@
                     <i class="fas fa-cog"></i>
                 </button>
                 <div class="settings-dropdown" id="settingsDropdown">
+                    <!-- Orientação -->
+                    <label style="margin-bottom:8px;">Orientação</label>
+                    <div class="orientation-picker">
+                        <button class="orientation-btn" id="btnOrientH" onclick="setOrientation('horizontal')" title="Full HD Horizontal (1920×1080)">
+                            <div class="orient-icon"><div class="orient-landscape"></div></div>
+                            Horizontal
+                            <small style="font-weight:400;opacity:.7;">1920×1080</small>
+                        </button>
+                        <button class="orientation-btn" id="btnOrientV" onclick="setOrientation('vertical')" title="Full HD Vertical (1080×1920)">
+                            <div class="orient-icon"><div class="orient-portrait"></div></div>
+                            Vertical
+                            <small style="font-weight:400;opacity:.7;">1080×1920</small>
+                        </button>
+                    </div>
                     <label>Largura (px)</label>
-                    <input type="number" id="canvasWidth" value="{{ conteudo.design_largura|default:1920 }}" min="100">
+                    <input type="number" id="canvasWidth" value="{{ conteudo.design_largura|default:1920 }}" min="100" onchange="updateOrientationButtons()">
                     <label>Altura (px)</label>
-                    <input type="number" id="canvasHeight" value="{{ conteudo.design_altura|default:1080 }}" min="100">
+                    <input type="number" id="canvasHeight" value="{{ conteudo.design_altura|default:1080 }}" min="100" onchange="updateOrientationButtons()">
                     <label>Duração na TV (s)</label>
                     <input type="number" id="designDuration" value="{{ conteudo.duracao_segundos|default:15 }}" min="3" max="300">
                     <label>Salvar como template</label>
@@ -1381,6 +1455,9 @@ function init() {
     // Window resize → refit
     window.addEventListener('resize', zoomFit);
 
+    // Mark orientation buttons on load
+    updateOrientationButtons();
+
     // Warn before leaving with unsaved changes
     window.addEventListener('beforeunload', function(e) {
         if (hasUnsavedChanges) {
@@ -2026,7 +2103,35 @@ window.redoAction = function() {
 window.toggleSettings = function() {
     document.getElementById('settingsDropdown').classList.toggle('show');
 };
-window.applyCanvasSize = function() {
+window.setOrientation = function(mode) {
+    if (mode === 'horizontal') {
+        document.getElementById('canvasWidth').value = 1920;
+        document.getElementById('canvasHeight').value = 1080;
+    } else {
+        document.getElementById('canvasWidth').value = 1080;
+        document.getElementById('canvasHeight').value = 1920;
+    }
+    updateOrientationButtons();
+    applyCanvasSize(false); // false = não fecha dropdown para feedback ser visto
+};
+
+window.updateOrientationButtons = function() {
+    const w = parseInt(document.getElementById('canvasWidth').value) || 1920;
+    const h = parseInt(document.getElementById('canvasHeight').value) || 1080;
+    const btnH = document.getElementById('btnOrientH');
+    const btnV = document.getElementById('btnOrientV');
+    if (!btnH || !btnV) return;
+    // Horizontal: largura >= altura
+    if (w >= h) {
+        btnH.classList.add('active');
+        btnV.classList.remove('active');
+    } else {
+        btnV.classList.add('active');
+        btnH.classList.remove('active');
+    }
+};
+
+window.applyCanvasSize = function(closeDropdown) {
     const w = parseInt(document.getElementById('canvasWidth').value) || 1920;
     const h = parseInt(document.getElementById('canvasHeight').value) || 1080;
     CANVAS_W = w;
@@ -2034,7 +2139,10 @@ window.applyCanvasSize = function() {
     // zoomFit recalculates zoom and calls applyZoomToFabric which sets the DOM size
     zoomFit();
     canvas.renderAll();
-    document.getElementById('settingsDropdown').classList.remove('show');
+    updateOrientationButtons();
+    if (closeDropdown !== false) {
+        document.getElementById('settingsDropdown').classList.remove('show');
+    }
     showToast('Dimensões atualizadas: ' + w + '×' + h + 'px');
     scheduleAutoSave();
 };
