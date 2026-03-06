@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from django.db.models import Q, Count, Sum
 from django.db import models
+from django.views.decorators.clickjacking import xframe_options_exempt
 from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion,
@@ -3290,6 +3291,7 @@ def conteudo_corporativo_preview_view(request, pk):
 
 
 @login_required
+@xframe_options_exempt
 def conteudo_corporativo_render_view(request, pk):
     """
     Renderiza o conteudo_tv.html real (1920×1080 ou 1080×1920) para ser embutido
@@ -3569,6 +3571,7 @@ def design_delete_view(request, pk):
     return render(request, 'corporativo/design_confirm_delete.html', {'conteudo': conteudo})
 
 
+@xframe_options_exempt
 def design_render_tv_view(request, pk):
     """
     Renderiza o design como HTML/SVG estático para o app de TV (WebView).
