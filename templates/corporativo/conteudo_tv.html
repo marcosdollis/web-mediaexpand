@@ -287,17 +287,25 @@ body.vertical .news-source   { font-size: 22px; margin-top: 6px; }
         <div class="forecast-row">
             {% if orientacao == 'VERTICAL' %}
                 {% for dia in dados.previsao|slice:":6" %}
+                <div class="forecast-card glass">
+                    <div class="day">{{ dia.data }}</div>
+                    <div class="icon">{% if dia.icone_emoji %}{{ dia.icone_emoji }}{% else %}🌤{% endif %}</div>
+                    <div class="temps"><span class="low">{{ dia.min }}°</span> / <span class="high">{{ dia.max }}°</span></div>
+                    <div class="desc">{{ dia.descricao }}</div>
+                    {% if dia.precipitacao_pct %}<div class="rain"><i class="fas fa-umbrella"></i> {{ dia.precipitacao_pct }}%</div>{% endif %}
+                </div>
+                {% endfor %}
             {% else %}
                 {% for dia in dados.previsao|slice:":5" %}
+                <div class="forecast-card glass">
+                    <div class="day">{{ dia.data }}</div>
+                    <div class="icon">{% if dia.icone_emoji %}{{ dia.icone_emoji }}{% else %}🌤{% endif %}</div>
+                    <div class="temps"><span class="low">{{ dia.min }}°</span> / <span class="high">{{ dia.max }}°</span></div>
+                    <div class="desc">{{ dia.descricao }}</div>
+                    {% if dia.precipitacao_pct %}<div class="rain"><i class="fas fa-umbrella"></i> {{ dia.precipitacao_pct }}%</div>{% endif %}
+                </div>
+                {% endfor %}
             {% endif %}
-            <div class="forecast-card glass">
-                <div class="day">{{ dia.data }}</div>
-                <div class="icon">{% if dia.icone_emoji %}{{ dia.icone_emoji }}{% else %}🌤{% endif %}</div>
-                <div class="temps"><span class="low">{{ dia.min }}°</span> / <span class="high">{{ dia.max }}°</span></div>
-                <div class="desc">{{ dia.descricao }}</div>
-                {% if dia.precipitacao_pct %}<div class="rain"><i class="fas fa-umbrella"></i> {{ dia.precipitacao_pct }}%</div>{% endif %}
-            </div>
-            {% endfor %}
         </div>
         {% endif %}
     </div>
@@ -424,17 +432,25 @@ body.vertical .news-source   { font-size: 22px; margin-top: 6px; }
             {% if dados.manchetes %}
                 {% if orientacao == 'VERTICAL' %}
                     {% for n in dados.manchetes|slice:":10" %}
+                    <div class="news-item glass">
+                        <div class="news-number">{{ forloop.counter|stringformat:"02d" }}</div>
+                        <div class="news-text">
+                            <div class="news-headline">{{ n.titulo }}</div>
+                            <div class="news-source">{{ n.fonte }}{% if n.publicado_em %} — {{ n.publicado_em }}{% endif %}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 {% else %}
                     {% for n in dados.manchetes|slice:":7" %}
-                {% endif %}
-                <div class="news-item glass">
-                    <div class="news-number">{{ forloop.counter|stringformat:"02d" }}</div>
-                    <div class="news-text">
-                        <div class="news-headline">{{ n.titulo }}</div>
-                        <div class="news-source">{{ n.fonte }}{% if n.publicado_em %} — {{ n.publicado_em }}{% endif %}</div>
+                    <div class="news-item glass">
+                        <div class="news-number">{{ forloop.counter|stringformat:"02d" }}</div>
+                        <div class="news-text">
+                            <div class="news-headline">{{ n.titulo }}</div>
+                            <div class="news-source">{{ n.fonte }}{% if n.publicado_em %} — {{ n.publicado_em }}{% endif %}</div>
+                        </div>
                     </div>
-                </div>
-                {% endfor %}
+                    {% endfor %}
+                {% endif %}
             {% else %}
             <div style="text-align:center;margin-top:100px;opacity:.5;">
                 <i class="fas fa-satellite-dish" style="font-size:60px;"></i>
