@@ -591,20 +591,23 @@
                 <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Status dos Vídeos</h5>
             </div>
             <div class="card-body">
-                {% if video_stats %}
-                <canvas id="videoStatusChart" width="100" height="100"></canvas>
+                {% with total_vids=video_stats.approved|add:video_stats.pending|add:video_stats.rejected %}
+                {% if total_vids > 0 %}
+                <div style="position: relative; height: 160px;">
+                    <canvas id="videoStatusChart"></canvas>
+                </div>
                 <div class="mt-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="badge bg-success">Aprovados</span>
-                        <span class="fw-bold">{{ video_stats.approved|default:0 }}</span>
+                        <div><i class="fas fa-circle text-success me-2" style="font-size:10px"></i><span>Aprovados</span></div>
+                        <span class="badge bg-success rounded-pill">{{ video_stats.approved|default:0 }}</span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="badge bg-warning">Pendentes</span>
-                        <span class="fw-bold">{{ video_stats.pending|default:0 }}</span>
+                        <div><i class="fas fa-circle text-warning me-2" style="font-size:10px"></i><span>Pendentes</span></div>
+                        <span class="badge bg-warning rounded-pill text-dark">{{ video_stats.pending|default:0 }}</span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="badge bg-danger">Rejeitados</span>
-                        <span class="fw-bold">{{ video_stats.rejected|default:0 }}</span>
+                        <div><i class="fas fa-circle text-danger me-2" style="font-size:10px"></i><span>Rejeitados</span></div>
+                        <span class="badge bg-danger rounded-pill">{{ video_stats.rejected|default:0 }}</span>
                     </div>
                 </div>
                 {% else %}
@@ -613,6 +616,7 @@
                     <p class="text-muted">Nenhum vídeo encontrado</p>
                 </div>
                 {% endif %}
+                {% endwith %}
             </div>
         </div>
     </div>
@@ -626,11 +630,36 @@
         color: white;
         border-radius: 15px;
         transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .dashboard-card .card-body {
+        padding: 1.5rem;
+    }
+
+    .dashboard-card .card-title {
+        color: #ffffff !important;
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        line-height: 1;
+    }
+
+    .dashboard-card .card-subtitle,
+    .dashboard-card p.card-subtitle {
+        color: rgba(255, 255, 255, 0.85) !important;
+        font-size: 0.9rem;
+        font-weight: 400;
+        margin-top: 0.25rem;
+    }
+
+    .dashboard-card .opacity-75 {
+        color: rgba(255, 255, 255, 0.7);
     }
 
     .dashboard-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        box-shadow: 0 12px 30px rgba(102, 126, 234, 0.4);
     }
 
     .timeline {
@@ -732,38 +761,44 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize video status chart
+    // Initialize video status chart — só renderiza se o canvas existir (só quando há vídeos)
     const ctx = document.getElementById('videoStatusChart');
     if (ctx) {
         const videoStats = {{ video_stats|safe }};
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Aprovados', 'Pendentes', 'Rejeitados'],
-                datasets: [{
-                    data: [
-                        videoStats.approved || 0,
-                        videoStats.pending || 0,
-                        videoStats.rejected || 0
-                    ],
-                    backgroundColor: [
-                        '#198754',
-                        '#ffc107',
-                        '#dc3545'
-                    ],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
+        const total = (videoStats.approved || 0) + (videoStats.pending || 0) + (videoStats.rejected || 0);
+        if (total > 0) {
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Aprovados', 'Pendentes', 'Rejeitados'],
+                    datasets: [{
+                        data: [
+                            videoStats.approved || 0,
+                            videoStats.pending || 0,
+                            videoStats.rejected || 0
+                        ],
+                        backgroundColor: ['#198754', '#ffc107', '#dc3545'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const pct = ((context.raw / total) * 100).toFixed(1);
+                                    return ` ${context.label}: ${context.raw} (${pct}%)`;
+                                }
+                            }
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 
     // Animate counters - apenas nos cards de estatísticas com números
