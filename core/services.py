@@ -241,7 +241,7 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
 
     if not config.pode_requisitar('COTACOES'):
         logger.warning('[COTAÇÕES] Limite diário de requisições atingido')
-        return _cotacoes_fallback()
+        return _cotacoes_fallback(cache_key)
 
     result = {
         'tipo': 'COTACOES',
@@ -288,10 +288,11 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
                 time.sleep(wait_time)
             else:
                 logger.error('[COTAÇÕES] Todas as tentativas falharam')
-                return _cotacoes_fallback()
+                return _cotacoes_fallback(cache_key)
     else:
-        # Loop completou sem break
-        return _cotacoes_fallback()
+        # Loop completou sem break - erro 429 persistente
+        logger.warning('[COTAÇÕES] Rate limit persistente - usando cache longo')
+        return _cotacoes_fallback(cache_key)
 
     try:
 
@@ -386,23 +387,45 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
             result['commodities'].append(
                 {'nome': nome, 'codigo': cod, 'valor': None, 'variacao_pct': None, 'direcao': 'stable'})
 
-    # Cache por 30 minutos (aumentado para reduzir chamadas à API)
-    cache_ttl = max(config.cache_cotacoes_minutos * 60, 1800)  # Mínimo 30min
+    # Cache por 2 horas (aumentado para reduzir chamadas à API)
+    cache_ttl = max(config.cache_cotacoes_minutos * 60, 7200)  # Mínimo 2 horas
     cache.set(cache_key, result, cache_ttl)
-    logger.info(f'[COTAÇÕES] Dados cacheados por {cache_ttl}s')
+    logger.info(f'[COTAÇÕES] Dados cacheados por {cache_ttl}s ({cache_ttl//60}min)')
     return result
 
 
-def _cotacoes_fallback():
-    return {
+def _cotacoes_fallback(cache_key=None):
+    """Retorna dados mockados quando API falha. Cacheia por 4h para evitar retry excessivo."""
+    fallback_data = {
         'tipo': 'COTACOES',
-        'moedas': [],
-        'cripto': [],
-        'indices': [],
-        'commodities': [],
-        'erro': 'Dados indisponíveis no momento',
+        'moedas': [
+            {'nome': 'Dólar Americano', 'codigo': 'USD', 'valor': 5.85, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 5.90, 'low': 5.80},
+            {'nome': 'Euro', 'codigo': 'EUR', 'valor': 6.35, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 6.40, 'low': 6.30},
+            {'nome': 'Peso Argentino', 'codigo': 'ARS', 'valor': 0.0055, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 0.0056, 'low': 0.0054},
+        ],
+        'cripto': [
+            {'nome': 'Bitcoin', 'codigo': 'BTC', 'valor': 95000, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 96000, 'low': 94000},
+            {'nome': 'Ethereum', 'codigo': 'ETH', 'valor': 5500, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 5600, 'low': 5400},
+        ],
+        'indices': [
+            {'nome': 'Ibovespa', 'codigo': 'IBOV', 'valor': 130000, 'variacao_pct': 0.0, 'direcao': 'stable'},
+        ],
+        'commodities': [
+            {'nome': 'Soja', 'codigo': 'SOJ', 'valor': 1450, 'variacao_pct': 0.0, 'direcao': 'stable', 'valor_brl': 8482, 'unidade': 'USD/bushel'},
+            {'nome': 'Milho', 'codigo': 'CORN', 'valor': 485, 'variacao_pct': 0.0, 'direcao': 'stable', 'valor_brl': 2837, 'unidade': 'USD/bushel'},
+            {'nome': 'Trigo', 'codigo': 'WHEAT', 'valor': 620, 'variacao_pct': 0.0, 'direcao': 'stable', 'valor_brl': 3627, 'unidade': 'USD/bushel'},
+        ],
+        'erro': 'Dados temporários - API indisponível (rate limit)',
         'atualizado_em': timezone.now().isoformat(),
     }
+    
+    # Cachear por 4 horas para evitar retry excessivo no rate limit
+    if cache_key:
+        cache_ttl = 14400  # 4 horas
+        cache.set(cache_key, fallback_data, cache_ttl)
+        logger.warning(f'[COTAÇÕES] Fallback cacheado por {cache_ttl}s (4h) - aguardar antes de nova tentativa')
+    
+    return fallback_data
 
 
 # ══════════════════════════════════════════════

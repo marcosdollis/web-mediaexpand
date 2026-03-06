@@ -1174,9 +1174,14 @@ def video_create_view(request):
             if form.is_valid():
                 video = form.save(commit=False)
                 video.cliente = cliente
+                video.status = 'PENDING'  # Garante que clientes sempre enviam como pendente
                 video.save()
                 messages.success(request, 'Vídeo enviado com sucesso! Aguarde aprovação.')
                 return redirect('video_list')
+            else:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f'[VIDEO_UPLOAD] Form inválido para cliente {cliente}: {form.errors}')
         else:
             form = VideoForm(user=user)
         

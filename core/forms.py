@@ -174,6 +174,7 @@ class VideoForm(forms.ModelForm):
         if user and user.is_client():
             self.fields['status'].widget = forms.HiddenInput()
             self.fields['status'].initial = 'PENDING'
+            self.fields['status'].required = False  # View define o valor, não o form
         # Labels e help texts
         self.fields['data_publicacao'].label = 'Data de publicação'
         self.fields['data_publicacao'].help_text = 'Quando status=Agendado, vídeo aparece nas TVs a partir desta data'
