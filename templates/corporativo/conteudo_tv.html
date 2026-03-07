@@ -506,6 +506,48 @@ function updateClock() {
 }
 updateClock();
 setInterval(updateClock, 1000);
+
+// Auto-log: registra execução após a duração configurada
+(function() {
+    var dispositivo_id = '{{ dispositivo_id }}';
+    var conteudo_id    = '{{ conteudo_id }}';
+    var duracao        = parseInt('{{ duracao_segundos }}') || 30;
+    var tipo           = '{{ conteudo_tipo }}';
+
+    if (!dispositivo_id) return; // não loga em preview/iframe
+
+    var iniciado_em = Date.now();
+    var ja_logou = false;
+
+    function enviarLog(completo) {
+        if (ja_logou) return;
+        ja_logou = true;
+        var elapsed = Math.round((Date.now() - iniciado_em) / 1000);
+        var payload = {
+            dispositivo_id: dispositivo_id,
+            conteudo_corporativo_id: conteudo_id,
+            tipo_conteudo: tipo,
+            duracao_segundos: elapsed,
+            completamente_exibido: completo
+        };
+        var url = '/api/tv/log-webview/';
+        var blob = new Blob([JSON.stringify(payload)], {type: 'application/json'});
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon(url, blob);
+        } else {
+            fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload), keepalive: true}).catch(function(){});
+        }
+    }
+
+    // Após a duração exata → marca como completo
+    setTimeout(function() { enviarLog(true); }, duracao * 1000);
+
+    // Ao sair antes do tempo → parcial
+    window.addEventListener('beforeunload', function() { enviarLog(false); });
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden') { enviarLog(false); }
+    });
+})();
 </script>
 </body>
 </html>

@@ -201,19 +201,13 @@
                                                 <i class="fas fa-building me-1"></i>{{ log.video.cliente.empresa }}
                                             </small>
                                         </div>
-                                        {% if log.data_hora_fim %}
-                                            {% if log.completamente_exibido %}
-                                            <span class="badge bg-success">
-                                                <i class="fas fa-check-circle me-1"></i>Executado
-                                            </span>
-                                            {% else %}
-                                            <span class="badge bg-warning text-dark">
-                                                <i class="fas fa-exclamation-triangle me-1"></i>Parcial
-                                            </span>
-                                            {% endif %}
+                                        {% if log.completamente_exibido %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>Executado
+                                        </span>
                                         {% else %}
-                                        <span class="badge bg-info text-dark">
-                                            <i class="fas fa-play-circle me-1"></i>Em reprodução
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>Parcial
                                         </span>
                                         {% endif %}
                                     </div>
@@ -273,19 +267,13 @@
                                                 {% else %}Design Corporativo{% endif %}
                                             </small>
                                         </div>
-                                        {% if log.data_hora_fim %}
-                                            {% if log.completamente_exibido %}
-                                            <span class="badge bg-success">
-                                                <i class="fas fa-check-circle me-1"></i>Executado
-                                            </span>
-                                            {% else %}
-                                            <span class="badge bg-warning text-dark">
-                                                <i class="fas fa-exclamation-triangle me-1"></i>Parcial
-                                            </span>
-                                            {% endif %}
+                                        {% if log.completamente_exibido %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>Executado
+                                        </span>
                                         {% else %}
-                                        <span class="badge bg-info text-dark">
-                                            <i class="fas fa-play-circle me-1"></i>Em reprodução
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>Parcial
                                         </span>
                                         {% endif %}
                                     </div>

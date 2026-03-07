@@ -458,30 +458,15 @@ class TVLogExibicaoView(APIView):
                 # Duração não cadastrada → assume completo
                 completamente_exibido = True
 
-            # Atualiza log parcial existente para este vídeo, ou cria novo executado
-            log_parcial = LogExibicao.objects.filter(
+            # Cria registro do log com início/fim corretos
+            LogExibicao.objects.create(
                 dispositivo=dispositivo,
                 video=video,
-                completamente_exibido=False,
-                data_hora_fim__isnull=True,
-            ).order_by('-data_hora_inicio').first()
-
-            if log_parcial:
-                log_parcial.data_hora_fim = data_hora_fim
-                log_parcial.completamente_exibido = completamente_exibido
-                log_parcial.save(update_fields=['data_hora_fim', 'completamente_exibido'])
-            else:
-                LogExibicao.objects.create(
-                    dispositivo=dispositivo,
-                    video=video,
-                    playlist=dispositivo.playlist_atual,
-                    data_hora_inicio=data_hora_inicio,
-                    data_hora_fim=data_hora_fim,
-                    completamente_exibido=completamente_exibido
-                )
-
-            # Cria entrada "parcial" para o próximo item da playlist (fila)
-            _criar_log_parcial_proximo(dispositivo, video_id=video.id)
+                playlist=dispositivo.playlist_atual,
+                data_hora_inicio=data_hora_inicio,
+                data_hora_fim=data_hora_fim,
+                completamente_exibido=completamente_exibido
+            )
 
             return Response(
                 {'success': True, 'message': 'Log registrado com sucesso'},
@@ -494,74 +479,9 @@ class TVLogExibicaoView(APIView):
             return Response({'error': 'Vídeo não encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
 
-def _criar_log_parcial_proximo(dispositivo, video_id=None, corporativo_id=None):
-    """
-    Dado o item que acabou de ser executado, encontra o próximo na playlist
-    e cria (ou mantém) um registro parcial para ele — indicando que está em execução.
-    """
-    playlist = dispositivo.playlist_atual
-    if not playlist:
-        return
-
-    items = list(playlist.items.filter(ativo=True).order_by('ordem'))
-    if not items:
-        return
-
-    # Encontra posição do item atual
-    idx_atual = None
-    for i, item in enumerate(items):
-        if video_id and item.video_id == video_id:
-            idx_atual = i
-            break
-        if corporativo_id and item.conteudo_corporativo_id == corporativo_id:
-            idx_atual = i
-            break
-
-    if idx_atual is None:
-        # Item não encontrado na playlist — usa o primeiro como próximo
-        proximo = items[0]
-    else:
-        proximo = items[(idx_atual + 1) % len(items)]
-
-    agora = timezone.now()
-
-    if proximo.video:
-        # Evita criar duplicata de parcial
-        ja_existe = LogExibicao.objects.filter(
-            dispositivo=dispositivo,
-            video=proximo.video,
-            completamente_exibido=False,
-            data_hora_fim__isnull=True,
-        ).exists()
-        if not ja_existe:
-            LogExibicao.objects.create(
-                dispositivo=dispositivo,
-                video=proximo.video,
-                playlist=playlist,
-                data_hora_inicio=agora,
-                data_hora_fim=None,
-                completamente_exibido=False,
-            )
-    elif proximo.conteudo_corporativo:
-        cc = proximo.conteudo_corporativo
-        ja_existe = LogExibicaoWebView.objects.filter(
-            dispositivo=dispositivo,
-            conteudo_corporativo=cc,
-            completamente_exibido=False,
-            data_hora_fim__isnull=True,
-        ).exists()
-        if not ja_existe:
-            LogExibicaoWebView.objects.create(
-                dispositivo=dispositivo,
-                playlist=playlist,
-                conteudo_corporativo=cc,
-                tipo_conteudo=cc.tipo,
-                titulo=cc.titulo,
-                duracao_segundos=cc.duracao_segundos or 0,
-                data_hora_inicio=agora,
-                data_hora_fim=None,
-                completamente_exibido=False,
-            )
+def _criar_log_parcial_proximo(*args, **kwargs):
+    """Removido — causava registros phantom de 'Em reprodução' para vídeos fora da playlist."""
+    pass
 
 
 class TVLogWebViewView(APIView):
@@ -606,34 +526,18 @@ class TVLogWebViewView(APIView):
         else:
             completamente_exibido = True
 
-        # Atualiza parcial existente ou cria novo
-        log_parcial = LogExibicaoWebView.objects.filter(
+        # Cria o log de exibição
+        LogExibicaoWebView.objects.create(
             dispositivo=dispositivo,
+            playlist=dispositivo.playlist_atual,
             conteudo_corporativo=cc,
-            completamente_exibido=False,
-            data_hora_fim__isnull=True,
-        ).order_by('-data_hora_inicio').first()
-
-        if log_parcial:
-            log_parcial.data_hora_fim = data_hora_fim
-            log_parcial.completamente_exibido = completamente_exibido
-            log_parcial.duracao_segundos = duracao_segundos
-            log_parcial.save(update_fields=['data_hora_fim', 'completamente_exibido', 'duracao_segundos'])
-        else:
-            LogExibicaoWebView.objects.create(
-                dispositivo=dispositivo,
-                playlist=dispositivo.playlist_atual,
-                conteudo_corporativo=cc,
-                tipo_conteudo=tipo_conteudo,
-                titulo=titulo,
-                duracao_segundos=duracao_segundos,
-                data_hora_inicio=data_hora_inicio,
-                data_hora_fim=data_hora_fim,
-                completamente_exibido=completamente_exibido,
-            )
-
-        # Cria parcial para próximo na fila
-        _criar_log_parcial_proximo(dispositivo, corporativo_id=cc.id if cc else None)
+            tipo_conteudo=tipo_conteudo,
+            titulo=titulo,
+            duracao_segundos=duracao_segundos,
+            data_hora_inicio=data_hora_inicio,
+            data_hora_fim=data_hora_fim,
+            completamente_exibido=completamente_exibido,
+        )
 
         return Response({'success': True}, status=status.HTTP_201_CREATED)
 
@@ -759,10 +663,16 @@ class TVCorporativoHTMLView(APIView):
         dados = buscar_dados_corporativos(tipo_upper, municipio=municipio, conteudo=conteudo)
         orientacao = getattr(conteudo, 'orientacao', 'HORIZONTAL') if conteudo else 'HORIZONTAL'
 
+        # dispositivo_id opcional via query param — para auto-log via JS na página
+        dispositivo_id = request.GET.get('dispositivo_id', '')
+
         context = {
             'conteudo_tipo': tipo_upper,
             'dados': dados,
             'orientacao': orientacao,
+            'dispositivo_id': dispositivo_id,
+            'conteudo_id': conteudo.id if conteudo else '',
+            'duracao_segundos': conteudo.duracao_segundos if (conteudo and conteudo.duracao_segundos) else 30,
         }
         return django_render(request, 'corporativo/conteudo_tv.html', context)
 
@@ -1945,6 +1855,7 @@ def dispositivo_detail_view(request, pk):
     # Buscar logs recentes — vídeos e webview unidos e ordenados por data
     logs_video = list(
         dispositivo.logs_exibicao.select_related('video', 'video__cliente', 'playlist')
+        .filter(data_hora_fim__isnull=False)  # exclui registros ghost sem fim
         .order_by('-data_hora_inicio')[:30]
     )
     logs_wv = list(
