@@ -204,35 +204,73 @@ body.vertical .quote-brl     { font-size: 20px; }
 body.vertical .quote-var     { font-size: 32px; margin-top: 8px; }
 
 /* ══════════════════════════════════════════
-   NOTÍCIAS — HORIZONTAL
+   NOTÍCIAS — SLIDESHOW
    ══════════════════════════════════════════ */
-.news-list {
-    flex: 1; display: flex; flex-direction: column; gap: 14px;
+.news-slideshow {
+    position: relative; flex: 1; overflow: hidden; border-radius: 12px;
 }
-.news-item {
-    display: flex; align-items: flex-start;
-    padding: 18px 24px; position: relative;
+.news-slide {
+    position: absolute; inset: 0;
+    opacity: 0; transition: opacity 0.9s ease;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    background-size: cover; background-position: center;
+    background-color: #0f1923;
 }
-.news-item::before {
-    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-    width: 5px; background: var(--red); border-radius: 3px;
+.news-slide.active { opacity: 1; }
+.news-slide-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(
+        to top,
+        rgba(0,0,0,0.96) 0%,
+        rgba(0,0,0,0.55) 45%,
+        rgba(0,0,0,0.15) 100%
+    );
 }
-.news-number {
-    font-size: 30px; font-weight: 900; color: var(--red);
-    margin-right: 20px; min-width: 50px; text-align: center;
+.news-slide-content {
+    position: relative; z-index: 1;
+    padding: 40px 60px 50px;
 }
-.news-text { flex: 1; }
-.news-headline { font-size: 24px; font-weight: 600; line-height: 1.3; }
-.news-source   { font-size: 15px; color: var(--gray); margin-top: 4px; }
-
-/* ══════════════════════════════════════════
-   NOTÍCIAS — VERTICAL
-   ══════════════════════════════════════════ */
-body.vertical .news-list  { gap: 18px; }
-body.vertical .news-item  { padding: 24px 30px; }
-body.vertical .news-number { font-size: 40px; min-width: 60px; margin-right: 26px; }
-body.vertical .news-headline { font-size: 34px; }
-body.vertical .news-source   { font-size: 22px; margin-top: 6px; }
+.news-slide-badge {
+    display: inline-block;
+    background: var(--red); color: #fff;
+    font-size: 12px; font-weight: 800; letter-spacing: 2px;
+    text-transform: uppercase; padding: 5px 14px;
+    border-radius: 4px; margin-bottom: 16px;
+}
+.news-slide-headline {
+    font-size: 38px; font-weight: 800; line-height: 1.3;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+    max-width: 1400px;
+}
+.news-slide-desc {
+    font-size: 18px; color: rgba(255,255,255,0.72);
+    margin-top: 12px; line-height: 1.5; max-width: 1200px;
+    display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden;
+}
+.news-slide-meta {
+    font-size: 14px; color: rgba(255,255,255,0.45);
+    margin-top: 14px;
+}
+/* Indicador de progresso (barra) */
+.news-progress-bar-wrap {
+    flex-shrink: 0; height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 0 0 12px 12px; overflow: hidden;
+}
+.news-progress-bar {
+    height: 100%; background: var(--red);
+    width: 0%; transition: width linear;
+}
+/* Contador de slides */
+.news-counter {
+    text-align: right; font-size: 13px; color: rgba(255,255,255,0.35);
+    padding: 8px 16px 0; flex-shrink: 0;
+}
+/* VERTICAL */
+body.vertical .news-slide-headline { font-size: 48px; }
+body.vertical .news-slide-desc     { font-size: 26px; }
+body.vertical .news-slide-content  { padding: 50px 50px 60px; }
 </style>
 <script>
 // Auto-scale + auto-detect orientação real do viewport
@@ -444,55 +482,98 @@ window.addEventListener('DOMContentLoaded', function() {
 
 {% elif conteudo_tipo == 'NOTICIAS' %}
 <!-- ═══════════════════════════════════════
-     NOTÍCIAS
+     NOTÍCIAS — SLIDESHOW
      ═══════════════════════════════════════ -->
 <div class="fullscreen bg-noticias">
     <div class="header-bar">
         <div class="header-brand">MEDIAEXPAND</div>
         <div class="header-datetime"><i class="far fa-clock" style="margin-right:8px;"></i><span id="clock"></span></div>
     </div>
-    <div class="content-area">
-        <div class="content-title"><i class="fas fa-newspaper" style="margin-right:14px;"></i>Notícias do Brasil</div>
-        <div class="content-divider"></div>
-        <div class="news-list">
-            {% if dados.manchetes %}
-                {% if orientacao == 'VERTICAL' %}
-                    {% for n in dados.manchetes|slice:":10" %}
-                    <div class="news-item glass">
-                        <div class="news-number">{{ forloop.counter|stringformat:"02d" }}</div>
-                        <div class="news-text">
-                            <div class="news-headline">{{ n.titulo }}</div>
-                            <div class="news-source">{{ n.fonte }}{% if n.publicado_em %} — {{ n.publicado_em }}{% endif %}</div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    {% for n in dados.manchetes|slice:":7" %}
-                    <div class="news-item glass">
-                        <div class="news-number">{{ forloop.counter|stringformat:"02d" }}</div>
-                        <div class="news-text">
-                            <div class="news-headline">{{ n.titulo }}</div>
-                            <div class="news-source">{{ n.fonte }}{% if n.publicado_em %} — {{ n.publicado_em }}{% endif %}</div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% endif %}
-            {% else %}
-            <div style="text-align:center;margin-top:100px;opacity:.5;">
-                <i class="fas fa-satellite-dish" style="font-size:60px;"></i>
-                <p style="font-size:24px;margin-top:20px;">Nenhuma notícia disponível no momento</p>
-            </div>
-            {% endif %}
+    <div class="content-area" style="padding-bottom:12px;">
+        <div class="content-title" style="font-size:28px;margin-bottom:6px;">
+            <i class="fas fa-newspaper" style="margin-right:12px;"></i>Notícias do Brasil
         </div>
+        <div class="content-divider" style="margin-bottom:12px;"></div>
+
+        {% if dados.manchetes %}
+        <div class="news-slideshow" id="newsSlideshow">
+            {% for n in dados.manchetes|slice:":10" %}
+            <div class="news-slide{% if forloop.first %} active{% endif %}"
+                 {% if n.imagem_url %}style="background-image:url('{{ n.imagem_url }}')"{% endif %}
+                 data-index="{{ forloop.counter0 }}">
+                <div class="news-slide-overlay"></div>
+                <div class="news-slide-content">
+                    <div class="news-slide-badge">{{ n.fonte|default:"Notícia" }}</div>
+                    <div class="news-slide-headline">{{ n.titulo }}</div>
+                    {% if n.descricao %}
+                    <div class="news-slide-desc">{{ n.descricao }}</div>
+                    {% endif %}
+                    {% if n.publicado_em %}<div class="news-slide-meta">{{ n.publicado_em }}</div>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="news-counter" id="newsCounter"></div>
+        <div class="news-progress-bar-wrap">
+            <div class="news-progress-bar" id="newsProgressBar"></div>
+        </div>
+        {% else %}
+        <div style="text-align:center;margin-top:100px;opacity:.5;">
+            <i class="fas fa-satellite-dish" style="font-size:60px;"></i>
+            <p style="font-size:24px;margin-top:20px;">Nenhuma notícia disponível no momento</p>
+        </div>
+        {% endif %}
     </div>
     <div class="footer-bar">
-        <span>Fonte: Google News</span>
+        <span>Fonte: {{ dados.fonte_tipo|default:"NewsAPI" }}</span>
         <span>Atualizado: {{ dados.atualizado_em|default:"—" }}</span>
     </div>
 </div>
 {% endif %}
 
 <script>
+// ── SLIDESHOW DE NOTÍCIAS ──
+(function(){
+    var container = document.getElementById('newsSlideshow');
+    if (!container) return;
+    var slides   = container.querySelectorAll('.news-slide');
+    var counter  = document.getElementById('newsCounter');
+    var bar      = document.getElementById('newsProgressBar');
+    if (!slides.length) return;
+
+    var total    = slides.length;
+    var duracao  = parseInt('{{ duracao_segundos }}') || 30;
+    // Divide o tempo total entre os slides (min 5s, max 12s por slide)
+    var perSlide = Math.min(12000, Math.max(5000, Math.floor(duracao * 1000 / total)));
+    var current  = 0;
+
+    function updateCounter() {
+        if (counter) counter.textContent = (current + 1) + ' / ' + total;
+    }
+
+    function startBar() {
+        if (!bar) return;
+        bar.style.transition = 'none';
+        bar.style.width = '0%';
+        // forçar reflow para reiniciar a transição
+        bar.offsetWidth;
+        bar.style.transition = 'width ' + perSlide + 'ms linear';
+        bar.style.width = '100%';
+    }
+
+    function goTo(n) {
+        slides[current].classList.remove('active');
+        current = (n + total) % total;
+        slides[current].classList.add('active');
+        updateCounter();
+        startBar();
+    }
+
+    updateCounter();
+    startBar();
+    setInterval(function(){ goTo(current + 1); }, perSlide);
+})();
+
 // Relógio em tempo real
 function updateClock() {
     var now = new Date();

@@ -577,11 +577,31 @@ def _noticias_fallback_rss(cache_key='noticias_br', config=None):
                 titulo = partes[0].strip() if partes else titulo_raw
                 fonte  = partes[1].strip() if len(partes) > 1 else nome
 
+                # Extrair imagem: enclosure > media:content > media:thumbnail
+                imagem_url = None
+                encl = item.find('enclosure')
+                if encl is not None:
+                    tp = encl.get('type', '')
+                    if 'image' in tp or not tp:
+                        imagem_url = encl.get('url')
+                if not imagem_url:
+                    for _ns in ['{http://search.yahoo.com/mrss/}', '{http://video.search.yahoo.com/mrss/}']:
+                        mc = item.find(f'{_ns}content')
+                        if mc is not None:
+                            u = mc.get('url')
+                            if u: imagem_url = u; break
+                if not imagem_url:
+                    for _ns in ['{http://search.yahoo.com/mrss/}']:
+                        mt = item.find(f'{_ns}thumbnail')
+                        if mt is not None:
+                            u = mt.get('url')
+                            if u: imagem_url = u; break
+
                 manchetes.append({
                     'titulo': titulo,
                     'descricao': item.findtext('description', '') or '',
                     'fonte': fonte,
-                    'imagem_url': None,
+                    'imagem_url': imagem_url,
                     'publicado_em': item.findtext('pubDate', '') or '',
                 })
 
