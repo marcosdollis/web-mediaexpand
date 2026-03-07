@@ -3656,9 +3656,13 @@ def design_render_tv_view(request, pk):
     conteudo = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
     import json as json_mod
     design_data = conteudo.design_json or {}
+    dispositivo_id = request.GET.get('dispositivo_id', '')
     context = {
         'conteudo': conteudo,
         'design_json': json_mod.dumps(design_data),
+        'dispositivo_id': dispositivo_id,
+        'conteudo_id': conteudo.id,
+        'duracao_segundos': conteudo.duracao_segundos or 30,
     }
     return render(request, 'corporativo/design_tv_render.html', context)
 
