@@ -1941,8 +1941,8 @@ def dispositivo_detail_view(request, pk):
     # Horário de funcionamento do dispositivo
     no_horario = dispositivo.esta_no_horario_exibicao()
     horarios_funcionamento = dispositivo.horarios_funcionamento.all()
-    
-# Buscar logs recentes — vídeos e webview unidos e ordenados por data
+
+    # Buscar logs recentes — vídeos e webview unidos e ordenados por data
     logs_video = list(
         dispositivo.logs_exibicao.select_related('video', 'video__cliente', 'playlist')
         .order_by('-data_hora_inicio')[:30]
@@ -1951,7 +1951,15 @@ def dispositivo_detail_view(request, pk):
         dispositivo.logs_webview.select_related('conteudo_corporativo', 'playlist')
         .order_by('-data_hora_inicio')[:30]
     )
+    logs_recentes = sorted(
+        logs_video + logs_wv,
+        key=lambda x: x.data_hora_inicio,
+        reverse=True
+    )[:20]
 
+    context = {
+        'dispositivo': dispositivo,
+        'agendamentos_ativos_count': agendamentos_ativos_count,
         'no_horario': no_horario,
         'horarios_funcionamento': horarios_funcionamento,
         'logs_recentes': logs_recentes,
