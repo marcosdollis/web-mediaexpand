@@ -173,8 +173,11 @@ class VideoForm(forms.ModelForm):
         # Clientes não podem mudar status
         if user and user.is_client():
             self.fields['status'].widget = forms.HiddenInput()
-            self.fields['status'].initial = 'PENDING'
-            self.fields['status'].required = False  # View define o valor, não o form
+            self.fields['status'].required = False
+            # Preserva o status atual ao editar, ou define PENDING ao criar
+            current_status = (self.instance.status if self.instance and self.instance.pk else None) or 'PENDING'
+            self.fields['status'].initial = current_status
+            self.initial['status'] = current_status
         # Labels e help texts
         self.fields['data_publicacao'].label = 'Data de publicação'
         self.fields['data_publicacao'].help_text = 'Quando status=Agendado, vídeo aparece nas TVs a partir desta data'

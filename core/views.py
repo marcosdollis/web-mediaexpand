@@ -1344,6 +1344,10 @@ def video_update_view(request, pk):
             form.save()
             messages.success(request, 'Vídeo atualizado com sucesso!')
             return redirect('video_list')
+        else:
+            import logging as _log
+            _log.getLogger(__name__).warning(f'[VIDEO_UPDATE] Form inválido pk={pk}: {form.errors}')
+            messages.error(request, 'Não foi possível salvar. Verifique os campos destacados abaixo.')
     else:
         form = VideoForm(instance=video, user=user)
 

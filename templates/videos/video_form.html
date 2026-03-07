@@ -18,6 +18,17 @@
                 {% endif %}
             </div>
 
+            <!-- Mensagens Django (sucesso / erro) -->
+            {% if messages %}
+            {% for msg in messages %}
+            <div class="alert alert-{% if msg.tags == 'error' %}danger{% elif msg.tags == 'success' %}success{% elif msg.tags == 'warning' %}warning{% else %}info{% endif %} alert-dismissible fade show mb-3" role="alert">
+                <i class="fas fa-{% if msg.tags == 'error' %}exclamation-circle{% elif msg.tags == 'success' %}check-circle{% else %}info-circle{% endif %} me-2"></i>
+                {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+
             <!-- Upload Form -->
             <div class="card shadow">
                 <div class="card-body p-4">
