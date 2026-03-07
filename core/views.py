@@ -384,7 +384,7 @@ class TVAPIView(APIView):
                     # Serializa os vídeos desta playlist
                     serializer = PlaylistTVSerializer(
                         playlist,
-                        context={'request': request}
+                        context={'request': request, 'dispositivo_id': dispositivo.id}
                     )
                     videos = serializer.data.get('videos', [])
                     all_videos.extend(videos)

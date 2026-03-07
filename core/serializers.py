@@ -272,6 +272,11 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                         'playlist_id': obj.id,
                     })
                 html_url = self._build_url(html_path)
+                # Append dispositivo_id so the page can auto-log via JS
+                dispositivo_id = self.context.get('dispositivo_id')
+                if dispositivo_id:
+                    sep = '&' if '?' in html_url else '?'
+                    html_url = f'{html_url}{sep}dispositivo_id={dispositivo_id}'
 
                 for _ in range(item.repeticoes):
                     result.append({
