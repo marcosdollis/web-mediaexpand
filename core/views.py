@@ -10,13 +10,14 @@ from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion,
     QRCodeClick, AgendamentoExibicao, ConteudoCorporativo, ConfiguracaoAPI,
-    HorarioFuncionamento
+    HorarioFuncionamento, LogExibicaoWebView
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
     ClienteSerializer, ClienteCreateSerializer, VideoSerializer,
     PlaylistSerializer, PlaylistItemSerializer, DispositivoTVSerializer,
-    LogExibicaoSerializer, PlaylistTVSerializer, DispositivoTVAuthSerializer
+    LogExibicaoSerializer, LogExibicaoWebViewSerializer,
+    PlaylistTVSerializer, DispositivoTVAuthSerializer
 )
 from .permissions import (
     IsOwner, IsFranchiseeOrOwner, IsClientOrAbove,
@@ -423,65 +424,218 @@ class TVLogExibicaoView(APIView):
     Formato esperado: {dispositivo_id, video_id, tempo_exibicao_segundos}
     """
     permission_classes = [permissions.AllowAny]
-    
+
     def post(self, request):
-        """Registra log de exibição"""
+        """Registra log de exibição e cria entrada parcial para o próximo item da fila"""
         dispositivo_id = request.data.get('dispositivo_id')
         video_id = request.data.get('video_id')
         tempo_exibicao_segundos = request.data.get('tempo_exibicao_segundos', 0)
-        
-        # Valida campos obrigatórios
+
         if not dispositivo_id or not video_id:
             return Response(
                 {'error': 'dispositivo_id e video_id são obrigatórios'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         try:
             dispositivo = DispositivoTV.objects.get(id=dispositivo_id)
             video = Video.objects.get(id=video_id)
-            
-            # Usa a playlist atual do dispositivo
+
             if not dispositivo.playlist_atual:
                 return Response(
                     {'error': 'Dispositivo não possui playlist configurada'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            # Calcula horários automaticamente
+
             data_hora_fim = timezone.now()
-            data_hora_inicio = data_hora_fim - timezone.timedelta(seconds=tempo_exibicao_segundos)
-            
-            # Verifica se foi completamente exibido (pelo menos 90% do tempo)
-            completamente_exibido = False
-            if video.duracao_segundos > 0:
-                porcentagem_exibida = (tempo_exibicao_segundos / video.duracao_segundos) * 100
-                completamente_exibido = porcentagem_exibida >= 90
-            
-            log = LogExibicao.objects.create(
+            data_hora_inicio = data_hora_fim - timezone.timedelta(seconds=int(tempo_exibicao_segundos))
+
+            # Verifica se foi completamente exibido (≥90% do tempo ou duração desconhecida)
+            if video.duracao_segundos and video.duracao_segundos > 0:
+                porcentagem = (int(tempo_exibicao_segundos) / video.duracao_segundos) * 100
+                completamente_exibido = porcentagem >= 90
+            else:
+                # Duração não cadastrada → assume completo
+                completamente_exibido = True
+
+            # Atualiza log parcial existente para este vídeo, ou cria novo executado
+            log_parcial = LogExibicao.objects.filter(
                 dispositivo=dispositivo,
                 video=video,
-                playlist=dispositivo.playlist_atual,
-                data_hora_inicio=data_hora_inicio,
-                data_hora_fim=data_hora_fim,
-                completamente_exibido=completamente_exibido
-            )
-            
+                completamente_exibido=False,
+                data_hora_fim__isnull=True,
+            ).order_by('-data_hora_inicio').first()
+
+            if log_parcial:
+                log_parcial.data_hora_fim = data_hora_fim
+                log_parcial.completamente_exibido = completamente_exibido
+                log_parcial.save(update_fields=['data_hora_fim', 'completamente_exibido'])
+            else:
+                LogExibicao.objects.create(
+                    dispositivo=dispositivo,
+                    video=video,
+                    playlist=dispositivo.playlist_atual,
+                    data_hora_inicio=data_hora_inicio,
+                    data_hora_fim=data_hora_fim,
+                    completamente_exibido=completamente_exibido
+                )
+
+            # Cria entrada "parcial" para o próximo item da playlist (fila)
+            _criar_log_parcial_proximo(dispositivo, video_id=video.id)
+
             return Response(
                 {'success': True, 'message': 'Log registrado com sucesso'},
                 status=status.HTTP_201_CREATED
             )
-        
+
         except DispositivoTV.DoesNotExist:
-            return Response(
-                {'error': 'Dispositivo não encontrado'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({'error': 'Dispositivo não encontrado'}, status=status.HTTP_404_NOT_FOUND)
         except Video.DoesNotExist:
-            return Response(
-                {'error': 'Vídeo não encontrado'},
-                status=status.HTTP_404_NOT_FOUND
+            return Response({'error': 'Vídeo não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+
+def _criar_log_parcial_proximo(dispositivo, video_id=None, corporativo_id=None):
+    """
+    Dado o item que acabou de ser executado, encontra o próximo na playlist
+    e cria (ou mantém) um registro parcial para ele — indicando que está em execução.
+    """
+    playlist = dispositivo.playlist_atual
+    if not playlist:
+        return
+
+    items = list(playlist.items.filter(ativo=True).order_by('ordem'))
+    if not items:
+        return
+
+    # Encontra posição do item atual
+    idx_atual = None
+    for i, item in enumerate(items):
+        if video_id and item.video_id == video_id:
+            idx_atual = i
+            break
+        if corporativo_id and item.conteudo_corporativo_id == corporativo_id:
+            idx_atual = i
+            break
+
+    if idx_atual is None:
+        # Item não encontrado na playlist — usa o primeiro como próximo
+        proximo = items[0]
+    else:
+        proximo = items[(idx_atual + 1) % len(items)]
+
+    agora = timezone.now()
+
+    if proximo.video:
+        # Evita criar duplicata de parcial
+        ja_existe = LogExibicao.objects.filter(
+            dispositivo=dispositivo,
+            video=proximo.video,
+            completamente_exibido=False,
+            data_hora_fim__isnull=True,
+        ).exists()
+        if not ja_existe:
+            LogExibicao.objects.create(
+                dispositivo=dispositivo,
+                video=proximo.video,
+                playlist=playlist,
+                data_hora_inicio=agora,
+                data_hora_fim=None,
+                completamente_exibido=False,
             )
+    elif proximo.conteudo_corporativo:
+        cc = proximo.conteudo_corporativo
+        ja_existe = LogExibicaoWebView.objects.filter(
+            dispositivo=dispositivo,
+            conteudo_corporativo=cc,
+            completamente_exibido=False,
+            data_hora_fim__isnull=True,
+        ).exists()
+        if not ja_existe:
+            LogExibicaoWebView.objects.create(
+                dispositivo=dispositivo,
+                playlist=playlist,
+                conteudo_corporativo=cc,
+                tipo_conteudo=cc.tipo,
+                titulo=cc.titulo,
+                duracao_segundos=cc.duracao_segundos or 0,
+                data_hora_inicio=agora,
+                data_hora_fim=None,
+                completamente_exibido=False,
+            )
+
+
+class TVLogWebViewView(APIView):
+    """
+    API para o app de TV registrar execuções de conteúdo corporativo (WebView).
+    Formato: {dispositivo_id, conteudo_corporativo_id, tipo_conteudo, titulo,
+               duracao_segundos, completamente_exibido}
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        dispositivo_id = request.data.get('dispositivo_id')
+        tipo_conteudo = request.data.get('tipo_conteudo', 'DESIGN')
+        titulo = request.data.get('titulo', 'Conteúdo Corporativo')
+        duracao_segundos = int(request.data.get('duracao_segundos', 0))
+        corporativo_id = request.data.get('conteudo_corporativo_id')
+
+        if not dispositivo_id:
+            return Response({'error': 'dispositivo_id é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            dispositivo = DispositivoTV.objects.get(id=dispositivo_id)
+        except DispositivoTV.DoesNotExist:
+            return Response({'error': 'Dispositivo não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        cc = None
+        if corporativo_id:
+            try:
+                cc = ConteudoCorporativo.objects.get(id=corporativo_id)
+                titulo = cc.titulo
+                tipo_conteudo = cc.tipo
+            except ConteudoCorporativo.DoesNotExist:
+                pass
+
+        data_hora_fim = timezone.now()
+        data_hora_inicio = data_hora_fim - timezone.timedelta(seconds=duracao_segundos)
+
+        # Duração prevista do conteúdo corporativo
+        duracao_prevista = cc.duracao_segundos if (cc and cc.duracao_segundos) else duracao_segundos
+        if duracao_prevista > 0:
+            completamente_exibido = (duracao_segundos / duracao_prevista) >= 0.9
+        else:
+            completamente_exibido = True
+
+        # Atualiza parcial existente ou cria novo
+        log_parcial = LogExibicaoWebView.objects.filter(
+            dispositivo=dispositivo,
+            conteudo_corporativo=cc,
+            completamente_exibido=False,
+            data_hora_fim__isnull=True,
+        ).order_by('-data_hora_inicio').first()
+
+        if log_parcial:
+            log_parcial.data_hora_fim = data_hora_fim
+            log_parcial.completamente_exibido = completamente_exibido
+            log_parcial.duracao_segundos = duracao_segundos
+            log_parcial.save(update_fields=['data_hora_fim', 'completamente_exibido', 'duracao_segundos'])
+        else:
+            LogExibicaoWebView.objects.create(
+                dispositivo=dispositivo,
+                playlist=dispositivo.playlist_atual,
+                conteudo_corporativo=cc,
+                tipo_conteudo=tipo_conteudo,
+                titulo=titulo,
+                duracao_segundos=duracao_segundos,
+                data_hora_inicio=data_hora_inicio,
+                data_hora_fim=data_hora_fim,
+                completamente_exibido=completamente_exibido,
+            )
+
+        # Cria parcial para próximo na fila
+        _criar_log_parcial_proximo(dispositivo, corporativo_id=cc.id if cc else None)
+
+        return Response({'success': True}, status=status.HTTP_201_CREATED)
 
 
 class TVCheckScheduleView(APIView):
@@ -1788,14 +1942,16 @@ def dispositivo_detail_view(request, pk):
     no_horario = dispositivo.esta_no_horario_exibicao()
     horarios_funcionamento = dispositivo.horarios_funcionamento.all()
     
-    # Buscar logs recentes com vídeo e thumbnail
-    logs_recentes = dispositivo.logs_exibicao.select_related(
-        'video', 'video__cliente', 'playlist'
-    ).order_by('-data_hora_inicio')[:15]
-    
-    context = {
-        'dispositivo': dispositivo,
-        'agendamentos_ativos_count': agendamentos_ativos_count,
+# Buscar logs recentes — vídeos e webview unidos e ordenados por data
+    logs_video = list(
+        dispositivo.logs_exibicao.select_related('video', 'video__cliente', 'playlist')
+        .order_by('-data_hora_inicio')[:30]
+    )
+    logs_wv = list(
+        dispositivo.logs_webview.select_related('conteudo_corporativo', 'playlist')
+        .order_by('-data_hora_inicio')[:30]
+    )
+
         'no_horario': no_horario,
         'horarios_funcionamento': horarios_funcionamento,
         'logs_recentes': logs_recentes,

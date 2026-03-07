@@ -179,10 +179,12 @@
                         {% for log in logs_recentes %}
                         <div class="list-group-item">
                             <div class="d-flex align-items-start gap-3">
-                                <!-- Thumbnail -->
+
+                                {% if log.video %}
+                                <!-- ── LOG DE VÍDEO ── -->
                                 <div class="flex-shrink-0">
                                     {% if log.video.thumbnail %}
-                                    <img src="{{ log.video.thumbnail.url }}" 
+                                    <img src="{{ log.video.thumbnail.url }}"
                                          alt="{{ log.video.titulo }}"
                                          class="log-thumbnail">
                                     {% else %}
@@ -191,8 +193,6 @@
                                     </div>
                                     {% endif %}
                                 </div>
-                                
-                                <!-- Content -->
                                 <div class="flex-grow-1 log-content">
                                     <div class="d-flex justify-content-between align-items-start mb-2">
                                         <div>
@@ -201,17 +201,22 @@
                                                 <i class="fas fa-building me-1"></i>{{ log.video.cliente.empresa }}
                                             </small>
                                         </div>
-                                        {% if log.completamente_exibido %}
-                                        <span class="badge bg-success">
-                                            <i class="fas fa-check-circle me-1"></i>Completo
-                                        </span>
+                                        {% if log.data_hora_fim %}
+                                            {% if log.completamente_exibido %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check-circle me-1"></i>Executado
+                                            </span>
+                                            {% else %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>Parcial
+                                            </span>
+                                            {% endif %}
                                         {% else %}
-                                        <span class="badge bg-warning text-dark">
-                                            <i class="fas fa-exclamation-triangle me-1"></i>Parcial
+                                        <span class="badge bg-info text-dark">
+                                            <i class="fas fa-play-circle me-1"></i>Em reprodução
                                         </span>
                                         {% endif %}
                                     </div>
-                                    
                                     <div class="d-flex gap-3 small text-muted flex-wrap">
                                         <span class="log-info-item">
                                             <i class="fas fa-calendar"></i>
@@ -220,40 +225,104 @@
                                         <span class="log-info-item">
                                             <i class="fas fa-clock"></i>
                                             {{ log.data_hora_inicio|date:"H:i:s" }}
-                                            {% if log.data_hora_fim %}
-                                                → {{ log.data_hora_fim|date:"H:i:s" }}
-                                            {% endif %}
+                                            {% if log.data_hora_fim %} → {{ log.data_hora_fim|date:"H:i:s" }}{% endif %}
                                         </span>
                                         {% if log.data_hora_fim %}
-                                        <span class="log-info-item" title="Duração da exibição">
+                                        <span class="log-info-item" title="Duração exibida">
                                             <i class="fas fa-hourglass-half"></i>
                                             {{ log.duracao_exibicao_formatada }}
                                         </span>
                                         {% endif %}
-                                        {% if log.video.duracao_segundos %}
-                                        <span class="log-info-item" title="Duração do vídeo">
-                                            <i class="fas fa-film"></i>
-                                            {{ log.video.duracao_segundos }}s
-                                        </span>
-                                        {% endif %}
                                         {% if log.playlist %}
                                         <span class="log-info-item">
-                                            <i class="fas fa-list"></i>
-                                            {{ log.playlist.nome }}
+                                            <i class="fas fa-list"></i>{{ log.playlist.nome }}
                                         </span>
                                         {% endif %}
                                     </div>
                                 </div>
+
+                                {% else %}
+                                <!-- ── LOG WEBVIEW (CORPORATIVO) ── -->
+                                <div class="flex-shrink-0">
+                                    <div class="log-thumbnail-placeholder
+                                        {% if log.tipo_conteudo == 'PREVISAO_TEMPO' %}bg-info
+                                        {% elif log.tipo_conteudo == 'COTACOES' %}bg-success
+                                        {% elif log.tipo_conteudo == 'NOTICIAS' %}bg-danger
+                                        {% else %}bg-purple{% endif %}
+                                        bg-opacity-10">
+                                        {% if log.tipo_conteudo == 'PREVISAO_TEMPO' %}
+                                        <i class="fas fa-cloud-sun text-info"></i>
+                                        {% elif log.tipo_conteudo == 'COTACOES' %}
+                                        <i class="fas fa-chart-line text-success"></i>
+                                        {% elif log.tipo_conteudo == 'NOTICIAS' %}
+                                        <i class="fas fa-newspaper text-danger"></i>
+                                        {% else %}
+                                        <i class="fas fa-palette" style="color:#7c3aed;"></i>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 log-content">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="mb-1">{{ log.titulo }}</h6>
+                                            <small class="text-muted d-block">
+                                                <i class="fas fa-globe me-1"></i>
+                                                {% if log.tipo_conteudo == 'PREVISAO_TEMPO' %}Previsão do Tempo
+                                                {% elif log.tipo_conteudo == 'COTACOES' %}Cotações
+                                                {% elif log.tipo_conteudo == 'NOTICIAS' %}Notícias
+                                                {% else %}Design Corporativo{% endif %}
+                                            </small>
+                                        </div>
+                                        {% if log.data_hora_fim %}
+                                            {% if log.completamente_exibido %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check-circle me-1"></i>Executado
+                                            </span>
+                                            {% else %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>Parcial
+                                            </span>
+                                            {% endif %}
+                                        {% else %}
+                                        <span class="badge bg-info text-dark">
+                                            <i class="fas fa-play-circle me-1"></i>Em reprodução
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex gap-3 small text-muted flex-wrap">
+                                        <span class="log-info-item">
+                                            <i class="fas fa-calendar"></i>
+                                            {{ log.data_hora_inicio|date:"d/m/Y" }}
+                                        </span>
+                                        <span class="log-info-item">
+                                            <i class="fas fa-clock"></i>
+                                            {{ log.data_hora_inicio|date:"H:i:s" }}
+                                            {% if log.data_hora_fim %} → {{ log.data_hora_fim|date:"H:i:s" }}{% endif %}
+                                        </span>
+                                        {% if log.duracao_segundos %}
+                                        <span class="log-info-item">
+                                            <i class="fas fa-hourglass-half"></i>{{ log.duracao_segundos }}s
+                                        </span>
+                                        {% endif %}
+                                        {% if log.playlist %}
+                                        <span class="log-info-item">
+                                            <i class="fas fa-list"></i>{{ log.playlist.nome }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
                             </div>
                         </div>
                         {% endfor %}
                     </div>
-                    
-                    {% if logs_recentes|length == 15 %}
+
+                    {% if logs_recentes|length == 20 %}
                     <div class="text-center mt-3">
                         <small class="text-muted">
                             <i class="fas fa-info-circle me-1"></i>
-                            Mostrando os 15 registros mais recentes
+                            Mostrando os 20 registros mais recentes
                         </small>
                     </div>
                     {% endif %}
@@ -262,7 +331,7 @@
                         <i class="fas fa-history fa-2x text-muted mb-2"></i>
                         <p class="text-muted mb-0">Nenhuma atividade registrada ainda.</p>
                         <small class="text-muted d-block mt-2">
-                            Os logs de exibição aparecerão aqui quando a TV começar a reproduzir vídeos.
+                            Os logs aparecerão aqui quando a TV começar a reproduzir conteúdo.
                         </small>
                     </div>
                     {% endif %}

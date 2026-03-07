@@ -745,6 +745,44 @@ class LogExibicao(models.Model):
         return f"{minutos}:{segs:02d}"
 
 
+class LogExibicaoWebView(models.Model):
+    """Log de exibição de conteúdo corporativo (WebView) nas TVs"""
+    TIPO_CHOICES = [
+        ('PREVISAO_TEMPO', 'Previsão do Tempo'),
+        ('COTACOES', 'Cotações'),
+        ('NOTICIAS', 'Notícias'),
+        ('DESIGN', 'Design/Editor'),
+    ]
+    dispositivo = models.ForeignKey(DispositivoTV, on_delete=models.CASCADE, related_name='logs_webview')
+    playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE, related_name='logs_webview', null=True, blank=True)
+    conteudo_corporativo = models.ForeignKey(
+        'ConteudoCorporativo', on_delete=models.CASCADE,
+        related_name='logs_webview', null=True, blank=True
+    )
+    tipo_conteudo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='DESIGN')
+    titulo = models.CharField(max_length=200, default='Conteúdo Corporativo')
+    duracao_segundos = models.IntegerField(default=0)
+    data_hora_inicio = models.DateTimeField()
+    data_hora_fim = models.DateTimeField(null=True, blank=True)
+    completamente_exibido = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Log WebView'
+        verbose_name_plural = 'Logs WebView'
+        ordering = ['-data_hora_inicio']
+
+    def __str__(self):
+        return f"{self.titulo} - {self.dispositivo.nome} - {self.data_hora_inicio}"
+
+    def duracao_exibicao_formatada(self):
+        if not self.data_hora_fim:
+            return "—"
+        delta = self.data_hora_fim - self.data_hora_inicio
+        segundos = int(delta.total_seconds())
+        return f"{segundos // 60}:{segundos % 60:02d}"
+
+
 class AppVersion(models.Model):
     """Versões do aplicativo Android para download"""
     versao = models.CharField(max_length=20, unique=True, help_text='Ex: 1.0.0, 1.2.5')

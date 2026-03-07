@@ -4,7 +4,7 @@ from django.db import models
 from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao,
-    ConteudoCorporativo, ConfiguracaoAPI
+    ConteudoCorporativo, ConfiguracaoAPI, LogExibicaoWebView
 )
 
 
@@ -215,6 +215,20 @@ class LogExibicaoSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'dispositivo', 'dispositivo_nome', 'video', 'video_titulo',
             'playlist', 'playlist_nome', 'data_hora_inicio', 'data_hora_fim',
+            'completamente_exibido', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class LogExibicaoWebViewSerializer(serializers.ModelSerializer):
+    dispositivo_nome = serializers.CharField(source='dispositivo.nome', read_only=True)
+
+    class Meta:
+        model = LogExibicaoWebView
+        fields = [
+            'id', 'dispositivo', 'dispositivo_nome', 'playlist',
+            'conteudo_corporativo', 'tipo_conteudo', 'titulo',
+            'duracao_segundos', 'data_hora_inicio', 'data_hora_fim',
             'completamente_exibido', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
