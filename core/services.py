@@ -218,19 +218,22 @@ CRIPTO_DISPONIVEIS = {
     'ADA': ('Cardano', 'ADABRL'),
 }
 
-def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
+def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None, commodities_codigos=None):
     """
     Busca cotações de moedas, cripto via AwesomeAPI.
     
     Args:
         moedas_codigos: lista de códigos (ex: ['USD', 'EUR']) ou None para todas
         cripto_codigos: lista de códigos (ex: ['BTC', 'ETH']) ou None para todas
+        commodities_codigos: lista de códigos (ex: ['IBOV', 'SOJ']) ou None = não exibe nenhum
     """
     # Defaults se nada foi passado
     if moedas_codigos is None:
         moedas_codigos = ['USD', 'EUR']
     if cripto_codigos is None:
         cripto_codigos = ['BTC']
+    if commodities_codigos is None:
+        commodities_codigos = []  # por padrão não exibe nenhum índice/commodity
     
     # Construir string de pares para a API
     pares = []
@@ -245,7 +248,7 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
         pares = ['USDBRL', 'EURBRL', 'BTCBRL']  # Fallback
     
     pares_str = ','.join(pares)
-    cache_key = f'cotacoes_{pares_str}'
+    cache_key = f'cotacoes_{pares_str}_comm_{"_".join(sorted(commodities_codigos))}'
     
     config = _get_config()
     cached = cache.get(cache_key)
@@ -350,13 +353,18 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
         logger.error(f'Erro ao buscar cotações AwesomeAPI: {e}')
 
     # ── BRAPI/Yahoo Finance — Ibovespa + Commodities (gratuito) ──
+    # Só busca se o usuário selecionou esses itens
+    show_ibov = 'IBOV' in commodities_codigos
+    show_soj  = 'SOJ'  in commodities_codigos
+    show_corn = 'CORN' in commodities_codigos
+    show_wheat= 'WHEAT'in commodities_codigos
+
     _YF_HEADERS = {'User-Agent': 'Mozilla/5.0'}
-    _YF_TICKERS = {
-        '^BVSP': ('Ibovespa', 'IBOV', 'indice'),
-        'ZS=F':  ('Soja',     'SOJ',  'commodity'),
-        'ZC=F':  ('Milho',    'CORN', 'commodity'),
-        'ZW=F':  ('Trigo',    'WHEAT','commodity'),
-    }
+    _YF_TICKERS = {}
+    if show_ibov:  _YF_TICKERS['^BVSP'] = ('Ibovespa', 'IBOV', 'indice')
+    if show_soj:   _YF_TICKERS['ZS=F']  = ('Soja',     'SOJ',  'commodity')
+    if show_corn:  _YF_TICKERS['ZC=F']  = ('Milho',    'CORN', 'commodity')
+    if show_wheat: _YF_TICKERS['ZW=F']  = ('Trigo',    'WHEAT','commodity')
 
     for ticker, (nome, codigo, cat) in _YF_TICKERS.items():
         try:
@@ -390,14 +398,14 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None):
         except Exception as e:
             logger.error(f'[COTAÇÕES] Erro ao buscar {nome} via Yahoo Finance: {e}')
 
-    # Fallback — adicionar itens faltantes como placeholder
-    if not result['indices']:
+    # Fallback — adicionar itens faltantes como placeholder SE solicitados
+    if show_ibov and not result['indices']:
         result['indices'].append({
             'nome': 'Ibovespa', 'codigo': 'IBOV',
             'valor': None, 'variacao_pct': None, 'direcao': 'stable',
         })
     for cod, nome in [('SOJ', 'Soja'), ('CORN', 'Milho'), ('WHEAT', 'Trigo')]:
-        if not any(c['codigo'] == cod for c in result['commodities']):
+        if cod in commodities_codigos and not any(c['codigo'] == cod for c in result['commodities']):
             result['commodities'].append(
                 {'nome': nome, 'codigo': cod, 'valor': None, 'variacao_pct': None, 'direcao': 'stable'})
 
@@ -598,17 +606,19 @@ def buscar_dados_corporativos(tipo, municipio=None, conteudo=None):
         # Filtrar cotações baseado nas seleções do conteudo
         moedas_selecionadas = []
         cripto_selecionadas = []
+        commodities_selecionadas = []
         
         if conteudo:
             moedas_selecionadas = conteudo.cotacoes_moedas or []
             cripto_selecionadas = conteudo.cotacoes_cripto or []
+            commodities_selecionadas = conteudo.cotacoes_commodities or []
         
         # Se nada foi selecionado, usar defaults
         if not moedas_selecionadas and not cripto_selecionadas:
             moedas_selecionadas = ['USD', 'EUR']
             cripto_selecionadas = ['BTC']
         
-        return buscar_cotacoes(moedas_selecionadas, cripto_selecionadas)
+        return buscar_cotacoes(moedas_selecionadas, cripto_selecionadas, commodities_selecionadas)
 
     elif tipo == 'NOTICIAS':
         return buscar_noticias()

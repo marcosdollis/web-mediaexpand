@@ -454,6 +454,12 @@ class ConteudoCorporativoForm(forms.ModelForm):
     cotacao_xrp = forms.BooleanField(required=False, label='Ripple (XRP)')
     cotacao_ada = forms.BooleanField(required=False, label='Cardano (ADA)')
 
+    # Checkboxes para cotações - Índices e Commodities
+    cotacao_ibov = forms.BooleanField(required=False, label='Ibovespa')
+    cotacao_soja = forms.BooleanField(required=False, label='Soja')
+    cotacao_milho = forms.BooleanField(required=False, label='Milho')
+    cotacao_trigo = forms.BooleanField(required=False, label='Trigo')
+
     class Meta:
         model = ConteudoCorporativo
         fields = ['titulo', 'tipo', 'orientacao', 'duracao_segundos', 'ativo']
@@ -484,6 +490,12 @@ class ConteudoCorporativoForm(forms.ModelForm):
             self.fields['cotacao_usdt'].initial = 'USDT' in cripto
             self.fields['cotacao_xrp'].initial = 'XRP' in cripto
             self.fields['cotacao_ada'].initial = 'ADA' in cripto
+
+            commodities = self.instance.cotacoes_commodities or []
+            self.fields['cotacao_ibov'].initial = 'IBOV' in commodities
+            self.fields['cotacao_soja'].initial = 'SOJ' in commodities
+            self.fields['cotacao_milho'].initial = 'CORN' in commodities
+            self.fields['cotacao_trigo'].initial = 'WHEAT' in commodities
     
     def save(self, commit=True):
         instance = super().save(commit=False)
@@ -504,9 +516,16 @@ class ConteudoCorporativoForm(forms.ModelForm):
         if self.cleaned_data.get('cotacao_xrp'): cripto.append('XRP')
         if self.cleaned_data.get('cotacao_ada'): cripto.append('ADA')
         
+        # Coletar índices e commodities selecionados
+        commodities = []
+        if self.cleaned_data.get('cotacao_ibov'): commodities.append('IBOV')
+        if self.cleaned_data.get('cotacao_soja'): commodities.append('SOJ')
+        if self.cleaned_data.get('cotacao_milho'): commodities.append('CORN')
+        if self.cleaned_data.get('cotacao_trigo'): commodities.append('WHEAT')
+        
         instance.cotacoes_moedas = moedas
         instance.cotacoes_cripto = cripto
-        instance.cotacoes_commodities = []  # Para futuro
+        instance.cotacoes_commodities = commodities
         
         if commit:
             instance.save()

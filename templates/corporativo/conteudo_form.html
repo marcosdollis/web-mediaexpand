@@ -141,9 +141,30 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <hr class="my-3">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-danger mb-3"><i class="fas fa-chart-bar me-2"></i>Índices</h6>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_ibov }} <label class="form-check-label" for="{{ form.cotacao_ibov.id_for_label }}">{{ form.cotacao_ibov.label }}</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-secondary mb-3"><i class="fas fa-seedling me-2"></i>Commodities Agrícolas</h6>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_soja }} <label class="form-check-label" for="{{ form.cotacao_soja.id_for_label }}">{{ form.cotacao_soja.label }}</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_milho }} <label class="form-check-label" for="{{ form.cotacao_milho.id_for_label }}">{{ form.cotacao_milho.label }}</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                {{ form.cotacao_trigo }} <label class="form-check-label" for="{{ form.cotacao_trigo.id_for_label }}">{{ form.cotacao_trigo.label }}</label>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <small class="text-muted mt-2 d-block">
                                         <i class="fas fa-info-circle me-1"></i>
-                                        Selecione pelo menos uma cotação. As cotações são atualizadas automaticamente em tempo real.
+                                        Selecione apenas os itens que deseja exibir. Cada item aparece como um card separado na TV.
                                     </small>
                                 </div>
                             </div>
