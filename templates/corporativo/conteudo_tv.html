@@ -2,11 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-{% if orientacao == 'VERTICAL' %}
-<meta name="viewport" content="width=1080, height=1920, initial-scale=1.0, user-scalable=no">
-{% else %}
-<meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, user-scalable=no">
-{% endif %}
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MediaExpand TV — {{ conteudo_tipo }}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -28,14 +24,13 @@
 }
 
 /* ════════════════════════════════
-   BASE — html/body preenche viewport
-   (conteúdo escala via JS como design_tv_render)
+   BASE — html/body preenche viewport; JS posiciona e escala .fullscreen
    ════════════════════════════════ */
 html, body {
-    width: 100vw; height: 100vh;
+    width: 100%; height: 100%;
     overflow: hidden;
     background: #000;
-    display: flex; align-items: center; justify-content: center;
+    position: relative;
     font-family: 'Inter', sans-serif;
 }
 
@@ -240,17 +235,26 @@ body.vertical .news-headline { font-size: 34px; }
 body.vertical .news-source   { font-size: 22px; margin-top: 6px; }
 </style>
 <script>
-// Auto-scale para caber no viewport (igual ao design_tv_render.html)
+// Auto-scale: lê viewport REAL (sem meta fixo) e escala o conteúdo para caber
 window.addEventListener('DOMContentLoaded', function() {
     function scaleToFit() {
         var isVertical = document.body.classList.contains('vertical');
         var designW = isVertical ? 1080 : 1920;
         var designH = isVertical ? 1920 : 1080;
-        var scaleX = window.innerWidth / designW;
-        var scaleY = window.innerHeight / designH;
-        var scale = Math.min(scaleX, scaleY);
+        // Usa dimensões reais do viewport — funciona em TV, WebView Android, preview
+        var vw = window.innerWidth  || document.documentElement.clientWidth  || screen.width;
+        var vh = window.innerHeight || document.documentElement.clientHeight || screen.height;
+        var scale = Math.min(vw / designW, vh / designH);
         var el = document.querySelector('.fullscreen');
-        if (el) el.style.transform = 'scale(' + scale + ')';
+        if (!el) return;
+        el.style.transform = 'scale(' + scale + ')';
+        el.style.transformOrigin = 'top left';
+        // Centraliza dentro do body
+        var offsetX = (vw  - designW * scale) / 2;
+        var offsetY = (vh - designH * scale) / 2;
+        el.style.position = 'absolute';
+        el.style.left = Math.max(0, offsetX) + 'px';
+        el.style.top  = Math.max(0, offsetY) + 'px';
     }
     scaleToFit();
     window.addEventListener('resize', scaleToFit);
