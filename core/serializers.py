@@ -272,11 +272,12 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                         'playlist_id': obj.id,
                     })
                 html_url = self._build_url(html_path)
-                # Append dispositivo_id so the page can auto-log via JS
+                # Append conteudo_id + dispositivo_id so the view resolves the exact CC
+                sep = '&' if '?' in html_url else '?'
+                html_url = f'{html_url}{sep}conteudo_id={cc.id}'
                 dispositivo_id = self.context.get('dispositivo_id')
                 if dispositivo_id:
-                    sep = '&' if '?' in html_url else '?'
-                    html_url = f'{html_url}{sep}dispositivo_id={dispositivo_id}'
+                    html_url = f'{html_url}&dispositivo_id={dispositivo_id}'
 
                 for _ in range(item.repeticoes):
                     result.append({

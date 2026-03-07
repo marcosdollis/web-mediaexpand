@@ -651,12 +651,17 @@ class TVCorporativoHTMLView(APIView):
         from .models import ConteudoCorporativo as CC, PlaylistItem
         conteudo = None
         try:
-            conteudo = (
-                CC.objects.filter(tipo=tipo_upper, ativo=True)
-                .filter(playlistitem__playlist_id=playlist_id)
-                .first()
-                or CC.objects.filter(tipo=tipo_upper, ativo=True).first()
-            )
+            # Preferir lookup direto via conteudo_id (passado pelo serializer na URL)
+            conteudo_id_param = request.GET.get('conteudo_id')
+            if conteudo_id_param:
+                conteudo = CC.objects.filter(id=conteudo_id_param, ativo=True).first()
+            if conteudo is None:
+                conteudo = (
+                    CC.objects.filter(tipo=tipo_upper, ativo=True)
+                    .filter(playlistitem__playlist_id=playlist_id)
+                    .first()
+                    or CC.objects.filter(tipo=tipo_upper, ativo=True).first()
+                )
         except Exception:
             pass
 
