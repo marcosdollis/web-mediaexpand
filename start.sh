@@ -18,6 +18,11 @@ echo "📦 Executando migrations..."
 python manage.py migrate --noinput
 echo "✅ Migrations concluídas"
 
+# Criar tabela de cache no banco (idempotente)
+echo "📦 Criando tabela de cache..."
+python manage.py createcachetable
+echo "✅ Cache configurado"
+
 # IMPORTANTE: Coletar arquivos estáticos COM verbose para debug
 echo "📂 Coletando arquivos estáticos..."
 python manage.py collectstatic --noinput --clear -v 2
