@@ -1235,6 +1235,24 @@
                 <audio id="audioPreview" controls style="width:100%; margin-top:6px; height:28px; display:none;"></audio>
             </div>
 
+            <!-- Video Panel (per page) -->
+            <div class="prop-group" id="videoPanel">
+                <div class="panel-section-title">Vídeo de Fundo da Página</div>
+                <div class="audio-controls">
+                    <button onclick="document.getElementById('videoUpload').click()" title="Upload vídeo">
+                        <i class="fas fa-upload me-1"></i>Upload
+                    </button>
+                    <span class="audio-filename" id="videoFilename">Sem vídeo</span>
+                    <button onclick="removePageVideo()" title="Remover vídeo" style="margin-left:auto;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <video id="videoPreview" controls style="width:100%; margin-top:6px; max-height:80px; display:none; border-radius:4px;"></video>
+                <small style="color:var(--panel-text-muted);font-size:10px;display:block;margin-top:4px;">
+                    MP4, WebM, MOV — máx 200 MB. O vídeo substitui o fundo do slide na TV.
+                </small>
+            </div>
+
             <!-- Layers -->
             <div class="prop-group">
                 <div class="panel-section-title">Camadas</div>
@@ -1288,6 +1306,7 @@
 <!-- Hidden file inputs -->
 <input type="file" id="pptxUpload" accept=".pptx" style="display:none;" onchange="handlePPTXImport(event)">
 <input type="file" id="audioUpload" accept="audio/*" style="display:none;" onchange="handleAudioUpload(event)">
+<input type="file" id="videoUpload" accept="video/mp4,video/webm,video/quicktime,video/avi" style="display:none;" onchange="handleVideoUpload(event)">
 
 <!-- Preview Modal -->
 <div class="template-modal-overlay" id="previewModal">
@@ -1397,6 +1416,7 @@ function init() {
                     transition: p.transition || 'fade',
                     transitionDuration: p.transitionDuration || 0.5,
                     audioUrl: p.audioUrl || '',
+                    videoUrl: p.videoUrl || '',
                     fabricJson: p.fabricJson || null,
                     animations: p.animations || [],
                     _thumbnail: null
@@ -1412,7 +1432,7 @@ function init() {
                 id: 'page_1', name: 'Slide 1',
                 duration: parseInt(document.getElementById('designDuration').value) || 15,
                 transition: 'fade', transitionDuration: 0.5,
-                audioUrl: '', fabricJson: legacyJson, animations: [],
+                audioUrl: '', videoUrl: '', fabricJson: legacyJson, animations: [],
                 _thumbnail: null
             }];
         }
@@ -2227,6 +2247,7 @@ function performSave(titulo, showFeedback) {
                 transition: p.transition,
                 transitionDuration: p.transitionDuration,
                 audioUrl: p.audioUrl,
+                videoUrl: p.videoUrl || '',
                 fabricJson: p.fabricJson,
                 animations: p.animations
             };
@@ -2315,6 +2336,7 @@ function createNewPage(name) {
         transition: 'fade',
         transitionDuration: 0.5,
         audioUrl: '',
+        videoUrl: '',
         fabricJson: null,
         animations: [],
         _thumbnail: null
@@ -2390,6 +2412,7 @@ window.duplicateCurrentPage = function() {
         transition: src.transition,
         transitionDuration: src.transitionDuration,
         audioUrl: src.audioUrl,
+        videoUrl: src.videoUrl || '',
         fabricJson: src.fabricJson ? JSON.parse(JSON.stringify(src.fabricJson)) : null,
         animations: src.animations ? JSON.parse(JSON.stringify(src.animations)) : [],
         _thumbnail: src._thumbnail
@@ -2494,6 +2517,18 @@ function syncPageSettingsUI() {
         af.textContent = 'Sem áudio';
         ap.src = '';
         ap.style.display = 'none';
+    }
+    // Video
+    var vf = document.getElementById('videoFilename');
+    var vp = document.getElementById('videoPreview');
+    if (page.videoUrl) {
+        vf.textContent = page.videoUrl.split('/').pop();
+        vp.src = page.videoUrl;
+        vp.style.display = 'block';
+    } else {
+        vf.textContent = 'Sem vídeo';
+        vp.src = '';
+        vp.style.display = 'none';
     }
 }
 
@@ -3058,6 +3093,38 @@ window.handleAudioUpload = function(e) {
 
 window.removePageAudio = function() {
     pages[currentPageIdx].audioUrl = '';
+    syncPageSettingsUI();
+    scheduleAutoSave();
+};
+
+window.handleVideoUpload = function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var formData = new FormData();
+    formData.append('video', file);
+    showToast('Enviando vídeo...');
+    fetch('{% url "design_video_upload" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF },
+        body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            pages[currentPageIdx].videoUrl = data.videoUrl;
+            syncPageSettingsUI();
+            showToast('Vídeo adicionado!');
+            scheduleAutoSave();
+        } else {
+            showToast(data.message || 'Erro ao fazer upload', true);
+        }
+    })
+    .catch(function(err) { showToast('Erro: ' + err.message, true); });
+    e.target.value = '';
+};
+
+window.removePageVideo = function() {
+    pages[currentPageIdx].videoUrl = '';
     syncPageSettingsUI();
     scheduleAutoSave();
 };

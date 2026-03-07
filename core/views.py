@@ -3993,6 +3993,56 @@ def design_audio_upload_view(request):
     })
 
 
+def design_video_upload_view(request):
+    """
+    AJAX POST: Recebe upload de arquivo de vídeo (mp4, webm, mov).
+    Salva no media/designs/videos/ e retorna a URL.
+    """
+    import uuid
+    from django.http import JsonResponse
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
+
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        return JsonResponse({'success': False, 'message': 'Sem permissão'}, status=403)
+
+    video_file = request.FILES.get('video') or request.FILES.get('video_file')
+    if not video_file:
+        return JsonResponse({'success': False, 'message': 'Nenhum arquivo enviado'}, status=400)
+
+    allowed_ext = ['.mp4', '.webm', '.mov', '.avi', '.m4v']
+    ext = os.path.splitext(video_file.name)[1].lower()
+    if ext not in allowed_ext:
+        return JsonResponse({
+            'success': False,
+            'message': f'Formato não suportado. Use: {", ".join(allowed_ext)}'
+        }, status=400)
+
+    # Limite de 200 MB
+    max_size = 200 * 1024 * 1024
+    if video_file.size > max_size:
+        return JsonResponse({'success': False, 'message': 'Arquivo muito grande (máx 200 MB)'}, status=400)
+
+    filename = f'video_{uuid.uuid4().hex[:8]}{ext}'
+    save_dir = os.path.join('media', 'designs', 'videos')
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, filename)
+
+    with open(save_path, 'wb') as f:
+        for chunk in video_file.chunks():
+            f.write(chunk)
+
+    video_url = f'/media/designs/videos/{filename}'
+    return JsonResponse({
+        'success': True,
+        'videoUrl': video_url,
+        'filename': video_file.name,
+        'message': 'Vídeo enviado com sucesso!',
+    })
+
+
 # ═══════════════════════════════════════════════════════════════
 #  FREE IMAGE BANK — Proxy to Pixabay API
 # ═══════════════════════════════════════════════════════════════

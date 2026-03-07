@@ -23,6 +23,15 @@ html, body {
     transform-origin: center center;
 }
 canvas { display: block; position: absolute; top: 0; left: 0; }
+#pageVideo {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+}
 </style>
 <script>
 // Auto-scale to fit viewport
@@ -48,6 +57,7 @@ window.addEventListener('DOMContentLoaded', function() {
 <div id="tv-container">
     <canvas id="canvasA" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas>
     <canvas id="canvasB" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas>
+    <video id="pageVideo" loop muted playsinline preload="auto"></video>
     <audio id="pageAudio" preload="auto"></audio>
 </div>
 
@@ -79,6 +89,7 @@ window.addEventListener('DOMContentLoaded', function() {
     var elA = document.getElementById('canvasA');
     var elB = document.getElementById('canvasB');
     var audioEl = document.getElementById('pageAudio');
+    var videoEl = document.getElementById('pageVideo');
     var currentPageIdx = 0;
     var activeCanvas = 'A';
 
@@ -272,6 +283,18 @@ window.addEventListener('DOMContentLoaded', function() {
             audioEl.play().catch(function() {});
         } else { audioEl.pause(); audioEl.src = ''; }
 
+        // Vídeo de fundo
+        if (page.videoUrl) {
+            videoEl.src = page.videoUrl;
+            videoEl.load();
+            videoEl.play().catch(function() {});
+            videoEl.style.opacity = '1';
+        } else {
+            videoEl.pause();
+            videoEl.src = '';
+            videoEl.style.opacity = '0';
+        }
+
         if (page.animations && page.animations.length > 0) runAnimations(pageIdx);
     }
 
@@ -464,6 +487,12 @@ window.addEventListener('DOMContentLoaded', function() {
         staticA.renderAll();
         elA.style.opacity = '1'; elB.style.opacity = '0';
         if (fp.audioUrl) { audioEl.src = fp.audioUrl; audioEl.play().catch(function(){}); }
+        if (fp.videoUrl) {
+            videoEl.src = fp.videoUrl;
+            videoEl.load();
+            videoEl.play().catch(function(){});
+            videoEl.style.opacity = '1';
+        }
         if (fp.animations && fp.animations.length > 0) runAnimations(0);
         if (pages.length > 1) scheduleNext();
     });
