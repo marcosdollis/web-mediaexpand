@@ -235,23 +235,31 @@ body.vertical .news-headline { font-size: 34px; }
 body.vertical .news-source   { font-size: 22px; margin-top: 6px; }
 </style>
 <script>
-// Auto-scale: lê viewport REAL (sem meta fixo) e escala o conteúdo para caber
+// Auto-scale + auto-detect orientação real do viewport
 window.addEventListener('DOMContentLoaded', function() {
+    // Se o viewport real for portrait (altura > largura), força classe vertical
+    // Isso corrige casos onde o DB ainda tem HORIZONTAL mas a TV está em retrato
+    var vw = window.innerWidth  || document.documentElement.clientWidth  || screen.width;
+    var vh = window.innerHeight || document.documentElement.clientHeight || screen.height;
+    if (vh > vw) {
+        document.body.classList.remove('horizontal');
+        document.body.classList.add('vertical');
+    }
+
     function scaleToFit() {
         var isVertical = document.body.classList.contains('vertical');
         var designW = isVertical ? 1080 : 1920;
         var designH = isVertical ? 1920 : 1080;
-        // Usa dimensões reais do viewport — funciona em TV, WebView Android, preview
-        var vw = window.innerWidth  || document.documentElement.clientWidth  || screen.width;
-        var vh = window.innerHeight || document.documentElement.clientHeight || screen.height;
-        var scale = Math.min(vw / designW, vh / designH);
+        var cvw = window.innerWidth  || document.documentElement.clientWidth  || screen.width;
+        var cvh = window.innerHeight || document.documentElement.clientHeight || screen.height;
+        var scale = Math.min(cvw / designW, cvh / designH);
         var el = document.querySelector('.fullscreen');
         if (!el) return;
         el.style.transform = 'scale(' + scale + ')';
         el.style.transformOrigin = 'top left';
         // Centraliza dentro do body
-        var offsetX = (vw  - designW * scale) / 2;
-        var offsetY = (vh - designH * scale) / 2;
+        var offsetX = (cvw - designW * scale) / 2;
+        var offsetY = (cvh - designH * scale) / 2;
         el.style.position = 'absolute';
         el.style.left = Math.max(0, offsetX) + 'px';
         el.style.top  = Math.max(0, offsetY) + 'px';
