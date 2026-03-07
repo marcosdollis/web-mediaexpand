@@ -283,7 +283,7 @@ window.addEventListener('DOMContentLoaded', function() {
     <div class="content-area">
         <div class="weather-city">
             <i class="fas fa-map-marker-alt" style="margin-right:10px;color:var(--red);"></i>
-            {{ dados.cidade|default:"—" }} {% if dados.estado %}— {{ dados.estado }}{% endif %}
+            {{ dados.municipio|default:"—" }} {% if dados.estado %}— {{ dados.estado }}{% endif %}
         </div>
 
         <div class="weather-main">

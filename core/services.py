@@ -50,6 +50,18 @@ WMO_CODES = {
     99: ('Trovoada com granizo forte', 'tempestade'),
 }
 
+# Emojis para WMO weather codes
+WMO_EMOJI = {
+    0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+    45: '🌫️', 48: '🌫️',
+    51: '🌦️', 53: '🌦️', 55: '🌧️', 56: '🌧️', 57: '🌧️',
+    61: '🌧️', 63: '🌧️', 65: '🌧️', 66: '🌧️', 67: '🌧️',
+    71: '🌨️', 73: '🌨️', 75: '❄️', 77: '🌨️',
+    80: '🌦️', 81: '🌧️', 82: '⛈️',
+    85: '🌨️', 86: '❄️',
+    95: '⛈️', 96: '⛈️', 99: '⛈️',
+}
+
 # Backgrounds CSS para o app Android renderizar
 WEATHER_BACKGROUNDS = {
     'ensolarado': {
@@ -111,7 +123,7 @@ def buscar_previsao_tempo(latitude, longitude, nome_municipio=''):
             f'&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m'
             f'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max'
             f'&timezone=America/Sao_Paulo'
-            f'&forecast_days=3'
+            f'&forecast_days=7'
         )
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
@@ -135,6 +147,7 @@ def buscar_previsao_tempo(latitude, longitude, nome_municipio=''):
                 'descricao': descricao,
                 'condicao': condicao,  # ensolarado|nublado|chuvoso|tempestade
                 'wmo_code': wmo_code,
+                'icone_emoji': WMO_EMOJI.get(wmo_code, '🌡️'),
             },
             'background': bg,
             'previsao': [],
@@ -156,6 +169,7 @@ def buscar_previsao_tempo(latitude, longitude, nome_municipio=''):
                 'min': minimas[i] if i < len(minimas) else None,
                 'descricao': desc_d,
                 'condicao': cond_d,
+                'icone_emoji': WMO_EMOJI.get(wmo_d, '🌡️'),
                 'precipitacao_pct': precipitacao[i] if i < len(precipitacao) else 0,
             })
 
