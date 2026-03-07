@@ -245,9 +245,9 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None, commodities_codigo
             pares.append(CRIPTO_DISPONIVEIS[cod][1])
     
     if not pares:
-        pares = ['USDBRL', 'EURBRL', 'BTCBRL']  # Fallback
+        pares = None  # Sem moedas/cripto selecionadas → pula chamada AwesomeAPI
     
-    pares_str = ','.join(pares)
+    pares_str = ','.join(pares) if pares else 'none'
     cache_key = f'cotacoes_{pares_str}_comm_{"_".join(sorted(commodities_codigos))}'
     
     config = _get_config()
@@ -269,47 +269,51 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None, commodities_codigo
         'atualizado_em': timezone.now().isoformat(),
     }
 
-    # Retry com backoff exponencial para lidar com erro 429
-    max_retries = 3
-    import time
-    
-    for tentativa in range(max_retries):
-        try:
-            # AwesomeAPI — moedas e cripto
-            url = f'https://economia.awesomeapi.com.br/json/last/{pares_str}'
-            logger.info(f'[COTAÇÕES] Chamando AwesomeAPI (tentativa {tentativa + 1}/{max_retries}): {url}')
-            resp = requests.get(url, timeout=10)
-            
-            # Tratamento específico para 429
-            if resp.status_code == 429:
-                wait_time = (2 ** tentativa) * 2  # 2s, 4s, 8s
-                logger.warning(f'[COTAÇÕES] Erro 429 - aguardando {wait_time}s antes de retry')
+    data = {}  # dados da AwesomeAPI — só preenchido se há moedas/cripto selecionadas
+
+    # Só chama AwesomeAPI se há moedas ou cripto selecionadas
+    if pares:
+        # Retry com backoff exponencial para lidar com erro 429
+        max_retries = 3
+        import time
+        
+        for tentativa in range(max_retries):
+            try:
+                # AwesomeAPI — moedas e cripto
+                url = f'https://economia.awesomeapi.com.br/json/last/{pares_str}'
+                logger.info(f'[COTAÇÕES] Chamando AwesomeAPI (tentativa {tentativa + 1}/{max_retries}): {url}')
+                resp = requests.get(url, timeout=10)
+                
+                # Tratamento específico para 429
+                if resp.status_code == 429:
+                    wait_time = (2 ** tentativa) * 2  # 2s, 4s, 8s
+                    logger.warning(f'[COTAÇÕES] Erro 429 - aguardando {wait_time}s antes de retry')
+                    if tentativa < max_retries - 1:
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error('[COTAÇÕES] Limite de tentativas atingido após erro 429')
+                        return _cotacoes_fallback(cache_key, moedas_codigos, cripto_codigos, commodities_codigos)
+                
+                resp.raise_for_status()
+                data = resp.json()
+                logger.info(f'[COTAÇÕES] Sucesso - {len(data)} cotações obtidas')
+                config.registrar_requisicao('COTACOES')
+                break  # Sucesso, sair do loop
+                
+            except requests.exceptions.RequestException as e:
+                logger.error(f'[COTAÇÕES] Erro na tentativa {tentativa + 1}: {e}')
                 if tentativa < max_retries - 1:
+                    wait_time = (2 ** tentativa) * 2
+                    logger.info(f'[COTAÇÕES] Aguardando {wait_time}s antes de retry')
                     time.sleep(wait_time)
-                    continue
                 else:
-                    logger.error('[COTAÇÕES] Limite de tentativas atingido após erro 429')
+                    logger.error('[COTAÇÕES] Todas as tentativas falharam')
                     return _cotacoes_fallback(cache_key, moedas_codigos, cripto_codigos, commodities_codigos)
-            
-            resp.raise_for_status()
-            data = resp.json()
-            logger.info(f'[COTAÇÕES] Sucesso - {len(data)} cotações obtidas')
-            config.registrar_requisicao('COTACOES')
-            break  # Sucesso, sair do loop
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f'[COTAÇÕES] Erro na tentativa {tentativa + 1}: {e}')
-            if tentativa < max_retries - 1:
-                wait_time = (2 ** tentativa) * 2
-                logger.info(f'[COTAÇÕES] Aguardando {wait_time}s antes de retry')
-                time.sleep(wait_time)
-            else:
-                logger.error('[COTAÇÕES] Todas as tentativas falharam')
-                return _cotacoes_fallback(cache_key, moedas_codigos, cripto_codigos, commodities_codigos)
-    else:
-        # Loop completou sem break - erro 429 persistente
-        logger.warning('[COTAÇÕES] Rate limit persistente - usando cache longo')
-        return _cotacoes_fallback(cache_key, moedas_codigos, cripto_codigos, commodities_codigos)
+        else:
+            # Loop completou sem break - erro 429 persistente
+            logger.warning('[COTAÇÕES] Rate limit persistente - usando cache longo')
+            return _cotacoes_fallback(cache_key, moedas_codigos, cripto_codigos, commodities_codigos)
 
     try:
 
@@ -627,8 +631,8 @@ def buscar_dados_corporativos(tipo, municipio=None, conteudo=None):
             cripto_selecionadas = conteudo.cotacoes_cripto or []
             commodities_selecionadas = conteudo.cotacoes_commodities or []
         
-        # Se nada foi selecionado, usar defaults
-        if not moedas_selecionadas and not cripto_selecionadas:
+        # Só aplica defaults se absolutamente nada foi selecionado (nem moedas, cripto ou commodities)
+        if not moedas_selecionadas and not cripto_selecionadas and not commodities_selecionadas:
             moedas_selecionadas = ['USD', 'EUR']
             cripto_selecionadas = ['BTC']
         
