@@ -474,127 +474,150 @@ def _cotacoes_fallback(cache_key=None, moedas_codigos=None, cripto_codigos=None,
 
 def buscar_noticias():
     """
-    Busca manchetes de notícias do Brasil via NewsAPI.
-    Retorna lista de 5-10 manchetes.
+    Busca manchetes de notícias do Brasil.
+    Tenta: 1) NewsAPI  2) RSS G1  3) RSS Folha  4) RSS UOL  5) RSS Google News
     """
     cache_key = 'noticias_br'
     config = _get_config()
     cached = cache.get(cache_key)
-    if cached:
+    if cached and cached.get('manchetes'):
         logger.info('[NOTÍCIAS] Retornando dados do cache')
         return cached
 
     if not config.pode_requisitar('NOTICIAS'):
         logger.warning('[NOTÍCIAS] Limite diário de requisições atingido')
-        return _noticias_fallback()
+        return _noticias_fallback_rss()
 
     api_key = config.noticias_api_key
-    if not api_key or api_key.strip() == '':
-        logger.warning('[NOTÍCIAS] Chave da NewsAPI não configurada ou vazia')
-        logger.info('[NOTÍCIAS] Usando fallback RSS')
-        return _noticias_fallback_rss()
-    
-    logger.info(f'[NOTÍCIAS] API Key configurada: {api_key[:10]}...{api_key[-5:]}')
+    if api_key and api_key.strip():
+        logger.info(f'[NOTÍCIAS] Tentando NewsAPI: {api_key[:8]}...')
+        try:
+            # Tenta 3 queries em ordem até obter artigos
+            _queries = [
+                f'https://newsapi.org/v2/top-headlines?language=pt&pageSize=10&apiKey={api_key}',
+                f'https://newsapi.org/v2/everything?q=brasil&language=pt&sortBy=publishedAt&pageSize=10&apiKey={api_key}',
+                f'https://newsapi.org/v2/top-headlines?country=br&pageSize=10&apiKey={api_key}',
+            ]
+            articles = []
+            for _url in _queries:
+                resp = requests.get(_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+                logger.info(f'[NOTÍCIAS] NewsAPI status: {resp.status_code} url={_url.replace(api_key,"KEY")}')
+                if resp.status_code in (426, 401):
+                    logger.warning(f'[NOTÍCIAS] NewsAPI {resp.status_code} — usando RSS')
+                    break
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get('status') == 'error':
+                        logger.error(f'[NOTÍCIAS] Erro: {data.get("message")}')
+                        break
+                    articles = data.get('articles', [])
+                    if articles:
+                        logger.info(f'[NOTÍCIAS] {len(articles)} artigos obtidos')
+                        break
+                    logger.warning('[NOTÍCIAS] 0 artigos nesta query, tentando próxima...')
 
-    try:
-        url = (
-            f'https://newsapi.org/v2/top-headlines'
-            f'?country=br&pageSize=10&apiKey={api_key}'
-        )
-        logger.info(f'[NOTÍCIAS] Chamando NewsAPI: {url.replace(api_key, "KEY_HIDDEN")}')
-        resp = requests.get(url, timeout=10)
-        logger.info(f'[NOTÍCIAS] Status code: {resp.status_code}')
-        resp.raise_for_status()
-        data = resp.json()
-        logger.info(f'[NOTÍCIAS] Artigos recebidos: {len(data.get("articles", []))}')
-        
-        # Verificar se há erro na resposta
-        if data.get('status') == 'error':
-            error_msg = data.get('message', 'Erro desconhecido')
-            logger.error(f'[NOTÍCIAS] Erro da API: {error_msg}')
-            return _noticias_fallback_rss()
-        
-        config.registrar_requisicao('NOTICIAS')
+            if articles:
+                config.registrar_requisicao('NOTICIAS')
+                result = {
+                    'tipo': 'NOTICIAS',
+                    'manchetes': [
+                        {
+                            'titulo': a.get('title', ''),
+                            'descricao': a.get('description', ''),
+                            'fonte': a.get('source', {}).get('name', ''),
+                            'imagem_url': a.get('urlToImage'),
+                            'publicado_em': a.get('publishedAt', ''),
+                        }
+                        for a in articles[:10]
+                    ],
+                    'atualizado_em': timezone.now().isoformat(),
+                }
+                cache.set(cache_key, result, config.cache_noticias_minutos * 60)
+                return result
+        except Exception as e:
+            logger.error(f'[NOTÍCIAS] Erro ao chamar NewsAPI: {e}')
+    else:
+        logger.info('[NOTÍCIAS] NewsAPI key não configurada — usando RSS direto')
 
-        articles = data.get('articles', [])
-        result = {
-            'tipo': 'NOTICIAS',
-            'manchetes': [],
-            'atualizado_em': timezone.now().isoformat(),
-        }
-
-        for art in articles[:10]:
-            result['manchetes'].append({
-                'titulo': art.get('title', ''),
-                'descricao': art.get('description', ''),
-                'fonte': art.get('source', {}).get('name', ''),
-                'imagem_url': art.get('urlToImage'),
-                'publicado_em': art.get('publishedAt', ''),
-            })
-
-        cache_ttl = config.cache_noticias_minutos * 60
-        cache.set(cache_key, result, cache_ttl)
-        return result
-
-    except Exception as e:
-        logger.error(f'Erro ao buscar notícias: {e}')
-        return _noticias_fallback_rss()
+    return _noticias_fallback_rss(cache_key, config)
 
 
-def _noticias_fallback_rss():
-    """Fallback: busca notícias via RSS do Google News Brasil"""
-    cache_key = 'noticias_rss_br'
-    cached = cache.get(cache_key)
-    if cached:
-        return cached
+def _noticias_fallback_rss(cache_key='noticias_br', config=None):
+    """Busca notícias via RSS. Tenta múltiplas fontes BR em ordem."""
+    # Fontes RSS brasileiras em ordem de preferência
+    RSS_SOURCES = [
+        ('G1',        'https://g1.globo.com/rss/g1/'),
+        ('Folha',     'https://feeds.folha.uol.com.br/emcimadahora/rss091.xml'),
+        ('UOL',       'https://rss.uol.com.br/feed/noticias.xml'),
+        ('GoogleNews','https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-419'),
+    ]
+    _HEADERS = {'User-Agent': 'Mozilla/5.0 (compatible; MediaExpand/1.0)'}
 
-    try:
-        # RSS do Google News Brasil (não requer chave)
-        url = 'https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-419'
-        resp = requests.get(url, timeout=10)
-        resp.raise_for_status()
+    import xml.etree.ElementTree as ET
 
-        # Parse simples do XML (sem dependência extra)
-        import xml.etree.ElementTree as ET
-        root = ET.fromstring(resp.text)
-        items = root.findall('.//item')
+    for nome, url in RSS_SOURCES:
+        try:
+            logger.info(f'[NOTÍCIAS] Tentando RSS {nome}: {url}')
+            resp = requests.get(url, timeout=10, headers=_HEADERS)
+            if resp.status_code != 200:
+                logger.warning(f'[NOTÍCIAS] RSS {nome} retornou {resp.status_code}')
+                continue
 
-        result = {
-            'tipo': 'NOTICIAS',
-            'manchetes': [],
-            'atualizado_em': timezone.now().isoformat(),
-            'fonte_tipo': 'rss',
-        }
+            root = ET.fromstring(resp.text)
+            items = root.findall('.//item')
+            if not items:
+                logger.warning(f'[NOTÍCIAS] RSS {nome} sem itens')
+                continue
 
-        for item in items[:10]:
-            titulo = item.findtext('title', '')
-            # Google News coloca a fonte depois de ' - '
-            partes = titulo.rsplit(' - ', 1)
-            manchete = partes[0] if partes else titulo
-            fonte = partes[1] if len(partes) > 1 else 'Google News'
+            manchetes = []
+            for item in items[:10]:
+                titulo_raw = item.findtext('title', '') or ''
+                # Google News coloca a fonte depois de ' - '
+                partes = titulo_raw.rsplit(' - ', 1)
+                titulo = partes[0].strip() if partes else titulo_raw
+                fonte  = partes[1].strip() if len(partes) > 1 else nome
 
-            result['manchetes'].append({
-                'titulo': manchete,
-                'descricao': item.findtext('description', ''),
-                'fonte': fonte,
-                'imagem_url': None,
-                'publicado_em': item.findtext('pubDate', ''),
-            })
+                manchetes.append({
+                    'titulo': titulo,
+                    'descricao': item.findtext('description', '') or '',
+                    'fonte': fonte,
+                    'imagem_url': None,
+                    'publicado_em': item.findtext('pubDate', '') or '',
+                })
 
-        cache.set(cache_key, result, 3600)  # 1h
-        return result
+            if not manchetes:
+                continue
 
-    except Exception as e:
-        logger.error(f'Erro ao buscar notícias RSS: {e}')
-        return _noticias_fallback()
+            logger.info(f'[NOTÍCIAS] RSS {nome} OK — {len(manchetes)} manchetes')
+            result = {
+                'tipo': 'NOTICIAS',
+                'manchetes': manchetes,
+                'atualizado_em': timezone.now().isoformat(),
+                'fonte_tipo': f'rss_{nome.lower()}',
+            }
+            # Só cacheia se tinha conteúdo
+            ttl = (config.cache_noticias_minutos * 60) if config else 3600
+            cache.set(cache_key, result, ttl)
+            return result
+
+        except Exception as e:
+            logger.error(f'[NOTÍCIAS] Erro ao buscar RSS {nome}: {e}')
+            continue
+
+    logger.error('[NOTÍCIAS] Todas as fontes RSS falharam — retornando placeholder')
+    return _noticias_fallback()
 
 
 def _noticias_fallback():
+    """Último recurso: retorna aviso de indisponibilidade (não cacheia)."""
     return {
         'tipo': 'NOTICIAS',
-        'manchetes': [],
+        'manchetes': [
+            {'titulo': 'Notícias temporariamente indisponíveis', 'descricao': '', 'fonte': 'MediaExpand', 'imagem_url': None, 'publicado_em': ''},
+            {'titulo': 'Verifique sua conexão com a internet', 'descricao': '', 'fonte': 'MediaExpand', 'imagem_url': None, 'publicado_em': ''},
+        ],
         'atualizado_em': timezone.now().isoformat(),
-        'erro': 'Notícias indisponíveis no momento',
+        'erro': 'Fontes de notícias indisponíveis no momento',
     }
 
 
