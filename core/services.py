@@ -258,7 +258,7 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None, commodities_codigo
 
     if not config.pode_requisitar('COTACOES'):
         logger.warning('[COTAÇÕES] Limite diário de requisições atingido')
-        return _cotacoes_fallback(cache_key)
+        return _cotacoes_fallback(cache_key, moedas_codigos, cripto_codigos, commodities_codigos)
 
     result = {
         'tipo': 'COTACOES',
@@ -289,7 +289,7 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None, commodities_codigo
                     continue
                 else:
                     logger.error('[COTAÇÕES] Limite de tentativas atingido após erro 429')
-                    return _cotacoes_fallback()
+                    return _cotacoes_fallback(cache_key, moedas_codigos, cripto_codigos, commodities_codigos)
             
             resp.raise_for_status()
             data = resp.json()
@@ -305,11 +305,11 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None, commodities_codigo
                 time.sleep(wait_time)
             else:
                 logger.error('[COTAÇÕES] Todas as tentativas falharam')
-                return _cotacoes_fallback(cache_key)
+                return _cotacoes_fallback(cache_key, moedas_codigos, cripto_codigos, commodities_codigos)
     else:
         # Loop completou sem break - erro 429 persistente
         logger.warning('[COTAÇÕES] Rate limit persistente - usando cache longo')
-        return _cotacoes_fallback(cache_key)
+        return _cotacoes_fallback(cache_key, moedas_codigos, cripto_codigos, commodities_codigos)
 
     try:
 
@@ -416,27 +416,41 @@ def buscar_cotacoes(moedas_codigos=None, cripto_codigos=None, commodities_codigo
     return result
 
 
-def _cotacoes_fallback(cache_key=None):
-    """Retorna dados mockados quando API falha. Cacheia por 4h para evitar retry excessivo."""
+def _cotacoes_fallback(cache_key=None, moedas_codigos=None, cripto_codigos=None, commodities_codigos=None):
+    """Retorna dados mockados quando API falha. Filtra pelos itens selecionados."""
+    moedas_codigos = moedas_codigos or []
+    cripto_codigos = cripto_codigos or []
+    commodities_codigos = commodities_codigos or []
+
+    _all_moedas = [
+        {'nome': 'Dólar Americano', 'codigo': 'USD', 'valor': 5.85, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 5.90, 'low': 5.80},
+        {'nome': 'Euro', 'codigo': 'EUR', 'valor': 6.35, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 6.40, 'low': 6.30},
+        {'nome': 'Libra Esterlina', 'codigo': 'GBP', 'valor': 7.45, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 7.50, 'low': 7.40},
+        {'nome': 'Peso Argentino', 'codigo': 'ARS', 'valor': 0.0055, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 0.0056, 'low': 0.0054},
+        {'nome': 'Iene Japonês', 'codigo': 'JPY', 'valor': 0.038, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 0.039, 'low': 0.037},
+    ]
+    _all_cripto = [
+        {'nome': 'Bitcoin', 'codigo': 'BTC', 'valor': 95000, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 96000, 'low': 94000},
+        {'nome': 'Ethereum', 'codigo': 'ETH', 'valor': 5500, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 5600, 'low': 5400},
+        {'nome': 'Tether', 'codigo': 'USDT', 'valor': 5.85, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 5.86, 'low': 5.84},
+        {'nome': 'Ripple', 'codigo': 'XRP', 'valor': 12.50, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 12.80, 'low': 12.20},
+        {'nome': 'Cardano', 'codigo': 'ADA', 'valor': 3.20, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 3.30, 'low': 3.10},
+    ]
+    _all_indices = [
+        {'nome': 'Ibovespa', 'codigo': 'IBOV', 'valor': 130000, 'variacao_pct': 0.0, 'direcao': 'stable'},
+    ]
+    _all_commodities = [
+        {'nome': 'Soja', 'codigo': 'SOJ', 'valor': 1450, 'variacao_pct': 0.0, 'direcao': 'stable', 'valor_brl': 8482, 'unidade': 'USD/bushel'},
+        {'nome': 'Milho', 'codigo': 'CORN', 'valor': 485, 'variacao_pct': 0.0, 'direcao': 'stable', 'valor_brl': 2837, 'unidade': 'USD/bushel'},
+        {'nome': 'Trigo', 'codigo': 'WHEAT', 'valor': 620, 'variacao_pct': 0.0, 'direcao': 'stable', 'valor_brl': 3627, 'unidade': 'USD/bushel'},
+    ]
+
     fallback_data = {
         'tipo': 'COTACOES',
-        'moedas': [
-            {'nome': 'Dólar Americano', 'codigo': 'USD', 'valor': 5.85, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 5.90, 'low': 5.80},
-            {'nome': 'Euro', 'codigo': 'EUR', 'valor': 6.35, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 6.40, 'low': 6.30},
-            {'nome': 'Peso Argentino', 'codigo': 'ARS', 'valor': 0.0055, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 0.0056, 'low': 0.0054},
-        ],
-        'cripto': [
-            {'nome': 'Bitcoin', 'codigo': 'BTC', 'valor': 95000, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 96000, 'low': 94000},
-            {'nome': 'Ethereum', 'codigo': 'ETH', 'valor': 5500, 'variacao_pct': 0.0, 'direcao': 'stable', 'high': 5600, 'low': 5400},
-        ],
-        'indices': [
-            {'nome': 'Ibovespa', 'codigo': 'IBOV', 'valor': 130000, 'variacao_pct': 0.0, 'direcao': 'stable'},
-        ],
-        'commodities': [
-            {'nome': 'Soja', 'codigo': 'SOJ', 'valor': 1450, 'variacao_pct': 0.0, 'direcao': 'stable', 'valor_brl': 8482, 'unidade': 'USD/bushel'},
-            {'nome': 'Milho', 'codigo': 'CORN', 'valor': 485, 'variacao_pct': 0.0, 'direcao': 'stable', 'valor_brl': 2837, 'unidade': 'USD/bushel'},
-            {'nome': 'Trigo', 'codigo': 'WHEAT', 'valor': 620, 'variacao_pct': 0.0, 'direcao': 'stable', 'valor_brl': 3627, 'unidade': 'USD/bushel'},
-        ],
+        'moedas':      [m for m in _all_moedas      if m['codigo'] in moedas_codigos],
+        'cripto':      [c for c in _all_cripto      if c['codigo'] in cripto_codigos],
+        'indices':     [i for i in _all_indices     if i['codigo'] in commodities_codigos],
+        'commodities': [c for c in _all_commodities if c['codigo'] in commodities_codigos],
         'erro': 'Dados temporários - API indisponível (rate limit)',
         'atualizado_em': timezone.now().isoformat(),
     }
