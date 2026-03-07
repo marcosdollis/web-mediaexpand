@@ -170,14 +170,14 @@ class VideoForm(forms.ModelForm):
         # Se estiver editando um vídeo que já tem arquivo, não exige novo upload
         if self.instance and self.instance.pk and self.instance.arquivo:
             self.fields['arquivo'].required = False
-        # Clientes não podem mudar status
-        if user and user.is_client():
-            self.fields['status'].widget = forms.HiddenInput()
-            self.fields['status'].required = False
-            # Preserva o status atual ao editar, ou define PENDING ao criar
-            current_status = (self.instance.status if self.instance and self.instance.pk else None) or 'PENDING'
-            self.fields['status'].initial = current_status
-            self.initial['status'] = current_status
+        # Status: não é editado neste formulário (muda via aprovar/rejeitar)
+        # Sempre oculto e preservado para evitar falha de validação quando o campo
+        # não está renderizado no template
+        current_status = (self.instance.status if self.instance and self.instance.pk else None) or 'PENDING'
+        self.fields['status'].widget = forms.HiddenInput()
+        self.fields['status'].required = False
+        self.fields['status'].initial = current_status
+        self.initial['status'] = current_status
         # Labels e help texts
         self.fields['data_publicacao'].label = 'Data de publicação'
         self.fields['data_publicacao'].help_text = 'Quando status=Agendado, vídeo aparece nas TVs a partir desta data'

@@ -1341,7 +1341,10 @@ def video_update_view(request, pk):
     if request.method == 'POST':
         form = VideoForm(request.POST, request.FILES, instance=video, user=user)
         if form.is_valid():
-            form.save()
+            updated = form.save(commit=False)
+            # Status é gerenciado via aprovar/rejeitar — nunca altera pelo form de edição
+            updated.status = video.status
+            updated.save()
             messages.success(request, 'Vídeo atualizado com sucesso!')
             return redirect('video_list')
         else:
