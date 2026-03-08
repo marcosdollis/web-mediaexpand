@@ -1,0 +1,118 @@
+================================================================================
+   GUIA: ORIENTAÇÃO DE VÍDEO NA TV — MediaExpand Android App
+   Gerado em: 2026
+================================================================================
+
+PROBLEMA IDENTIFICADO
+─────────────────────
+Vídeos gravados no iPhone (ou qualquer celular na vertical) chegam com resolução
+9:16 (retrato, ex: 1080×1920). Quando o ExoPlayer os exibe em uma TV 16:9
+(1920×1080), ele faz zoom/corte para preencher a tela → imagem degradada.
+
+SOLUÇÃO
+────────
+O servidor agora inclui o campo `orientacao` na resposta da playlist:
+
+  "orientacao": "HORIZONTAL"   ← vídeo 16:9 (paisagem) — preenche a TV
+  "orientacao": "VERTICAL"     ← vídeo 9:16 (retrato) — exibe com barras pretas
+
+FORMATO ATUALIZADO DA RESPOSTA DA API
+───────────────────────────────────────
+
+{
+    "id": 42,
+    "tipo": "video",
+    "titulo": "Promoção Verão",
+    "arquivo_url": "https://domain.railway.app/media/videos/cliente_1/promo.mp4",
+    "duracao_segundos": 30,
+    "ativo": true,
+    "texto_tarja": null,
+    "qrcode": null,
+    "orientacao": "VERTICAL"    ← NOVO CAMPO
+}
+
+IMPLEMENTAÇÃO NO ANDROID (ExoPlayer / Media3)
+──────────────────────────────────────────────
+
+1. Adicionar o campo ao data class:
+
+   data class VideoItem(
+       val id: Int,
+       val titulo: String,
+       val arquivo_url: String,
+       val duracao_segundos: Int,
+       val ativo: Boolean,
+       val qrcode: QRCodeData?,
+       val texto_tarja: String?,
+       val orientacao: String = "HORIZONTAL"   // NOVO
+   )
+
+2. Ao iniciar a reprodução, configurar o resizeMode do PlayerView:
+
+   import androidx.media3.ui.AspectRatioFrameLayout
+
+   fun playVideo(video: VideoItem) {
+       when (video.orientacao) {
+           "VERTICAL" -> {
+               // Vídeo vertical (9:16): exibir com barras pretas nas laterais
+               // para NÃO cortar o conteúdo
+               playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+           }
+           else -> {
+               // Vídeo horizontal (16:9): preenche a tela da TV normalmente
+               playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+           }
+       }
+
+       val mediaItem = MediaItem.fromUri(video.arquivo_url)
+       player.setMediaItem(mediaItem)
+       player.prepare()
+       player.playWhenReady = true
+   }
+
+3. No layout XML do PlayerView:
+
+   <!-- resizeMode será definido por código; aqui usamos o padrão -->
+   <androidx.media3.ui.PlayerView
+       android:id="@+id/playerView"
+       android:layout_width="match_parent"
+       android:layout_height="match_parent"
+       app:resize_mode="fill"
+       app:show_buffering="when_playing"
+       app:use_controller="false" />
+
+MODOS DISPONÍVEIS DO EXOPLAYER
+───────────────────────────────
+
+┌──────────────────────────────────┬───────────────────────────────────────────┐
+│ Modo                             │ Comportamento                             │
+├──────────────────────────────────┼───────────────────────────────────────────┤
+│ RESIZE_MODE_FIT      (default)   │ Escala para caber, mantém aspect ratio,   │
+│                                  │ pode mostrar barras (letterbox/pillarbox)  │
+├──────────────────────────────────┼───────────────────────────────────────────┤
+│ RESIZE_MODE_FILL                 │ Preenche o container inteiro, pode cortar  │
+│                                  │ bordas (crop) — bom para vídeos 16:9      │
+├──────────────────────────────────┼───────────────────────────────────────────┤
+│ RESIZE_MODE_ZOOM                 │ Escala para cobrir sem distorção, corta    │
+│                                  │ bordas — similar a FILL mas preserva ratio │
+├──────────────────────────────────┴───────────────────────────────────────────┤
+│ RECOMENDAÇÃO:                                                                 │
+│   orientacao == "VERTICAL"  →  RESIZE_MODE_FIT   (sem zoom, com barras)      │
+│   orientacao == "HORIZONTAL" → RESIZE_MODE_FILL  (preenche a TV, sem barras) │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+COMO TESTAR
+───────────
+1. No painel web, ao subir um vídeo gravado na vertical (iPhone), selecionar
+   "Vertical (9:16 — Retrato)" no campo Orientação do formulário.
+2. Sincronizar o app na TV.
+3. O ExoPlayer setará RESIZE_MODE_FIT → vídeo exibido com barras pretas
+   nas laterais, sem zoom, sem corte, qualidade preservada.
+
+NOTAS
+─────
+- O campo `orientacao` é `"HORIZONTAL"` por padrão (retrocompatível).
+- Vídeos já cadastrados sem esse campo aparecem como "HORIZONTAL".
+- A mudança é puramente de exibição no player; o arquivo de vídeo não é
+  modificado ou recomprimido no servidor.
+================================================================================

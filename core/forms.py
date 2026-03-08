@@ -133,6 +133,7 @@ class VideoForm(forms.ModelForm):
         model = Video
         fields = [
             'titulo', 'descricao', 'arquivo',
+            'orientacao',
             'qrcode_url_destino', 'qrcode_descricao', 'texto_tarja',
             'status', 'data_publicacao', 'data_expiracao',
         ]
@@ -140,6 +141,7 @@ class VideoForm(forms.ModelForm):
             'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título do vídeo'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descrição do vídeo'}),
             'arquivo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'video/*'}),
+            'orientacao': forms.Select(attrs={'class': 'form-select'}),
             'qrcode_url_destino': forms.URLInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'https://exemplo.com/promoção'

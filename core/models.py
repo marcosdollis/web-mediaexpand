@@ -165,9 +165,21 @@ class Video(models.Model):
     )
     duracao_segundos = models.IntegerField(default=0, help_text='Duração em segundos')
     thumbnail = models.ImageField(upload_to='thumbnails/', blank=True, null=True)
+    ORIENTACAO_CHOICES = [
+        ('HORIZONTAL', 'Horizontal (16:9 — Paisagem)'),
+        ('VERTICAL', 'Vertical (9:16 — Retrato)'),
+    ]
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING', db_index=True)
     ativo = models.BooleanField(default=True, db_index=True)
-    
+    orientacao = models.CharField(
+        max_length=10,
+        choices=ORIENTACAO_CHOICES,
+        default='HORIZONTAL',
+        verbose_name='Orientação',
+        help_text='Horizontal (16:9) para vídeos gravados em paisagem; Vertical (9:16) para vídeos gravados em retrato (ex: iPhone na vertical)'
+    )
+
     # Campos de agendamento de publicação
     data_publicacao = models.DateTimeField(
         null=True, blank=True,

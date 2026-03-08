@@ -161,6 +161,35 @@
                             </div>
                         </div>
 
+                        <!-- Video Orientation -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-mobile-alt text-primary me-2"></i>Orientação do Vídeo
+                            </label>
+                            <div class="btn-group w-100" role="group" aria-label="Orientação">
+                                {% if form %}
+                                    {{ form.orientacao }}
+                                {% else %}
+                                    <input type="radio" class="btn-check" name="orientacao" id="orientacao_horizontal" value="HORIZONTAL" checked>
+                                    <label class="btn btn-outline-primary" for="orientacao_horizontal">
+                                        <i class="fas fa-tv me-2"></i>Horizontal (16:9 — Paisagem)
+                                    </label>
+                                    <input type="radio" class="btn-check" name="orientacao" id="orientacao_vertical" value="VERTICAL">
+                                    <label class="btn btn-outline-secondary" for="orientacao_vertical">
+                                        <i class="fas fa-mobile-alt me-2"></i>Vertical (9:16 — Retrato)
+                                    </label>
+                                {% endif %}
+                            </div>
+                            <div class="form-text">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    <strong>Horizontal</strong>: vídeos gravados em paisagem (câmera deitada). 
+                                    <strong>Vertical</strong>: vídeos gravados em retrato (iPhone/celular na vertical). 
+                                    Isso garante que o vídeo seja exibido corretamente na TV sem zoom ou corte.
+                                </small>
+                            </div>
+                        </div>
+
                         <!-- QR Code Section -->
                         <div class="mb-4 mt-4">
                             <div class="d-flex align-items-center justify-content-between mb-3">

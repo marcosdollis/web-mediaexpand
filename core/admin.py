@@ -54,7 +54,7 @@ class VideoAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
     fieldsets = (
         (None, {
-            'fields': ('cliente', 'titulo', 'descricao', 'arquivo', 'duracao_segundos', 'thumbnail', 'status', 'ativo')
+            'fields': ('cliente', 'titulo', 'descricao', 'arquivo', 'duracao_segundos', 'thumbnail', 'status', 'ativo', 'orientacao')
         }),
         ('QR Code', {
             'fields': ('qrcode_url_destino', 'qrcode_descricao', 'qrcode_tracking_code'),

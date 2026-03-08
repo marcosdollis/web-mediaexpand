@@ -129,7 +129,7 @@ class VideoSerializer(serializers.ModelSerializer):
             'arquivo_url', 'duracao_segundos', 'thumbnail', 'status', 'ativo',
             'tamanho_mb', 'qrcode_url_destino', 'qrcode_descricao',
             'qrcode_tracking_code', 'qrcode_tracking_url', 'qrcode_total_clicks',
-            'texto_tarja',
+            'texto_tarja', 'orientacao',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'qrcode_tracking_code', 'created_at', 'updated_at']
@@ -314,6 +314,7 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
                     'duracao_segundos': video.duracao_segundos,
                     'ativo': video.ativo,
                     'texto_tarja': video.texto_tarja,
+                    'orientacao': video.orientacao,  # HORIZONTAL | VERTICAL
                 }
                 
                 if video.qrcode_url_destino:
