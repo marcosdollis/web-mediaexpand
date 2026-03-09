@@ -4026,7 +4026,8 @@ def design_video_upload_view(request):
         return JsonResponse({'success': False, 'message': 'Arquivo muito grande (máx 200 MB)'}, status=400)
 
     filename = f'video_{uuid.uuid4().hex[:8]}{ext}'
-    save_dir = os.path.join('media', 'designs', 'videos')
+    from django.conf import settings
+    save_dir = os.path.join(settings.MEDIA_ROOT, 'designs', 'videos')
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, filename)
 
@@ -4034,7 +4035,12 @@ def design_video_upload_view(request):
         for chunk in video_file.chunks():
             f.write(chunk)
 
-    video_url = f'/media/designs/videos/{filename}'
+    media_url = settings.MEDIA_URL.rstrip('/')
+    relative_url = f'{media_url}/designs/videos/{filename}'
+    # Força HTTPS em produção Railway
+    video_url = request.build_absolute_uri(relative_url)
+    if 'railway.app' in video_url:
+        video_url = video_url.replace('http://', 'https://')
     return JsonResponse({
         'success': True,
         'videoUrl': video_url,
