@@ -196,6 +196,19 @@
 }
 .canvas-container-wrapper .canvas-container {
     display: block !important;
+    position: relative;
+    z-index: 1;
+}
+/* Vídeo de fundo atrás do canvas no editor */
+#canvasBgVideo {
+    display: none;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: 4px;
 }
 
 /* Zoom bar */
@@ -953,6 +966,7 @@
         <!-- CANVAS AREA -->
         <div class="editor-canvas-area" id="canvasArea">
             <div class="canvas-container-wrapper" id="canvasWrapper">
+                <video id="canvasBgVideo" loop muted playsinline preload="none"></video>
                 <canvas id="designCanvas"></canvas>
             </div>
 
@@ -2345,9 +2359,15 @@ function createNewPage(name) {
 
 function saveCurrentPageState() {
     if (!canvas || pages.length === 0) return;
+    var page = pages[currentPageIdx];
+    // Se a página tem vídeo de fundo, o canvas está com bg transparente no display.
+    // Temp-restaura branco para o JSON salvo não guardar fundo transparente.
+    var hadTransparentBg = (page && page.videoUrl && canvas.backgroundColor === 'rgba(0,0,0,0)');
+    if (hadTransparentBg) { canvas.backgroundColor = '#ffffff'; }
     var json = canvas.toJSON();
+    if (hadTransparentBg) { canvas.backgroundColor = 'rgba(0,0,0,0)'; }
     delete json.width; delete json.height;
-    pages[currentPageIdx].fabricJson = json;
+    page.fabricJson = json;
     // Capture thumbnail
     try {
         pages[currentPageIdx]._thumbnail = canvas.toDataURL({ format: 'png', multiplier: 0.15 });
@@ -2364,12 +2384,15 @@ function loadPageIntoCanvas(idx, cb) {
             canvas.setWidth(Math.round(CANVAS_W * currentZoom));
             canvas.setHeight(Math.round(CANVAS_H * currentZoom));
             canvas.setZoom(currentZoom);
+            // Aplica fundo transparente se a página tem vídeo
+            updateCanvasBgVideo(idx);
             canvas.renderAll();
             if (cb) cb();
         });
     } else {
         canvas.clear();
         canvas.setBackgroundColor('#ffffff', function() {
+            updateCanvasBgVideo(idx);
             canvas.renderAll();
             if (cb) cb();
         });
@@ -2524,11 +2547,38 @@ function syncPageSettingsUI() {
     if (page.videoUrl) {
         vf.textContent = page.videoUrl.split('/').pop();
         vp.src = page.videoUrl;
+        vp.load();
         vp.style.display = 'block';
     } else {
         vf.textContent = 'Sem vídeo';
         vp.src = '';
         vp.style.display = 'none';
+    }
+    // Canvas background video
+    updateCanvasBgVideo(currentPageIdx);
+}
+
+/* Exibe o vídeo de fundo no canvas do editor para a página indicada */
+function updateCanvasBgVideo(idx) {
+    var page = pages[idx !== undefined ? idx : currentPageIdx];
+    var vid = document.getElementById('canvasBgVideo');
+    if (!vid || !canvas) return;
+    if (page && page.videoUrl) {
+        vid.src = page.videoUrl;
+        vid.style.display = 'block';
+        vid.load();
+        vid.play().catch(function() {});
+        // Fundo do canvas transparente para o vídeo aparecer por baixo
+        canvas.backgroundColor = 'rgba(0,0,0,0)';
+        canvas.renderAll();
+    } else {
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.style.display = 'none';
+        // Restaura fundo branco apenas se estava transparente (vídeo foi removido)
+        if (!canvas.backgroundColor || canvas.backgroundColor === 'rgba(0,0,0,0)') {
+            canvas.setBackgroundColor('#ffffff', canvas.renderAll.bind(canvas));
+        }
     }
 }
 
@@ -3113,6 +3163,7 @@ window.handleVideoUpload = function(e) {
         if (data.success) {
             pages[currentPageIdx].videoUrl = data.videoUrl;
             syncPageSettingsUI();
+            updateCanvasBgVideo(currentPageIdx);
             showToast('Vídeo adicionado!');
             scheduleAutoSave();
         } else {
@@ -3125,6 +3176,7 @@ window.handleVideoUpload = function(e) {
 
 window.removePageVideo = function() {
     pages[currentPageIdx].videoUrl = '';
+    updateCanvasBgVideo(currentPageIdx);
     syncPageSettingsUI();
     scheduleAutoSave();
 };

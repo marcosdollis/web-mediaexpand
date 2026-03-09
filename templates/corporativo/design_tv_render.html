@@ -22,12 +22,12 @@ html, body {
     height: {{ conteudo.design_altura }}px;
     transform-origin: center center;
 }
-canvas { display: block; position: absolute; top: 0; left: 0; }
+canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
 #pageVideo {
     position: absolute; top: 0; left: 0;
     width: 100%; height: 100%;
     object-fit: cover;
-    z-index: 2;
+    z-index: 0;
     opacity: 0;
     transition: opacity 0.5s ease;
     pointer-events: none;
@@ -55,9 +55,9 @@ window.addEventListener('DOMContentLoaded', function() {
 </head>
 <body>
 <div id="tv-container">
+    <video id="pageVideo" loop muted playsinline preload="auto"></video>
     <canvas id="canvasA" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas>
     <canvas id="canvasB" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas>
-    <video id="pageVideo" loop muted playsinline preload="auto"></video>
     <audio id="pageAudio" preload="auto"></audio>
 </div>
 
@@ -99,6 +99,8 @@ window.addEventListener('DOMContentLoaded', function() {
         var target = (activeCanvas === 'A') ? staticB : staticA;
         var json = JSON.parse(JSON.stringify(page.fabricJson));
         delete json.width; delete json.height;
+        // Se a página tem vídeo de fundo, força canvas transparente
+        if (page.videoUrl) { json.background = 'rgba(0,0,0,0)'; }
         target.loadFromJSON(json, function() {
             target.setWidth(CW); target.setHeight(CH);
             target.renderAll();
@@ -482,6 +484,7 @@ window.addEventListener('DOMContentLoaded', function() {
     var fp = pages[0];
     var fj = fp.fabricJson ? JSON.parse(JSON.stringify(fp.fabricJson)) : {};
     delete fj.width; delete fj.height;
+    if (fp.videoUrl) { fj.background = 'rgba(0,0,0,0)'; }
     staticA.loadFromJSON(fj, function() {
         staticA.setWidth(CW); staticA.setHeight(CH);
         staticA.renderAll();
