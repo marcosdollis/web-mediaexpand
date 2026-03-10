@@ -4200,6 +4200,48 @@ def design_video_upload_view(request):
     })
 
 
+@login_required
+def design_video_library_view(request):
+    """
+    AJAX GET: Retorna lista de vídeos aprovados disponíveis para o usuário
+    usar como vídeo de fundo no design editor.
+    """
+    from django.conf import settings
+
+    user = request.user
+    if not user.is_owner() and not user.is_franchisee():
+        return JsonResponse({'success': False, 'message': 'Sem permissão'}, status=403)
+
+    videos_qs = Video.objects.select_related('cliente').filter(
+        arquivo__isnull=False,
+        ativo=True,
+        status__in=['APPROVED', 'PENDING'],
+    ).exclude(arquivo='').order_by('-created_at')
+
+    if user.is_franchisee():
+        clientes_ids = Cliente.objects.filter(franqueado=user).values_list('id', flat=True)
+        videos_qs = videos_qs.filter(cliente_id__in=clientes_ids)
+
+    result = []
+    for v in videos_qs[:100]:  # limite de 100
+        if not v.arquivo_existe():
+            continue
+        relative = v.arquivo.url  # já inclui MEDIA_URL
+        url = request.build_absolute_uri(relative)
+        if 'railway.app' in url:
+            url = url.replace('http://', 'https://')
+        result.append({
+            'id': v.pk,
+            'titulo': v.titulo,
+            'cliente': v.cliente.empresa,
+            'url': url,
+            'extensao': v.extensao,
+            'tamanho': v.file_size_bytes,
+        })
+
+    return JsonResponse({'success': True, 'videos': result})
+
+
 # ═══════════════════════════════════════════════════════════════
 #  FREE IMAGE BANK — Proxy to Pixabay API
 # ═══════════════════════════════════════════════════════════════
