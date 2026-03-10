@@ -1437,6 +1437,127 @@ def video_delete_view(request, pk):
 
 
 @login_required
+def video_convert_mp4_view(request, pk):
+    """Converte um vídeo para MP4 (H.264 + AAC) usando ffmpeg"""
+    import subprocess
+    import shutil
+    import tempfile
+    from django.conf import settings
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método não permitido'}, status=405)
+
+    user = request.user
+    video = get_object_or_404(Video, pk=pk)
+
+    # Verificar permissões (owner, franqueado do cliente, ou o próprio cliente)
+    if not user.is_owner():
+        if user.is_franchisee():
+            if video.cliente.franqueado != user:
+                return JsonResponse({'success': False, 'error': 'Sem permissão'}, status=403)
+        elif not user.is_client() or video.cliente.user != user:
+            return JsonResponse({'success': False, 'error': 'Sem permissão'}, status=403)
+
+    # Verificar se o arquivo existe
+    if not video.arquivo or not video.arquivo_existe():
+        return JsonResponse({'success': False, 'error': 'Arquivo de vídeo não encontrado no servidor'}, status=404)
+
+    # Verificar se ffmpeg está disponível
+    if not shutil.which('ffmpeg'):
+        return JsonResponse({'success': False, 'error': 'ffmpeg não está instalado no servidor'}, status=500)
+
+    try:
+        input_path = video.arquivo.path
+        input_dir = os.path.dirname(input_path)
+        input_basename = os.path.splitext(os.path.basename(input_path))[0]
+        output_filename = f'{input_basename}.mp4'
+        output_path = os.path.join(input_dir, output_filename)
+
+        # Se o arquivo de saída é o mesmo que o de entrada (.mp4 → .mp4), usar temp
+        is_same_file = os.path.normpath(input_path) == os.path.normpath(output_path)
+        if is_same_file:
+            # Converter para arquivo temporário primeiro
+            fd, temp_output = tempfile.mkstemp(suffix='.mp4', dir=input_dir)
+            os.close(fd)
+        else:
+            temp_output = output_path
+
+        # Comando ffmpeg: H.264 + AAC, qualidade alta, otimizado para streaming
+        cmd = [
+            'ffmpeg', '-i', input_path,
+            '-c:v', 'libx264',       # Codec de vídeo H.264
+            '-preset', 'medium',      # Balanço entre velocidade e compressão
+            '-crf', '18',             # Alta qualidade (18 = visualmente sem perdas)
+            '-c:a', 'aac',            # Codec de áudio AAC
+            '-b:a', '192k',           # Bitrate de áudio
+            '-movflags', '+faststart', # Metadados no início (bom para streaming)
+            '-y',                      # Sobrescrever sem perguntar
+            temp_output
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=600  # 10 minutos de timeout para conversão
+        )
+
+        if result.returncode != 0:
+            # Limpar arquivo temporário se falhou
+            if os.path.exists(temp_output) and temp_output != output_path:
+                os.remove(temp_output)
+            return JsonResponse({
+                'success': False,
+                'error': f'Erro na conversão: {result.stderr[:500]}'
+            }, status=500)
+
+        # Se era o mesmo arquivo, substituir
+        if is_same_file:
+            os.remove(input_path)
+            shutil.move(temp_output, output_path)
+        else:
+            # Remover arquivo original (diferente extensão)
+            if os.path.exists(input_path):
+                os.remove(input_path)
+
+        # Atualizar o campo arquivo no modelo
+        # O path relativo ao MEDIA_ROOT
+        relative_path = os.path.relpath(output_path, settings.MEDIA_ROOT)
+        video.arquivo.name = relative_path.replace('\\', '/')
+        video.save(update_fields=['arquivo'])
+
+        # Tamanho do novo arquivo
+        new_size = os.path.getsize(output_path)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Vídeo convertido para MP4 com sucesso!',
+            'new_filename': output_filename,
+            'new_size': new_size,
+        })
+
+    except subprocess.TimeoutExpired:
+        # Limpar arquivo temporário
+        if 'temp_output' in locals() and os.path.exists(temp_output):
+            os.remove(temp_output)
+        return JsonResponse({
+            'success': False,
+            'error': 'Conversão excedeu o tempo limite de 10 minutos. Tente com um vídeo menor.'
+        }, status=504)
+    except Exception as e:
+        # Limpar arquivo temporário se existir
+        if 'temp_output' in locals() and os.path.exists(temp_output):
+            try:
+                os.remove(temp_output)
+            except OSError:
+                pass
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro inesperado: {str(e)}'
+        }, status=500)
+
+
+@login_required
 def video_qrcode_metricas_view(request, pk):
     """Métricas de cliques do QR Code de um vídeo"""
     user = request.user

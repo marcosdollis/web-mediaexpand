@@ -264,6 +264,24 @@ class Video(models.Model):
             return False
 
     @property
+    def extensao(self):
+        """Retorna a extensão do arquivo (ex: .mp4, .mov, .avi)"""
+        if self.arquivo and self.arquivo.name:
+            return os.path.splitext(self.arquivo.name)[1].lower()
+        return ''
+
+    @property
+    def extensao_class(self):
+        """Retorna a classe CSS Bootstrap baseada na extensão do arquivo"""
+        ext = self.extensao
+        if ext == '.mp4':
+            return 'success'
+        elif ext in ('.mov', '.m4v'):
+            return 'warning'
+        else:
+            return 'danger'
+
+    @property
     def esta_visivel_nas_tvs(self):
         """
         Retorna True se o vídeo deve aparecer nas TVs agora.

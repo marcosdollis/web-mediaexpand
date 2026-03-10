@@ -140,6 +140,7 @@
                         <small class="text-muted">
                             {% if video.arquivo %}
                             <i class="fas fa-file-video me-1"></i>{{ video.file_size_bytes|filesizeformat }}
+                            <span class="badge bg-{{ video.extensao_class }} ms-1">{{ video.extensao }}</span>
                             {% else %}
                             <i class="fas fa-file-video me-1"></i>0 bytes
                             {% endif %}
@@ -176,6 +177,14 @@
                                 data-bs-toggle="modal" 
                                 data-bs-target="#videoModal{{ video.pk }}">
                             <i class="fas fa-play me-1"></i>Assistir
+                        </button>
+                        
+                        <!-- Converter para MP4 -->
+                        <button type="button" class="btn btn-info btn-sm text-white convert-mp4-btn"
+                                data-video-id="{{ video.pk }}"
+                                data-video-title="{{ video.titulo }}"
+                                onclick="convertToMp4({{ video.pk }}, '{{ video.titulo }}')">
+                            <i class="fas fa-sync-alt me-1"></i>Converter para MP4
                         </button>
                         {% endif %}
                         
@@ -399,6 +408,47 @@
 {% block extra_js %}
 <script>
 let deleteVideoId = null;
+
+function convertToMp4(videoId, videoTitle) {
+    if (!confirm(`Converter "${videoTitle}" para MP4 (H.264)?\n\nIsso pode levar alguns minutos dependendo do tamanho do vídeo.`)) {
+        return;
+    }
+
+    const btn = document.querySelector(`.convert-mp4-btn[data-video-id="${videoId}"]`);
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Convertendo...';
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch(`/videos/${videoId}/convert-mp4/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json().then(data => ({status: response.status, data})))
+    .then(({status, data}) => {
+        if (data.success) {
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Convertido!';
+            btn.classList.remove('btn-info');
+            btn.classList.add('btn-success');
+            alert(`✅ "${videoTitle}" convertido para MP4 com sucesso!\n\nNovo arquivo: ${data.new_filename}`);
+            window.location.reload(true);
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            alert(`❌ Erro ao converter: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        alert('❌ Erro de conexão ao converter o vídeo. Tente novamente.');
+    });
+}
 
 function approveVideo(videoId) {
     console.log('approveVideo called with ID:', videoId);
