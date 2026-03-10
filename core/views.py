@@ -1438,7 +1438,7 @@ def video_delete_view(request, pk):
 
 @login_required
 def video_convert_mp4_view(request, pk):
-    """Converte um vídeo para MP4 (H.264 + AAC) usando ffmpeg"""
+    """Converte um vídeo para MP4 (H.264 + AAC) com bake de rotação usando ffmpeg"""
     import subprocess
     import shutil
     import tempfile
@@ -1482,16 +1482,19 @@ def video_convert_mp4_view(request, pk):
         else:
             temp_output = output_path
 
-        # Comando ffmpeg: H.264 + AAC, qualidade alta, otimizado para streaming
+        # Comando ffmpeg: H.264 + AAC, qualidade alta, bake rotation, otimizado para streaming
         cmd = [
-            'ffmpeg', '-i', input_path,
-            '-c:v', 'libx264',       # Codec de vídeo H.264
-            '-preset', 'medium',      # Balanço entre velocidade e compressão
-            '-crf', '18',             # Alta qualidade (18 = visualmente sem perdas)
-            '-c:a', 'aac',            # Codec de áudio AAC
-            '-b:a', '192k',           # Bitrate de áudio
-            '-movflags', '+faststart', # Metadados no início (bom para streaming)
-            '-y',                      # Sobrescrever sem perguntar
+            'ffmpeg', '-y',
+            '-i', input_path,
+            '-c:v', 'libx264',
+            '-preset', 'fast',
+            '-crf', '18',              # Alta qualidade (18 = visualmente sem perdas)
+            '-c:a', 'aac',
+            '-b:a', '192k',
+            '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',  # garante dimensões pares + bake rotation
+            '-map_metadata', '0',
+            '-metadata:s:v', 'rotate=0',  # remove rotation metadata
+            '-movflags', '+faststart',
             temp_output
         ]
 
@@ -1521,10 +1524,9 @@ def video_convert_mp4_view(request, pk):
                 os.remove(input_path)
 
         # Atualizar o campo arquivo no modelo
-        # O path relativo ao MEDIA_ROOT
-        relative_path = os.path.relpath(output_path, settings.MEDIA_ROOT)
-        video.arquivo.name = relative_path.replace('\\', '/')
-        video.save(update_fields=['arquivo'])
+        # Usar update() direto para não disparar save() → _normalizar_video() de novo
+        relative_path = os.path.relpath(output_path, settings.MEDIA_ROOT).replace('\\', '/')
+        Video.objects.filter(pk=video.pk).update(arquivo=relative_path)
 
         # Tamanho do novo arquivo
         new_size = os.path.getsize(output_path)
