@@ -1270,6 +1270,28 @@
                 </small>
             </div>
 
+            <!-- Tarja Panel (per page) -->
+            <div class="prop-group" id="tarjaPanel">
+                <div class="panel-section-title">Tarja Inferior da Página</div>
+                <input type="text" id="pageTextoTarja" maxlength="300" placeholder="Ex: Promoção válida até sexta! #desconto"
+                    style="width:100%;background:var(--panel-bg);border:1px solid var(--panel-border);color:#fff;border-radius:4px;padding:5px 8px;font-size:12px;"
+                    oninput="updateCurrentPageSetting('textoTarja', this.value)">
+                <small style="color:var(--panel-text-muted);font-size:10px;display:block;margin-top:4px;">
+                    Texto em rolagem no rodapé da tela (estilo CNN). Deixe vazio para não exibir.
+                </small>
+            </div>
+
+            <!-- QR Code Panel (per page) -->
+            <div class="prop-group" id="qrcodePanel">
+                <div class="panel-section-title">QR Code da Página</div>
+                <input type="url" id="pageQrcodeUrl" maxlength="500" placeholder="https://seusite.com.br/promoção"
+                    style="width:100%;background:var(--panel-bg);border:1px solid var(--panel-border);color:#fff;border-radius:4px;padding:5px 8px;font-size:12px;"
+                    oninput="updateCurrentPageSetting('qrcodeUrl', this.value)">
+                <small style="color:var(--panel-text-muted);font-size:10px;display:block;margin-top:4px;">
+                    URL que o QR Code vai abrir. Deixe vazio para não exibir.
+                </small>
+            </div>
+
             <!-- Layers -->
             <div class="prop-group">
                 <div class="panel-section-title">Camadas</div>
@@ -1455,6 +1477,8 @@ function init() {
                     transitionDuration: p.transitionDuration || 0.5,
                     audioUrl: p.audioUrl || '',
                     videoUrl: p.videoUrl || '',
+                    textoTarja: p.textoTarja || '',
+                    qrcodeUrl: p.qrcodeUrl || '',
                     fabricJson: p.fabricJson || null,
                     animations: p.animations || [],
                     _thumbnail: null
@@ -1470,8 +1494,8 @@ function init() {
                 id: 'page_1', name: 'Slide 1',
                 duration: parseInt(document.getElementById('designDuration').value) || 15,
                 transition: 'fade', transitionDuration: 0.5,
-                audioUrl: '', videoUrl: '', fabricJson: legacyJson, animations: [],
-                _thumbnail: null
+                audioUrl: '', videoUrl: '', textoTarja: '', qrcodeUrl: '',
+                fabricJson: legacyJson, animations: [], _thumbnail: null
             }];
         }
     }
@@ -2286,6 +2310,8 @@ function performSave(titulo, showFeedback) {
                 transitionDuration: p.transitionDuration,
                 audioUrl: p.audioUrl,
                 videoUrl: p.videoUrl || '',
+                textoTarja: p.textoTarja || '',
+                qrcodeUrl: p.qrcodeUrl || '',
                 fabricJson: p.fabricJson,
                 animations: p.animations
             };
@@ -2375,6 +2401,8 @@ function createNewPage(name) {
         transitionDuration: 0.5,
         audioUrl: '',
         videoUrl: '',
+        textoTarja: '',
+        qrcodeUrl: '',
         fabricJson: null,
         animations: [],
         _thumbnail: null
@@ -2460,6 +2488,8 @@ window.duplicateCurrentPage = function() {
         transitionDuration: src.transitionDuration,
         audioUrl: src.audioUrl,
         videoUrl: src.videoUrl || '',
+        textoTarja: src.textoTarja || '',
+        qrcodeUrl: src.qrcodeUrl || '',
         fabricJson: src.fabricJson ? JSON.parse(JSON.stringify(src.fabricJson)) : null,
         animations: src.animations ? JSON.parse(JSON.stringify(src.animations)) : [],
         _thumbnail: src._thumbnail
@@ -2580,6 +2610,12 @@ function syncPageSettingsUI() {
     }
     // Canvas background video
     updateCanvasBgVideo(currentPageIdx);
+    // Tarja
+    var tarjaInput = document.getElementById('pageTextoTarja');
+    if (tarjaInput) tarjaInput.value = page.textoTarja || '';
+    // QR Code
+    var qrcodeInput = document.getElementById('pageQrcodeUrl');
+    if (qrcodeInput) qrcodeInput.value = page.qrcodeUrl || '';
 }
 
 /* Exibe o vídeo de fundo no canvas do editor para a página indicada */
@@ -3252,28 +3288,47 @@ window.filterVideoLibrary = function(q) {
 function renderVideoLibrary(videos) {
     var grid = document.getElementById('videoLibraryGrid');
     if (!videos || videos.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--panel-text-muted);padding:32px;">Nenhum v\u00eddeo encontrado.</div>';
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--panel-text-muted);padding:32px;">Nenhum vídeo encontrado.</div>';
         return;
     }
+    // Store current list for index-based lookup (avoids quote escaping in onclick)
+    renderVideoLibrary._list = videos;
     var html = '';
-    videos.forEach(function(v) {
+    videos.forEach(function(v, i) {
         var size = v.tamanho > 0 ? (v.tamanho / (1024*1024)).toFixed(1) + ' MB' : '';
         var ext = v.extensao || '.mp4';
         var badgeColor = ext === '.mp4' ? '#28a745' : (ext === '.mov' || ext === '.m4v' ? '#ffc107' : '#dc3545');
-        html += '<div onclick="selectLibraryVideo(' + JSON.stringify(v.url) + ',' + JSON.stringify(v.titulo) + ')" ' +
-            'style="background:var(--panel-surface);border:1px solid var(--panel-border);border-radius:6px;cursor:pointer;overflow:hidden;transition:border-color .15s;" ' +
-            'onmouseover="this.style.borderColor=\'#4f8ef7\'" onmouseout="this.style.borderColor=\'var(--panel-border)\'">' +
-            '<video src="' + v.url + '" style="width:100%;height:100px;object-fit:cover;display:block;background:#000;" preload="metadata" muted></video>' +
+        html += '<div class="vlib-item" data-idx="' + i + '" ' +
+            'style="background:var(--panel-surface);border:1px solid var(--panel-border);border-radius:6px;cursor:pointer;overflow:hidden;transition:border-color .15s;">' +
+            '<video src="' + v.url + '" style="width:100%;height:100px;object-fit:cover;display:block;background:#000;pointer-events:none;" preload="metadata" muted></video>' +
             '<div style="padding:6px 8px;">' +
             '<div style="color:#fff;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + v.titulo + '">' + v.titulo + '</div>' +
             '<div style="color:var(--panel-text-muted);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + v.cliente + '</div>' +
             '<div style="display:flex;gap:4px;margin-top:3px;align-items:center;">' +
             '<span style="background:' + badgeColor + ';color:#fff;border-radius:3px;padding:1px 5px;font-size:9px;">' + ext + '</span>' +
             (size ? '<span style="color:var(--panel-text-muted);font-size:9px;">' + size + '</span>' : '') +
-            '</div>' +
-            '</div></div>';
+            '</div></div></div>';
     });
     grid.innerHTML = html;
+
+    // Event delegation — one listener on grid, no inline onclick
+    grid.onclick = function(e) {
+        var item = e.target.closest('.vlib-item');
+        if (!item) return;
+        var idx = parseInt(item.getAttribute('data-idx'), 10);
+        var v = renderVideoLibrary._list[idx];
+        if (v) selectLibraryVideo(v.url, v.titulo);
+    };
+
+    // Hover highlight via delegation
+    grid.onmouseover = function(e) {
+        var item = e.target.closest('.vlib-item');
+        if (item) item.style.borderColor = '#4f8ef7';
+    };
+    grid.onmouseout = function(e) {
+        var item = e.target.closest('.vlib-item');
+        if (item) item.style.borderColor = 'var(--panel-border)';
+    };
 }
 
 window.selectLibraryVideo = function(url, titulo) {
