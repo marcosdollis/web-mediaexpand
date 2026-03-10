@@ -3160,8 +3160,7 @@ def serve_media_streaming(request, path):
     - Suporta Range requests (HTTP 206 Partial Content)
     - Streaming em chunks de 8MB para não sobrecarregar memória
     - Headers corretos para players de vídeo (Accept-Ranges, Content-Range)
-    - Serve o range COMPLETO solicitado pelo player (não limita a 8MB)
-    - Fallback para resposta completa com streaming quando Range não é solicitado
+    - Cache de 7 dias com ETag + Last-Modified → 304 Not Modified para re-requisições
     """
     import os
     import mimetypes
@@ -3185,7 +3184,34 @@ def serve_media_streaming(request, path):
         content_type = 'application/octet-stream'
     
     file_size = os.path.getsize(full_path)
-    
+    mtime = os.path.getmtime(full_path)
+
+    # ETag baseado em tamanho + mtime (sem ler o arquivo)
+    etag = f'"{file_size:x}-{int(mtime):x}"'
+
+    # Last-Modified header
+    from email.utils import formatdate
+    last_modified = formatdate(mtime, usegmt=True)
+
+    # ── Conditional request: If-None-Match ──
+    if request.META.get('HTTP_IF_NONE_MATCH') == etag:
+        resp = HttpResponse(status=304)
+        resp['ETag'] = etag
+        resp['Cache-Control'] = 'public, max-age=604800'
+        return resp
+
+    # ── Conditional request: If-Modified-Since ──
+    ims = request.META.get('HTTP_IF_MODIFIED_SINCE')
+    if ims:
+        from email.utils import parsedate
+        import time
+        parsed = parsedate(ims)
+        if parsed and time.mktime(parsed) >= mtime:
+            resp = HttpResponse(status=304)
+            resp['ETag'] = etag
+            resp['Cache-Control'] = 'public, max-age=604800'
+            return resp
+
     # Iterator que lê o arquivo em chunks de 8MB (não carrega tudo na memória)
     def file_iterator(file_path, start, end, chunk_size=8 * 1024 * 1024):
         with open(file_path, 'rb') as f:
@@ -3231,7 +3257,9 @@ def serve_media_streaming(request, path):
         response['Content-Length'] = file_size
     
     response['Accept-Ranges'] = 'bytes'
-    response['Cache-Control'] = 'public, max-age=86400'
+    response['ETag'] = etag
+    response['Last-Modified'] = last_modified
+    response['Cache-Control'] = 'public, max-age=604800'  # 7 dias
     return response
 
 
