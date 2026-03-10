@@ -4,6 +4,11 @@ from django.core.validators import FileExtensionValidator
 import os
 import uuid
 import json
+import subprocess
+import tempfile
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class User(AbstractUser):
@@ -234,7 +239,80 @@ class Video(models.Model):
     
     def __str__(self):
         return f"{self.titulo} - {self.cliente.empresa}"
-    
+
+    def save(self, *args, **kwargs):
+        # Detecta se é upload novo ou troca de arquivo
+        is_new = self._state.adding
+        arquivo_mudou = False
+        if not is_new and self.pk:
+            try:
+                old = Video.objects.only('arquivo').get(pk=self.pk)
+                if old.arquivo.name != self.arquivo.name:
+                    arquivo_mudou = True
+            except Video.DoesNotExist:
+                pass
+
+        # Salva primeiro para ter o arquivo no disco
+        super().save(*args, **kwargs)
+
+        # Normaliza apenas quando há arquivo novo ou trocado
+        if self.arquivo and (is_new or arquivo_mudou):
+            self._normalizar_video()
+
+    def _normalizar_video(self):
+        """Remove rotation metadata e bake a rotação nos pixels com ffmpeg."""
+        import shutil
+
+        if not shutil.which('ffmpeg'):
+            logger.warning('ffmpeg não encontrado — vídeo %s não normalizado', self.pk)
+            return
+
+        try:
+            caminho_original = self.arquivo.path
+        except (ValueError, OSError):
+            return
+
+        if not os.path.exists(caminho_original):
+            return
+
+        base, ext = os.path.splitext(caminho_original)
+        caminho_temp = base + '_tmp' + ext
+
+        try:
+            resultado = subprocess.run([
+                'ffmpeg', '-y',
+                '-i', caminho_original,
+                '-c:v', 'libx264',
+                '-c:a', 'aac',
+                '-preset', 'fast',
+                '-crf', '23',
+                '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+                '-map_metadata', '0',
+                '-metadata:s:v', 'rotate=0',
+                '-movflags', '+faststart',
+                caminho_temp
+            ], capture_output=True, text=True, timeout=300)
+
+            if resultado.returncode == 0 and os.path.exists(caminho_temp):
+                os.replace(caminho_temp, caminho_original)
+                logger.info('Vídeo %s normalizado com sucesso', self.pk)
+            else:
+                logger.error('ffmpeg falhou para vídeo %s: %s', self.pk, resultado.stderr[:300])
+                if os.path.exists(caminho_temp):
+                    os.remove(caminho_temp)
+
+        except subprocess.TimeoutExpired:
+            logger.error('ffmpeg timeout para vídeo %s', self.pk)
+            if os.path.exists(caminho_temp):
+                os.remove(caminho_temp)
+        except Exception as e:
+            logger.error('Erro ao normalizar vídeo %s: %s', self.pk, e)
+            if os.path.exists(caminho_temp):
+                try:
+                    os.remove(caminho_temp)
+                except OSError:
+                    pass
+
     def get_file_size(self):
         """Retorna o tamanho do arquivo em MB"""
         if self.arquivo and os.path.exists(self.arquivo.path):
