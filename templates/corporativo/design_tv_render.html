@@ -23,15 +23,22 @@ html, body {
     transform-origin: center center;
 }
 canvas { display: block; }
-/* Fabric.js wraps each canvas in .canvas-container (position:relative by default).
-   Force position:absolute so both overlay at (0,0) inside #tv-container.
-   Start opacity:0 so neither is visible before JS renders content into them. */
+/* Fabric.js wraps each StaticCanvas in a .canvas-container div (position:relative).
+   By placing each canvas inside our own #wrapA/#wrapB, we control positioning and
+   opacity transitions without depending on Fabric internals (wrapperEl). */
+#wrapA, #wrapB {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
 .canvas-container {
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
-    opacity: 0;
-    transition: opacity 0.5s ease;
 }
 #pageVideo {
     position: absolute; top: 0; left: 0;
@@ -106,8 +113,8 @@ window.addEventListener('DOMContentLoaded', function() {
 <body>
 <div id="tv-container">
     <video id="pageVideo" loop playsinline preload="auto"></video>
-    <canvas id="canvasA" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas>
-    <canvas id="canvasB" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas>
+    <div id="wrapA"><canvas id="canvasA" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas></div>
+    <div id="wrapB"><canvas id="canvasB" width="{{ conteudo.design_largura }}" height="{{ conteudo.design_altura }}"></canvas></div>
     <audio id="pageAudio" preload="auto"></audio>
     <div id="pageTarja"><span id="pageTarjaInner"></span></div>
     <div id="pageQrcode"><img id="pageQrcodeImg" src="" alt="QR Code"></div>
@@ -138,10 +145,10 @@ window.addEventListener('DOMContentLoaded', function() {
 
     var staticA = new fabric.StaticCanvas('canvasA', { width: CW, height: CH });
     var staticB = new fabric.StaticCanvas('canvasB', { width: CW, height: CH });
-    // Use the Fabric.js wrapper element (.canvas-container div) for opacity transitions.
-    // Both start at opacity:0 via CSS — we show them only after renderAll() completes.
-    var elA = staticA.wrapperEl;
-    var elB = staticB.wrapperEl;
+    // Use our own wrapper divs for opacity transitions — reliable, no dependency on
+    // Fabric.js internals (wrapperEl is only on interactive Canvas, not StaticCanvas).
+    var elA = document.getElementById('wrapA');
+    var elB = document.getElementById('wrapB');
     var audioEl = document.getElementById('pageAudio');
     var videoEl = document.getElementById('pageVideo');
     var tarjaEl = document.getElementById('pageTarja');
