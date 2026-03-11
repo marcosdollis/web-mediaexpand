@@ -22,15 +22,16 @@ html, body {
     height: {{ conteudo.design_altura }}px;
     transform-origin: center center;
 }
-canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+canvas { display: block; }
 /* Fabric.js wraps each canvas in .canvas-container (position:relative by default).
-   Force position:absolute so both canvases overlay at (0,0) instead of stacking
-   vertically in the document flow — fixes black screen on Android WebView. */
+   Force position:absolute so both overlay at (0,0) inside #tv-container.
+   Start opacity:0 so neither is visible before JS renders content into them. */
 .canvas-container {
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
-    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.5s ease;
 }
 #pageVideo {
     position: absolute; top: 0; left: 0;
@@ -137,14 +138,10 @@ window.addEventListener('DOMContentLoaded', function() {
 
     var staticA = new fabric.StaticCanvas('canvasA', { width: CW, height: CH });
     var staticB = new fabric.StaticCanvas('canvasB', { width: CW, height: CH });
-    // Use the Fabric.js wrapper element for opacity/transition (includes the full canvas structure)
-    var elA = staticA.wrapperEl || document.getElementById('canvasA');
-    var elB = staticB.wrapperEl || document.getElementById('canvasB');
-    // Initialise: A visible, B hidden
-    elA.style.opacity = '1';
-    elB.style.opacity = '0';
-    elA.style.zIndex = '1';
-    elB.style.zIndex = '1';
+    // Use the Fabric.js wrapper element (.canvas-container div) for opacity transitions.
+    // Both start at opacity:0 via CSS — we show them only after renderAll() completes.
+    var elA = staticA.wrapperEl;
+    var elB = staticB.wrapperEl;
     var audioEl = document.getElementById('pageAudio');
     var videoEl = document.getElementById('pageVideo');
     var tarjaEl = document.getElementById('pageTarja');
