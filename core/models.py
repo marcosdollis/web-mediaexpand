@@ -317,15 +317,25 @@ class Video(models.Model):
 
     @staticmethod
     def _calcular_scale_filter(w, h, orient):
-        """Força TODOS os vídeos para 1080×1920 (vertical) ou 1920×1080 (horizontal).
-        Full HD — Baseline Level 4.0 sem colr box, compatível com Fire TV Stick.
+        """Scale proporcional + pad preto para 1920×1080 ou 1080×1920.
+
+        Não estica o vídeo: mantém o aspect ratio original e preenche
+        o espaço restante com barras pretas (letterbox/pillarbox).
         """
         if orient == 'VERTICAL':
-            # Vertical: 1080×1920
-            return 'scale=1080:1920:flags=lanczos,format=yuv420p'
+            # Vertical: cabe em 1080×1920, pad preto no resto
+            return (
+                'scale=1080:1920:flags=lanczos:force_original_aspect_ratio=decrease,'
+                'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
+                'format=yuv420p'
+            )
         else:
-            # Horizontal: 1920×1080
-            return 'scale=1920:1080:flags=lanczos,format=yuv420p'
+            # Horizontal: cabe em 1920×1080, pad preto no resto
+            return (
+                'scale=1920:1080:flags=lanczos:force_original_aspect_ratio=decrease,'
+                'pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,'
+                'format=yuv420p'
+            )
 
     def _normalizar_video(self):
         """Pipeline Full HD para Fire TV Stick / Android TV:
