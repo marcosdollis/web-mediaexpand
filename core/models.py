@@ -261,10 +261,10 @@ class Video(models.Model):
 
     @staticmethod
     def _detectar_orientacao_video(caminho):
-        """Usa ffprobe para detectar largura/altura e retorna 'HORIZONTAL' ou 'VERTICAL'."""
+        """Usa ffprobe para detectar largura/altura e retorna ('HORIZONTAL'|'VERTICAL', w, h)."""
         import shutil
         if not shutil.which('ffprobe'):
-            return 'HORIZONTAL'
+            return 'HORIZONTAL', 0, 0
         try:
             r = subprocess.run(
                 ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
@@ -275,17 +275,43 @@ class Video(models.Model):
             if r.returncode == 0 and r.stdout.strip():
                 parts = r.stdout.strip().split(',')
                 w, h = int(parts[0]), int(parts[1])
-                return 'VERTICAL' if h > w else 'HORIZONTAL'
+                orient = 'VERTICAL' if h > w else 'HORIZONTAL'
+                return orient, w, h
         except Exception:
             pass
-        return 'HORIZONTAL'
+        return 'HORIZONTAL', 0, 0
+
+    @staticmethod
+    def _calcular_scale_filter(w, h, orient):
+        """Calcula o filtro de escala inteligente:
+        - Downscale até 1920x1080 (horizontal) ou 1080x1920 (vertical)
+        - NUNCA faz upscale (mantém resolução original se menor)
+        - Garante dimensões pares (necessário para H.264)
+        """
+        if orient == 'VERTICAL':
+            max_w, max_h = 1080, 1920
+        else:
+            max_w, max_h = 1920, 1080
+
+        if w > 0 and h > 0:
+            # Só fazer downscale, nunca upscale
+            if w <= max_w and h <= max_h:
+                # Vídeo já é menor que o alvo — manter resolução original
+                # Apenas garantir dimensões pares
+                return 'scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p'
+            else:
+                # Downscale mantendo aspect ratio, limitado ao tamanho máximo
+                return f'scale={max_w}:{max_h}:force_original_aspect_ratio=decrease:flags=lanczos,pad={max_w}:{max_h}:(ow-iw)/2:(oh-ih)/2,format=yuv420p'
+        else:
+            # ffprobe falhou — usar escala segura que só garante dimensões pares
+            return 'scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p'
 
     def _normalizar_video(self):
         """Pipeline completo de normalização para compatibilidade com Fire TV Stick / Android TV.
 
         - H.264 High profile, yuv420p, 30 fps CFR
-        - 5 Mbps CBR (maxrate + bufsize)
-        - Lanczos scaling → 1920×1080 (horizontal) ou 1080×1920 (vertical)
+        - Bitrate controlado (maxrate + bufsize) proporcional à resolução
+        - Downscale inteligente: nunca faz upscale de vídeos pequenos
         - Remove HDR/Dolby Vision (força BT.709)
         - Remove TODA metadata
         - movflags +faststart para streaming
@@ -307,12 +333,24 @@ class Video(models.Model):
         base, _ = os.path.splitext(caminho_original)
         caminho_temp = base + '_tmp.mp4'
 
-        # Detectar orientação real do vídeo
-        orient = self._detectar_orientacao_video(caminho_original)
-        if orient == 'VERTICAL':
-            scale_filter = 'scale=1080:1920:flags=lanczos,format=yuv420p'
+        # Detectar orientação e resolução real do vídeo
+        orient, orig_w, orig_h = self._detectar_orientacao_video(caminho_original)
+        scale_filter = self._calcular_scale_filter(orig_w, orig_h, orient)
+
+        # Bitrate proporcional à resolução (evita inflar vídeos pequenos)
+        pixels = (orig_w * orig_h) if (orig_w > 0 and orig_h > 0) else (1920 * 1080)
+        pixels_1080p = 1920 * 1080
+        if pixels >= pixels_1080p:
+            bitrate = '5M'
+            maxrate = '5M'
+            bufsize = '10M'
         else:
-            scale_filter = 'scale=1920:1080:flags=lanczos,format=yuv420p'
+            # Escala linear: 480p (~0.2MP) → ~1.5M, 720p (~0.9MP) → ~3M
+            ratio = pixels / pixels_1080p
+            bps = max(1.0, 1.0 + 4.0 * ratio)  # 1M mínimo, 5M para 1080p
+            bitrate = f'{bps:.1f}M'
+            maxrate = f'{bps:.1f}M'
+            bufsize = f'{bps * 2:.1f}M'
 
         try:
             resultado = subprocess.run([
@@ -324,9 +362,9 @@ class Video(models.Model):
                 '-level', '4.1',
                 '-pix_fmt', 'yuv420p',
                 '-r', '30',
-                '-b:v', '5M',
-                '-maxrate', '5M',
-                '-bufsize', '10M',
+                '-b:v', bitrate,
+                '-maxrate', maxrate,
+                '-bufsize', bufsize,
                 '-preset', 'fast',
                 '-c:a', 'aac',
                 '-b:a', '128k',

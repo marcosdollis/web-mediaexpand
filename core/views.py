@@ -1481,12 +1481,23 @@ def video_convert_mp4_view(request, pk):
         fd, temp_output = tempfile.mkstemp(suffix='.mp4', dir=input_dir)
         os.close(fd)
 
-        # Detectar orientação real do vídeo via ffprobe
-        orientacao = Video._detectar_orientacao_video(input_path)
-        if orientacao == 'VERTICAL':
-            scale_filter = 'scale=1080:1920:flags=lanczos,format=yuv420p'
+        # Detectar orientação e resolução real do vídeo via ffprobe
+        orientacao, orig_w, orig_h = Video._detectar_orientacao_video(input_path)
+        scale_filter = Video._calcular_scale_filter(orig_w, orig_h, orientacao)
+
+        # Bitrate proporcional à resolução (evita inflar vídeos pequenos)
+        pixels = (orig_w * orig_h) if (orig_w > 0 and orig_h > 0) else (1920 * 1080)
+        pixels_1080p = 1920 * 1080
+        if pixels >= pixels_1080p:
+            bitrate = '5M'
+            maxrate = '5M'
+            bufsize = '10M'
         else:
-            scale_filter = 'scale=1920:1080:flags=lanczos,format=yuv420p'
+            ratio = pixels / pixels_1080p
+            bps = max(1.0, 1.0 + 4.0 * ratio)
+            bitrate = f'{bps:.1f}M'
+            maxrate = f'{bps:.1f}M'
+            bufsize = f'{bps * 2:.1f}M'
 
         # Pipeline completo: máxima compatibilidade com Fire TV Stick
         cmd = [
@@ -1498,9 +1509,9 @@ def video_convert_mp4_view(request, pk):
             '-level', '4.1',
             '-pix_fmt', 'yuv420p',
             '-r', '30',
-            '-b:v', '5M',
-            '-maxrate', '5M',
-            '-bufsize', '10M',
+            '-b:v', bitrate,
+            '-maxrate', maxrate,
+            '-bufsize', bufsize,
             '-preset', 'fast',
             '-c:a', 'aac',
             '-b:a', '128k',
