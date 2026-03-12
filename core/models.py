@@ -283,35 +283,22 @@ class Video(models.Model):
 
     @staticmethod
     def _calcular_scale_filter(w, h, orient):
-        """Calcula o filtro de escala inteligente:
-        - Downscale até 1920x1080 (horizontal) ou 1080x1920 (vertical)
-        - NUNCA faz upscale (mantém resolução original se menor)
-        - Garante dimensões pares (necessário para H.264)
+        """Força TODOS os vídeos para 480×848 (vertical) ou 848×480 (horizontal).
+        Resolução do WhatsApp que funciona perfeitamente na TV.
         """
         if orient == 'VERTICAL':
-            max_w, max_h = 1080, 1920
+            # Vertical: 480×848
+            return 'scale=480:848:flags=lanczos,format=yuv420p'
         else:
-            max_w, max_h = 1920, 1080
-
-        if w > 0 and h > 0:
-            # Só fazer downscale, nunca upscale
-            if w <= max_w and h <= max_h:
-                # Vídeo já é menor que o alvo — manter resolução original
-                # Apenas garantir dimensões pares
-                return 'scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p'
-            else:
-                # Downscale mantendo aspect ratio, limitado ao tamanho máximo
-                return f'scale={max_w}:{max_h}:force_original_aspect_ratio=decrease:flags=lanczos,pad={max_w}:{max_h}:(ow-iw)/2:(oh-ih)/2,format=yuv420p'
-        else:
-            # ffprobe falhou — usar escala segura que só garante dimensões pares
-            return 'scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p'
+            # Horizontal: 848×480
+            return 'scale=848:480:flags=lanczos,format=yuv420p'
 
     def _normalizar_video(self):
         """Pipeline completo de normalização para compatibilidade com Fire TV Stick / Android TV.
 
         - H.264 High profile, yuv420p, 30 fps CFR
-        - Bitrate controlado (maxrate + bufsize) proporcional à resolução
-        - Downscale inteligente: nunca faz upscale de vídeos pequenos
+        - Força resolução: 480×848 (vertical) ou 848×480 (horizontal)
+        - Bitrate: 1.5 Mbps (mesmo do WhatsApp que funciona perfeitamente)
         - Remove HDR/Dolby Vision (força BT.709)
         - Remove TODA metadata
         - movflags +faststart para streaming
@@ -337,20 +324,10 @@ class Video(models.Model):
         orient, orig_w, orig_h = self._detectar_orientacao_video(caminho_original)
         scale_filter = self._calcular_scale_filter(orig_w, orig_h, orient)
 
-        # Bitrate proporcional à resolução (evita inflar vídeos pequenos)
-        pixels = (orig_w * orig_h) if (orig_w > 0 and orig_h > 0) else (1920 * 1080)
-        pixels_1080p = 1920 * 1080
-        if pixels >= pixels_1080p:
-            bitrate = '5M'
-            maxrate = '5M'
-            bufsize = '10M'
-        else:
-            # Escala linear: 480p (~0.2MP) → ~1.5M, 720p (~0.9MP) → ~3M
-            ratio = pixels / pixels_1080p
-            bps = max(1.0, 1.0 + 4.0 * ratio)  # 1M mínimo, 5M para 1080p
-            bitrate = f'{bps:.1f}M'
-            maxrate = f'{bps:.1f}M'
-            bufsize = f'{bps * 2:.1f}M'
+        # Bitrate fixo proporcional à resolução 480×848 (~1.5 Mbps)
+        bitrate = '1.5M'
+        maxrate = '1.5M'
+        bufsize = '3M'
 
         try:
             resultado = subprocess.run([
