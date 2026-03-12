@@ -261,20 +261,32 @@ class Video(models.Model):
 
     @staticmethod
     def _detectar_orientacao_video(caminho):
-        """Usa ffprobe para detectar largura/altura e retorna ('HORIZONTAL'|'VERTICAL', w, h)."""
+        """Usa ffprobe para detectar orientação real (considerando rotação do metadado).
+
+        MOVs do iPhone gravam em landscape mas com rotate=90 no metadado.
+        Sem tratar isso, ffprobe retorna 3840×2160 (bruto) e detectamos HORIZONTAL
+        por engano — o vídeo aparece deitado após a conversão.
+        """
         import shutil
+        import json as json_mod
         if not shutil.which('ffprobe'):
             return 'HORIZONTAL', 0, 0
         try:
             r = subprocess.run(
                 ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
-                 '-show_entries', 'stream=width,height',
-                 '-of', 'csv=p=0', caminho],
+                 '-show_entries', 'stream=width,height,tags:rotate',
+                 '-of', 'json', caminho],
                 capture_output=True, text=True, timeout=30
             )
             if r.returncode == 0 and r.stdout.strip():
-                parts = r.stdout.strip().split(',')
-                w, h = int(parts[0]), int(parts[1])
+                data = json_mod.loads(r.stdout)
+                stream = data.get('streams', [{}])[0]
+                w = int(stream.get('width', 0))
+                h = int(stream.get('height', 0))
+                # Rotação do metadado (iPhone grava landscape + rotate=90)
+                rotate = int(stream.get('tags', {}).get('rotate', 0))
+                if rotate in (90, 270):
+                    w, h = h, w  # trocar: dimensão real exibida é a transposta
                 orient = 'VERTICAL' if h > w else 'HORIZONTAL'
                 return orient, w, h
         except Exception:
