@@ -1438,7 +1438,11 @@ def video_delete_view(request, pk):
 
 @login_required
 def video_convert_mp4_view(request, pk):
-    """Converte um vídeo para MP4 (H.264 + AAC) com bake de rotação usando ffmpeg"""
+    """Converte um vídeo para MP4 normalizado para Fire TV Stick / Android TV.
+
+    Pipeline: H.264 High, yuv420p, 30fps CFR, 5 Mbps, Lanczos scaling,
+    remove HDR/metadata, movflags +faststart.
+    """
     import subprocess
     import shutil
     import tempfile
@@ -1473,28 +1477,40 @@ def video_convert_mp4_view(request, pk):
         output_filename = f'{input_basename}.mp4'
         output_path = os.path.join(input_dir, output_filename)
 
-        # Se o arquivo de saída é o mesmo que o de entrada (.mp4 → .mp4), usar temp
-        is_same_file = os.path.normpath(input_path) == os.path.normpath(output_path)
-        if is_same_file:
-            # Converter para arquivo temporário primeiro
-            fd, temp_output = tempfile.mkstemp(suffix='.mp4', dir=input_dir)
-            os.close(fd)
-        else:
-            temp_output = output_path
+        # Sempre usar arquivo temporário para segurança
+        fd, temp_output = tempfile.mkstemp(suffix='.mp4', dir=input_dir)
+        os.close(fd)
 
-        # Comando ffmpeg: H.264 + AAC, qualidade alta, bake rotation, otimizado para streaming
+        # Detectar orientação real do vídeo via ffprobe
+        orientacao = Video._detectar_orientacao_video(input_path)
+        if orientacao == 'VERTICAL':
+            scale_filter = 'scale=1080:1920:flags=lanczos,format=yuv420p'
+        else:
+            scale_filter = 'scale=1920:1080:flags=lanczos,format=yuv420p'
+
+        # Pipeline completo: máxima compatibilidade com Fire TV Stick
         cmd = [
             'ffmpeg', '-y',
             '-i', input_path,
+            '-vf', scale_filter,
             '-c:v', 'libx264',
+            '-profile:v', 'high',
+            '-level', '4.1',
+            '-pix_fmt', 'yuv420p',
+            '-r', '30',
+            '-b:v', '5M',
+            '-maxrate', '5M',
+            '-bufsize', '10M',
             '-preset', 'fast',
-            '-crf', '18',              # Alta qualidade (18 = visualmente sem perdas)
             '-c:a', 'aac',
-            '-b:a', '192k',
-            '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',  # garante dimensões pares + bake rotation
-            '-map_metadata', '0',
-            '-metadata:s:v', 'rotate=0',  # remove rotation metadata
+            '-b:a', '128k',
+            '-ar', '44100',
+            '-map_metadata', '-1',
             '-movflags', '+faststart',
+            '-vsync', 'cfr',
+            '-colorspace', 'bt709',
+            '-color_primaries', 'bt709',
+            '-color_trc', 'bt709',
             temp_output
         ]
 
@@ -1506,40 +1522,41 @@ def video_convert_mp4_view(request, pk):
         )
 
         if result.returncode != 0:
-            # Limpar arquivo temporário se falhou
-            if os.path.exists(temp_output) and temp_output != output_path:
+            if os.path.exists(temp_output):
                 os.remove(temp_output)
             return JsonResponse({
                 'success': False,
                 'error': f'Erro na conversão: {result.stderr[:500]}'
             }, status=500)
 
-        # Se era o mesmo arquivo, substituir
-        if is_same_file:
-            os.remove(input_path)
-            shutil.move(temp_output, output_path)
-        else:
-            # Remover arquivo original (diferente extensão)
-            if os.path.exists(input_path):
+        # Remover arquivo original
+        if os.path.exists(input_path):
+            try:
                 os.remove(input_path)
+            except OSError:
+                pass
 
-        # Atualizar o campo arquivo no modelo
+        # Mover arquivo convertido para caminho final
+        shutil.move(temp_output, output_path)
+
         # Usar update() direto para não disparar save() → _normalizar_video() de novo
         relative_path = os.path.relpath(output_path, settings.MEDIA_ROOT).replace('\\', '/')
-        Video.objects.filter(pk=video.pk).update(arquivo=relative_path)
+        Video.objects.filter(pk=video.pk).update(
+            arquivo=relative_path,
+            orientacao=orientacao
+        )
 
-        # Tamanho do novo arquivo
         new_size = os.path.getsize(output_path)
 
         return JsonResponse({
             'success': True,
-            'message': f'Vídeo convertido para MP4 com sucesso!',
+            'message': f'Vídeo convertido para MP4 com sucesso! ({orientacao})',
             'new_filename': output_filename,
             'new_size': new_size,
+            'orientacao': orientacao,
         })
 
     except subprocess.TimeoutExpired:
-        # Limpar arquivo temporário
         if 'temp_output' in locals() and os.path.exists(temp_output):
             os.remove(temp_output)
         return JsonResponse({
@@ -1547,7 +1564,6 @@ def video_convert_mp4_view(request, pk):
             'error': 'Conversão excedeu o tempo limite de 10 minutos. Tente com um vídeo menor.'
         }, status=504)
     except Exception as e:
-        # Limpar arquivo temporário se existir
         if 'temp_output' in locals() and os.path.exists(temp_output):
             try:
                 os.remove(temp_output)

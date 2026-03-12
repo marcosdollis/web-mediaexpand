@@ -259,8 +259,37 @@ class Video(models.Model):
         if self.arquivo and (is_new or arquivo_mudou):
             self._normalizar_video()
 
+    @staticmethod
+    def _detectar_orientacao_video(caminho):
+        """Usa ffprobe para detectar largura/altura e retorna 'HORIZONTAL' ou 'VERTICAL'."""
+        import shutil
+        if not shutil.which('ffprobe'):
+            return 'HORIZONTAL'
+        try:
+            r = subprocess.run(
+                ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                 '-show_entries', 'stream=width,height',
+                 '-of', 'csv=p=0', caminho],
+                capture_output=True, text=True, timeout=30
+            )
+            if r.returncode == 0 and r.stdout.strip():
+                parts = r.stdout.strip().split(',')
+                w, h = int(parts[0]), int(parts[1])
+                return 'VERTICAL' if h > w else 'HORIZONTAL'
+        except Exception:
+            pass
+        return 'HORIZONTAL'
+
     def _normalizar_video(self):
-        """Remove rotation metadata e bake a rotação nos pixels com ffmpeg."""
+        """Pipeline completo de normalização para compatibilidade com Fire TV Stick / Android TV.
+
+        - H.264 High profile, yuv420p, 30 fps CFR
+        - 5 Mbps CBR (maxrate + bufsize)
+        - Lanczos scaling → 1920×1080 (horizontal) ou 1080×1920 (vertical)
+        - Remove HDR/Dolby Vision (força BT.709)
+        - Remove TODA metadata
+        - movflags +faststart para streaming
+        """
         import shutil
 
         if not shutil.which('ffmpeg'):
@@ -275,29 +304,59 @@ class Video(models.Model):
         if not os.path.exists(caminho_original):
             return
 
-        base, ext = os.path.splitext(caminho_original)
-        caminho_temp = base + '_tmp' + ext
+        base, _ = os.path.splitext(caminho_original)
+        caminho_temp = base + '_tmp.mp4'
+
+        # Detectar orientação real do vídeo
+        orient = self._detectar_orientacao_video(caminho_original)
+        if orient == 'VERTICAL':
+            scale_filter = 'scale=1080:1920:flags=lanczos,format=yuv420p'
+        else:
+            scale_filter = 'scale=1920:1080:flags=lanczos,format=yuv420p'
 
         try:
             resultado = subprocess.run([
                 'ffmpeg', '-y',
                 '-i', caminho_original,
+                '-vf', scale_filter,
                 '-c:v', 'libx264',
-                '-c:a', 'aac',
+                '-profile:v', 'high',
+                '-level', '4.1',
+                '-pix_fmt', 'yuv420p',
+                '-r', '30',
+                '-b:v', '5M',
+                '-maxrate', '5M',
+                '-bufsize', '10M',
                 '-preset', 'fast',
-                '-crf', '23',
-                '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
-                '-map_metadata', '0',
-                '-metadata:s:v', 'rotate=0',
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-ar', '44100',
+                '-map_metadata', '-1',
                 '-movflags', '+faststart',
+                '-vsync', 'cfr',
+                '-colorspace', 'bt709',
+                '-color_primaries', 'bt709',
+                '-color_trc', 'bt709',
                 caminho_temp
-            ], capture_output=True, text=True, timeout=300)
+            ], capture_output=True, text=True, timeout=600)
 
             if resultado.returncode == 0 and os.path.exists(caminho_temp):
-                os.replace(caminho_temp, caminho_original)
-                logger.info('Vídeo %s normalizado com sucesso', self.pk)
+                # Substituir o original (pode ter mudado de extensão)
+                if caminho_original != caminho_temp:
+                    try:
+                        os.remove(caminho_original)
+                    except OSError:
+                        pass
+                # Garantir extensão .mp4
+                caminho_final = base + '.mp4'
+                os.replace(caminho_temp, caminho_final)
+                # Atualizar campo orientacao com a orientação detectada
+                from django.conf import settings
+                rel = os.path.relpath(caminho_final, settings.MEDIA_ROOT).replace('\\', '/')
+                Video.objects.filter(pk=self.pk).update(arquivo=rel, orientacao=orient)
+                logger.info('Vídeo %s normalizado com sucesso (%s)', self.pk, orient)
             else:
-                logger.error('ffmpeg falhou para vídeo %s: %s', self.pk, resultado.stderr[:300])
+                logger.error('ffmpeg falhou para vídeo %s: %s', self.pk, resultado.stderr[:500])
                 if os.path.exists(caminho_temp):
                     os.remove(caminho_temp)
 
