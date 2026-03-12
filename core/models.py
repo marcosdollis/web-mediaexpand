@@ -263,9 +263,12 @@ class Video(models.Model):
     def _detectar_orientacao_video(caminho):
         """Usa ffprobe para detectar orientação real (considerando rotação do metadado).
 
-        MOVs do iPhone gravam em landscape mas com rotate=90 no metadado.
-        Sem tratar isso, ffprobe retorna 3840×2160 (bruto) e detectamos HORIZONTAL
-        por engano — o vídeo aparece deitado após a conversão.
+        MOVs do iPhone gravam em landscape mas com metadado de rotação.
+        ffprobe retorna as dimensões brutas do stream (ex: 3840×2160) e a rotação
+        pode estar em dois lugares dependendo da versão do ffprobe e do codec:
+          - stream.tags.rotate       (H.264, ffprobe antigo)
+          - stream.side_data_list[]  (HEVC/H.265, ffprobe moderno — "Display Matrix")
+        Sem tratar isso, detectamos HORIZONTAL por engano e o vídeo sai deitado.
         """
         import shutil
         import json as json_mod
@@ -274,7 +277,7 @@ class Video(models.Model):
         try:
             r = subprocess.run(
                 ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
-                 '-show_entries', 'stream=width,height,tags:rotate',
+                 '-show_streams',
                  '-of', 'json', caminho],
                 capture_output=True, text=True, timeout=30
             )
@@ -283,10 +286,29 @@ class Video(models.Model):
                 stream = data.get('streams', [{}])[0]
                 w = int(stream.get('width', 0))
                 h = int(stream.get('height', 0))
-                # Rotação do metadado (iPhone grava landscape + rotate=90)
-                rotate = int(stream.get('tags', {}).get('rotate', 0))
+
+                rotate = 0
+
+                # 1) tags.rotate — presente em H.264 e alguns MOVs antigos
+                try:
+                    rotate = int(stream.get('tags', {}).get('rotate', 0))
+                except (ValueError, TypeError):
+                    rotate = 0
+
+                # 2) side_data_list — usado em HEVC/H.265 (iPhone) com ffprobe moderno
+                if rotate == 0:
+                    for sd in stream.get('side_data_list', []):
+                        if 'rotation' in sd:
+                            try:
+                                # Display Matrix usa negativo: -90 = 90° horário
+                                rotate = abs(int(sd['rotation']))
+                            except (ValueError, TypeError):
+                                pass
+                            break
+
                 if rotate in (90, 270):
                     w, h = h, w  # trocar: dimensão real exibida é a transposta
+
                 orient = 'VERTICAL' if h > w else 'HORIZONTAL'
                 return orient, w, h
         except Exception:
