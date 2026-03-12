@@ -317,33 +317,23 @@ class Video(models.Model):
 
     @staticmethod
     def _calcular_scale_filter(w, h, orient):
-        """Scale proporcional + pad preto para 1920×1080 ou 1080×1920.
-
-        Não estica o vídeo: mantém o aspect ratio original e preenche
-        o espaço restante com barras pretas (letterbox/pillarbox).
+        """Força TODOS os vídeos para 480×848 (vertical) ou 848×480 (horizontal).
+        Resolução do WhatsApp que funciona perfeitamente na TV.
         """
         if orient == 'VERTICAL':
-            # Vertical: cabe em 1080×1920, pad preto no resto
-            return (
-                'scale=1080:1920:flags=lanczos:force_original_aspect_ratio=decrease,'
-                'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
-                'format=yuv420p'
-            )
+            # Vertical: 480×848
+            return 'scale=480:848:flags=lanczos,format=yuv420p'
         else:
-            # Horizontal: cabe em 1920×1080, pad preto no resto
-            return (
-                'scale=1920:1080:flags=lanczos:force_original_aspect_ratio=decrease,'
-                'pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,'
-                'format=yuv420p'
-            )
+            # Horizontal: 848×480
+            return 'scale=848:480:flags=lanczos,format=yuv420p'
 
     def _normalizar_video(self):
-        """Pipeline Full HD para Fire TV Stick / Android TV:
+        """Pipeline que replica exatamente o output do WhatsApp:
 
-        - H.264 Baseline profile, Level 4.0
-        - 1920×1080 (horizontal) ou 1080×1920 (vertical)
-        - 5 Mbps, sem color box (nclx), sem metadata HDR
-        - Baseline + sem colr = sem zoom no Fire TV Stick
+        - H.264 Baseline profile, Level 3.1
+        - 480×848 (vertical) ou 848×480 (horizontal)
+        - 1.5 Mbps, sem color box (nclx), sem metadata HDR
+        - Fire TV Stick / Android TV: testado e funcional
         """
         import shutil
 
@@ -366,10 +356,10 @@ class Video(models.Model):
         orient, orig_w, orig_h = self._detectar_orientacao_video(caminho_original)
         scale_filter = self._calcular_scale_filter(orig_w, orig_h, orient)
 
-        # Bitrate Full HD (~5 Mbps)
-        bitrate = '5M'
-        maxrate = '5M'
-        bufsize = '10M'
+        # Bitrate fixo proporcional à resolução 480×848 (~1.5 Mbps)
+        bitrate = '1.5M'
+        maxrate = '1.5M'
+        bufsize = '3M'
 
         try:
             resultado = subprocess.run([
@@ -378,7 +368,7 @@ class Video(models.Model):
                 '-vf', scale_filter,
                 '-c:v', 'libx264',
                 '-profile:v', 'baseline',
-                '-level', '4.0',
+                '-level', '3.1',
                 '-pix_fmt', 'yuv420p',
                 '-r', '30',
                 '-b:v', bitrate,
