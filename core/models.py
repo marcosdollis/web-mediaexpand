@@ -294,14 +294,12 @@ class Video(models.Model):
             return 'scale=848:480:flags=lanczos,format=yuv420p'
 
     def _normalizar_video(self):
-        """Pipeline completo de normalização para compatibilidade com Fire TV Stick / Android TV.
+        """Pipeline que replica exatamente o output do WhatsApp:
 
-        - H.264 High profile, yuv420p, 30 fps CFR
-        - Força resolução: 480×848 (vertical) ou 848×480 (horizontal)
-        - Bitrate: 1.5 Mbps (mesmo do WhatsApp que funciona perfeitamente)
-        - Remove HDR/Dolby Vision (força BT.709)
-        - Remove TODA metadata
-        - movflags +faststart para streaming
+        - H.264 Baseline profile, Level 3.1
+        - 480×848 (vertical) ou 848×480 (horizontal)
+        - 1.5 Mbps, sem color box (nclx), sem metadata HDR
+        - Fire TV Stick / Android TV: testado e funcional
         """
         import shutil
 
@@ -335,8 +333,8 @@ class Video(models.Model):
                 '-i', caminho_original,
                 '-vf', scale_filter,
                 '-c:v', 'libx264',
-                '-profile:v', 'high',
-                '-level', '4.1',
+                '-profile:v', 'baseline',
+                '-level', '3.1',
                 '-pix_fmt', 'yuv420p',
                 '-r', '30',
                 '-b:v', bitrate,
@@ -349,9 +347,6 @@ class Video(models.Model):
                 '-map_metadata', '-1',
                 '-movflags', '+faststart',
                 '-vsync', 'cfr',
-                '-colorspace', 'bt709',
-                '-color_primaries', 'bt709',
-                '-color_trc', 'bt709',
                 caminho_temp
             ], capture_output=True, text=True, timeout=600)
 

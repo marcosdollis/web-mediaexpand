@@ -1438,10 +1438,9 @@ def video_delete_view(request, pk):
 
 @login_required
 def video_convert_mp4_view(request, pk):
-    """Converte um vídeo para MP4 normalizado para Fire TV Stick / Android TV.
-
-    Pipeline: H.264 High, yuv420p, 30fps CFR, 480×848 (vertical) ou 848×480 (horizontal),
-    1.5 Mbps, remove HDR/metadata, movflags +faststart.
+    """Converte um vídeo para MP4 que replica o output do WhatsApp:
+    H.264 Baseline, Level 3.1, 480×848 (vertical) ou 848×480 (horizontal),
+    sem color box, 1.5 Mbps.
     """
     import subprocess
     import shutil
@@ -1490,14 +1489,14 @@ def video_convert_mp4_view(request, pk):
         maxrate = '1.5M'
         bufsize = '3M'
 
-        # Pipeline completo: máxima compatibilidade com Fire TV Stick
+        # Pipeline que replica exatamente o output do WhatsApp
         cmd = [
             'ffmpeg', '-y',
             '-i', input_path,
             '-vf', scale_filter,
             '-c:v', 'libx264',
-            '-profile:v', 'high',
-            '-level', '4.1',
+            '-profile:v', 'baseline',
+            '-level', '3.1',
             '-pix_fmt', 'yuv420p',
             '-r', '30',
             '-b:v', bitrate,
@@ -1510,9 +1509,6 @@ def video_convert_mp4_view(request, pk):
             '-map_metadata', '-1',
             '-movflags', '+faststart',
             '-vsync', 'cfr',
-            '-colorspace', 'bt709',
-            '-color_primaries', 'bt709',
-            '-color_trc', 'bt709',
             temp_output
         ]
 
