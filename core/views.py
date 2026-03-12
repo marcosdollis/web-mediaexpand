@@ -1438,9 +1438,9 @@ def video_delete_view(request, pk):
 
 @login_required
 def video_convert_mp4_view(request, pk):
-    """Converte um vídeo para MP4 que replica o output do WhatsApp:
-    H.264 Baseline, Level 3.1, 480×848 (vertical) ou 848×480 (horizontal),
-    sem color box, 1.5 Mbps.
+    """Converte um vídeo para MP4 Full HD:
+    H.264 Baseline, Level 4.0, 1920×1080 (horizontal) ou 1080×1920 (vertical),
+    sem color box, 5 Mbps.
     """
     import subprocess
     import shutil
@@ -1484,19 +1484,19 @@ def video_convert_mp4_view(request, pk):
         orientacao, orig_w, orig_h = Video._detectar_orientacao_video(input_path)
         scale_filter = Video._calcular_scale_filter(orig_w, orig_h, orientacao)
 
-        # Bitrate fixo proporcional à resolução 480×848 (~1.5 Mbps)
-        bitrate = '1.5M'
-        maxrate = '1.5M'
-        bufsize = '3M'
+        # Bitrate Full HD (~5 Mbps)
+        bitrate = '5M'
+        maxrate = '5M'
+        bufsize = '10M'
 
-        # Pipeline que replica exatamente o output do WhatsApp
+        # Pipeline Full HD — Baseline 4.0 sem colr box
         cmd = [
             'ffmpeg', '-y',
             '-i', input_path,
             '-vf', scale_filter,
             '-c:v', 'libx264',
             '-profile:v', 'baseline',
-            '-level', '3.1',
+            '-level', '4.0',
             '-pix_fmt', 'yuv420p',
             '-r', '30',
             '-b:v', bitrate,

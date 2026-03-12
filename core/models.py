@@ -317,23 +317,23 @@ class Video(models.Model):
 
     @staticmethod
     def _calcular_scale_filter(w, h, orient):
-        """Força TODOS os vídeos para 480×848 (vertical) ou 848×480 (horizontal).
-        Resolução do WhatsApp que funciona perfeitamente na TV.
+        """Força TODOS os vídeos para 1080×1920 (vertical) ou 1920×1080 (horizontal).
+        Full HD — Baseline Level 4.0 sem colr box, compatível com Fire TV Stick.
         """
         if orient == 'VERTICAL':
-            # Vertical: 480×848
-            return 'scale=480:848:flags=lanczos,format=yuv420p'
+            # Vertical: 1080×1920
+            return 'scale=1080:1920:flags=lanczos,format=yuv420p'
         else:
-            # Horizontal: 848×480
-            return 'scale=848:480:flags=lanczos,format=yuv420p'
+            # Horizontal: 1920×1080
+            return 'scale=1920:1080:flags=lanczos,format=yuv420p'
 
     def _normalizar_video(self):
-        """Pipeline que replica exatamente o output do WhatsApp:
+        """Pipeline Full HD para Fire TV Stick / Android TV:
 
-        - H.264 Baseline profile, Level 3.1
-        - 480×848 (vertical) ou 848×480 (horizontal)
-        - 1.5 Mbps, sem color box (nclx), sem metadata HDR
-        - Fire TV Stick / Android TV: testado e funcional
+        - H.264 Baseline profile, Level 4.0
+        - 1920×1080 (horizontal) ou 1080×1920 (vertical)
+        - 5 Mbps, sem color box (nclx), sem metadata HDR
+        - Baseline + sem colr = sem zoom no Fire TV Stick
         """
         import shutil
 
@@ -356,10 +356,10 @@ class Video(models.Model):
         orient, orig_w, orig_h = self._detectar_orientacao_video(caminho_original)
         scale_filter = self._calcular_scale_filter(orig_w, orig_h, orient)
 
-        # Bitrate fixo proporcional à resolução 480×848 (~1.5 Mbps)
-        bitrate = '1.5M'
-        maxrate = '1.5M'
-        bufsize = '3M'
+        # Bitrate Full HD (~5 Mbps)
+        bitrate = '5M'
+        maxrate = '5M'
+        bufsize = '10M'
 
         try:
             resultado = subprocess.run([
@@ -368,7 +368,7 @@ class Video(models.Model):
                 '-vf', scale_filter,
                 '-c:v', 'libx264',
                 '-profile:v', 'baseline',
-                '-level', '3.1',
+                '-level', '4.0',
                 '-pix_fmt', 'yuv420p',
                 '-r', '30',
                 '-b:v', bitrate,
