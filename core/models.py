@@ -317,24 +317,23 @@ class Video(models.Model):
 
     @staticmethod
     def _calcular_scale_filter(w, h, orient):
-        """Força TODOS os vídeos para 480×848 (vertical) ou 848×480 (horizontal).
-        Resolução do WhatsApp que funciona perfeitamente na TV.
-        Filtros de imagem: nitidez leve (unsharp) + realce de contraste/saturacao (eq).
+        """Força TODOS os vídeos para 720×1280 (vertical) ou 1280×720 (horizontal).
+        720p — Baseline Level 3.1 sem colr box, compatível com Fire TV Stick.
+        Filtros de melhoria visual: nitidez leve (unsharp) + realce de contraste/saturação (eq).
         """
-        # Filtros de melhoria visual (não afetam compatibilidade)
         enhance = 'unsharp=5:5:0.5:5:5:0.0,eq=contrast=1.05:brightness=0.02:saturation=1.05'
         if orient == 'VERTICAL':
-            return f'scale=480:848:flags=lanczos,{enhance},format=yuv420p'
+            return f'scale=720:1280:flags=lanczos,{enhance},format=yuv420p'
         else:
-            return f'scale=848:480:flags=lanczos,{enhance},format=yuv420p'
+            return f'scale=1280:720:flags=lanczos,{enhance},format=yuv420p'
 
     def _normalizar_video(self):
-        """Pipeline que replica exatamente o output do WhatsApp:
+        """Pipeline 720p para Fire TV Stick / Android TV:
 
         - H.264 Baseline profile, Level 3.1
-        - 480×848 (vertical) ou 848×480 (horizontal)
-        - 1.5 Mbps, sem color box (nclx), sem metadata HDR
-        - Fire TV Stick / Android TV: testado e funcional
+        - 720×1280 (vertical) ou 1280×720 (horizontal)
+        - 3 Mbps, sem color box (nclx), sem metadata HDR
+        - Baseline + sem colr = sem zoom no Fire TV Stick
         """
         import shutil
 
@@ -357,10 +356,10 @@ class Video(models.Model):
         orient, orig_w, orig_h = self._detectar_orientacao_video(caminho_original)
         scale_filter = self._calcular_scale_filter(orig_w, orig_h, orient)
 
-        # Bitrate fixo proporcional à resolução 480×848 (~1.5 Mbps)
-        bitrate = '1.5M'
-        maxrate = '1.5M'
-        bufsize = '3M'
+        # Bitrate para 720p (~3 Mbps)
+        bitrate = '3M'
+        maxrate = '3M'
+        bufsize = '6M'
 
         try:
             resultado = subprocess.run([
