@@ -319,13 +319,14 @@ class Video(models.Model):
     def _calcular_scale_filter(w, h, orient):
         """Força TODOS os vídeos para 480×848 (vertical) ou 848×480 (horizontal).
         Resolução do WhatsApp que funciona perfeitamente na TV.
+        Filtros de imagem: nitidez leve (unsharp) + realce de contraste/saturacao (eq).
         """
+        # Filtros de melhoria visual (não afetam compatibilidade)
+        enhance = 'unsharp=5:5:0.5:5:5:0.0,eq=contrast=1.05:brightness=0.02:saturation=1.05'
         if orient == 'VERTICAL':
-            # Vertical: 480×848
-            return 'scale=480:848:flags=lanczos,format=yuv420p'
+            return f'scale=480:848:flags=lanczos,{enhance},format=yuv420p'
         else:
-            # Horizontal: 848×480
-            return 'scale=848:480:flags=lanczos,format=yuv420p'
+            return f'scale=848:480:flags=lanczos,{enhance},format=yuv420p'
 
     def _normalizar_video(self):
         """Pipeline que replica exatamente o output do WhatsApp:
