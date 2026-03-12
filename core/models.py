@@ -317,22 +317,20 @@ class Video(models.Model):
 
     @staticmethod
     def _calcular_scale_filter(w, h, orient):
-        """Força TODOS os vídeos para 1080×1920 (vertical) ou 1920×1080 (horizontal).
-        1080p Full HD — Baseline Level 4.0 sem colr box, compatível com Fire TV Stick.
-        Filtros de melhoria visual: nitidez leve (unsharp) + realce de contraste/saturação (eq).
+        """Força TODOS os vídeos para 480×854 (vertical) ou 854×480 (horizontal).
+        480p — Baseline Level 3.1 sem colr box, compatível com Fire TV Stick.
         """
-        enhance = 'unsharp=5:5:0.5:5:5:0.0,eq=contrast=1.05:brightness=0.02:saturation=1.05'
         if orient == 'VERTICAL':
-            return f'scale=1080:1920:flags=lanczos,{enhance},format=yuv420p'
+            return 'scale=480:854:flags=lanczos,format=yuv420p'
         else:
-            return f'scale=1920:1080:flags=lanczos,{enhance},format=yuv420p'
+            return 'scale=854:480:flags=lanczos,format=yuv420p'
 
     def _normalizar_video(self):
-        """Pipeline 1080p Full HD para Fire TV Stick / Android TV:
+        """Pipeline 480p para Fire TV Stick / Android TV:
 
-        - H.264 Baseline profile, Level 4.0
-        - 1080×1920 (vertical) ou 1920×1080 (horizontal)
-        - 5 Mbps, sem color box (nclx), sem metadata HDR
+        - H.264 Baseline profile, Level 3.1
+        - 480×854 (vertical) ou 854×480 (horizontal)
+        - 2 Mbps, sem color box (nclx), sem metadata HDR
         - Baseline + sem colr = sem zoom no Fire TV Stick
         """
         import shutil
@@ -356,10 +354,10 @@ class Video(models.Model):
         orient, orig_w, orig_h = self._detectar_orientacao_video(caminho_original)
         scale_filter = self._calcular_scale_filter(orig_w, orig_h, orient)
 
-        # Bitrate para 1080p Full HD (~5 Mbps)
-        bitrate = '5M'
-        maxrate = '5M'
-        bufsize = '10M'
+        # Bitrate para 480p (~2 Mbps)
+        bitrate = '2M'
+        maxrate = '2M'
+        bufsize = '4M'
 
         try:
             resultado = subprocess.run([
@@ -368,7 +366,7 @@ class Video(models.Model):
                 '-vf', scale_filter,
                 '-c:v', 'libx264',
                 '-profile:v', 'baseline',
-                '-level', '4.0',
+                '-level', '3.1',
                 '-pix_fmt', 'yuv420p',
                 '-r', '30',
                 '-b:v', bitrate,
