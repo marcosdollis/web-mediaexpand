@@ -620,6 +620,38 @@ class TVCheckScheduleView(APIView):
             )
 
 
+class TVVersionCheckView(APIView):
+    """
+    Retorna a versão mais recente ativa do APK para o app Android verificar atualizações.
+    URL: GET /api/tv/version/
+    Resposta:
+      {
+        "latest_version": "1.2.3",
+        "download_url": "https://..../app/download/",
+        "force_update": false,
+        "size_bytes": 12345678,
+        "notes": "..."
+      }
+    Se não há versão ativa, retorna 404.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        app_version = AppVersion.get_versao_ativa()
+        if not app_version:
+            return Response({'error': 'Nenhuma versão disponível'}, status=status.HTTP_404_NOT_FOUND)
+
+        download_url = request.build_absolute_uri('/app/download/')
+
+        return Response({
+            'latest_version': app_version.versao,
+            'download_url': download_url,
+            'force_update': app_version.force_update,
+            'size_bytes': app_version.tamanho,
+            'notes': app_version.notas_versao,
+        })
+
+
 class TVCorporativoHTMLView(APIView):
     """
     Retorna a página HTML completa de conteúdo corporativo para o app de TV.

@@ -400,10 +400,10 @@ class AppVersionForm(forms.ModelForm):
     
     class Meta:
         model = AppVersion
-        fields = ['versao', 'arquivo_apk', 'notas_versao', 'ativo']
+        fields = ['versao', 'arquivo_apk', 'notas_versao', 'ativo', 'force_update']
         widgets = {
             'versao': forms.TextInput(attrs={
-                'class': 'form-control', 
+                'class': 'form-control',
                 'placeholder': 'Ex: 1.0.0, 1.2.5'
             }),
             'arquivo_apk': forms.FileInput(attrs={
@@ -411,11 +411,12 @@ class AppVersionForm(forms.ModelForm):
                 'accept': '.apk'
             }),
             'notas_versao': forms.Textarea(attrs={
-                'class': 'form-control', 
-                'rows': 4, 
+                'class': 'form-control',
+                'rows': 4,
                 'placeholder': 'Descreva as novidades e correções desta versão...'
             }),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'force_update': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
     
     def clean_arquivo_apk(self):

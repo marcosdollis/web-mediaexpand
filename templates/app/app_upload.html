@@ -48,6 +48,48 @@
         </div>
     </div>
 
+    <!-- API de Verificação de Versão -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info bg-opacity-10">
+                    <h5 class="mb-0">
+                        <i class="bi bi-phone-fill text-info"></i>
+                        API de Auto-Atualização do App
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        O app Android chama este endpoint ao iniciar para verificar se há atualização disponível:
+                    </p>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-dark text-success fw-bold">GET</span>
+                        <input type="text" class="form-control font-monospace" id="versionApiLink"
+                               value="{{ request.scheme }}://{{ request.get_host }}/api/tv/version/" readonly>
+                        <button class="btn btn-outline-info" type="button" onclick="copyVersionLink()">
+                            <i class="bi bi-clipboard"></i> Copiar
+                        </button>
+                    </div>
+                    <div class="bg-dark text-light rounded p-3 mt-3">
+                        <small class="text-muted d-block mb-2">Resposta JSON de exemplo:</small>
+                        <pre class="mb-0 text-success" style="font-size:0.8rem;">{
+  "latest_version": "1.2.3",
+  "download_url": "https://seu-domínio.up.railway.app/app/download/",
+  "force_update": false,
+  "size_bytes": 8388608,
+  "notes": "Correção do bug de zoom no Fire TV"
+}</pre>
+                    </div>
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Para o app se atualizar automaticamente:</strong>
+                        configure a URL do servidor no app Android e recompile o APK conforme as instruções abaixo.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Upload Nova Versão -->
     <div class="row mb-4">
         <div class="col-12">
@@ -94,6 +136,13 @@
                                     </label>
                                 </div>
                                 <small class="text-muted">Se marcado, esta versão estará disponível para download</small>
+                                <div class="form-check form-switch mt-2">
+                                    {{ form.force_update }}
+                                    <label class="form-check-label text-danger" for="{{ form.force_update.id_for_label }}">
+                                        <i class="bi bi-exclamation-triangle"></i> Forçar Atualização
+                                    </label>
+                                </div>
+                                <small class="text-muted">App exibe alerta obrigatório sem opção de ignorar</small>
                             </div>
                         </div>
                         
@@ -150,6 +199,9 @@
                                             <strong>v{{ version.versao }}</strong>
                                             {% if version.ativo %}
                                                 <span class="badge bg-success ms-2">Ativa</span>
+                                            {% endif %}
+                                            {% if version.force_update %}
+                                                <span class="badge bg-danger ms-1">Forçada</span>
                                             {% endif %}
                                         </td>
                                         <td>
@@ -279,27 +331,22 @@
 </div>
 
 <script>
-function copyDownloadLink() {
-    const input = document.getElementById('downloadLink');
+function copyLink(inputId) {
+    const input = document.getElementById(inputId);
     input.select();
-    input.setSelectionRange(0, 99999); // Para mobile
-    
+    input.setSelectionRange(0, 99999);
     navigator.clipboard.writeText(input.value).then(() => {
-        // Mostrar feedback
         const button = event.target.closest('button');
         const originalHTML = button.innerHTML;
         button.innerHTML = '<i class="bi bi-check"></i> Copiado!';
-        button.classList.remove('btn-outline-success');
         button.classList.add('btn-success');
-        
         setTimeout(() => {
             button.innerHTML = originalHTML;
             button.classList.remove('btn-success');
-            button.classList.add('btn-outline-success');
         }, 2000);
-    }).catch(err => {
-        alert('Erro ao copiar: ' + err);
-    });
+    }).catch(err => { alert('Erro ao copiar: ' + err); });
 }
+function copyDownloadLink() { copyLink('downloadLink'); }
+function copyVersionLink()  { copyLink('versionApiLink'); }
 </script>
 {% endblock %}

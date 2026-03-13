@@ -1003,6 +1003,7 @@ class AppVersion(models.Model):
     tamanho = models.BigIntegerField(help_text='Tamanho do arquivo em bytes', editable=False)
     notas_versao = models.TextField(blank=True, help_text='Descrição das mudanças nesta versão')
     ativo = models.BooleanField(default=True, help_text='Versão disponível para download')
+    force_update = models.BooleanField(default=False, help_text='Forçar atualização — app exibe alerta obrigatório')
     downloads = models.IntegerField(default=0, editable=False, help_text='Número de downloads')
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='app_versions')
     created_at = models.DateTimeField(auto_now_add=True)
