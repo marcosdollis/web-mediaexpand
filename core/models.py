@@ -317,21 +317,22 @@ class Video(models.Model):
 
     @staticmethod
     def _calcular_scale_filter(w, h, orient):
-        """Força TODOS os vídeos para 480×854 (vertical) ou 854×480 (horizontal).
-        480p — Baseline Level 3.1 sem colr box, compatível com Fire TV Stick.
+        """1080p FireTV-safe (V6 validado): Main 4.0 + BT.709 + VBV + GOP 60 + mp42.
+        scale + setsar=1 elimina anamorfismo; format=yuv420p garante bt.601 correto.
         """
         if orient == 'VERTICAL':
-            return 'scale=480:854:flags=lanczos,format=yuv420p'
+            return 'scale=1080:1920:flags=lanczos,format=yuv420p,setsar=1'
         else:
-            return 'scale=854:480:flags=lanczos,format=yuv420p'
+            return 'scale=1920:1080:flags=lanczos,format=yuv420p,setsar=1'
 
     def _normalizar_video(self):
-        """Pipeline 480p para Fire TV Stick / Android TV:
+        """Pipeline 1080p FireTV-safe (V6 validado em dispositivo real):
 
-        - H.264 Baseline profile, Level 3.1
-        - 480×854 (vertical) ou 854×480 (horizontal)
-        - 2 Mbps, sem color box (nclx), sem metadata HDR
-        - Baseline + sem colr = sem zoom no Fire TV Stick
+        - H.264 Main profile, Level 4.0
+        - 1080×1920 (vertical) ou 1920×1080 (horizontal)
+        - 5 Mbps VBV, GOP 60, BT.709, brand mp42 / tag avc1
+        - map_metadata -1 remove rotate/clap/pasp/display matrix
+        - setsar=1 + setdar implícito eliminam anamorfismo
         """
         import shutil
 
@@ -354,33 +355,41 @@ class Video(models.Model):
         orient, orig_w, orig_h = self._detectar_orientacao_video(caminho_original)
         scale_filter = self._calcular_scale_filter(orig_w, orig_h, orient)
 
-        # Bitrate para 480p (~2 Mbps)
-        bitrate = '2M'
-        maxrate = '2M'
-        bufsize = '4M'
+        # Bitrate 1080p — VBV calibrado para Fire TV (V6)
+        bitrate = '5M'
+        maxrate = '5M'
+        bufsize = '10M'
 
         try:
             resultado = subprocess.run([
                 'ffmpeg', '-y',
                 '-i', caminho_original,
                 '-vf', scale_filter,
+                '-map_metadata', '-1',
                 '-c:v', 'libx264',
-                '-profile:v', 'baseline',
-                '-level', '3.1',
+                '-profile:v', 'main',
+                '-level', '4.0',
                 '-pix_fmt', 'yuv420p',
                 '-r', '30',
                 '-b:v', bitrate,
                 '-maxrate', maxrate,
                 '-bufsize', bufsize,
-                '-preset', 'fast',
+                '-g', '60',
+                '-keyint_min', '60',
+                '-preset', 'medium',
+                '-color_range', 'tv',
+                '-colorspace', 'bt709',
+                '-color_primaries', 'bt709',
+                '-color_trc', 'bt709',
                 '-c:a', 'aac',
-                '-b:a', '128k',
+                '-b:a', '160k',
                 '-ar', '44100',
-                '-map_metadata', '-1',
                 '-movflags', '+faststart',
+                '-brand', 'mp42',
+                '-tag:v', 'avc1',
                 '-vsync', 'cfr',
                 caminho_temp
-            ], capture_output=True, text=True, timeout=600)
+            ], capture_output=True, text=True, timeout=900)
 
             if resultado.returncode == 0 and os.path.exists(caminho_temp):
                 # Substituir o original (pode ter mudado de extensão)

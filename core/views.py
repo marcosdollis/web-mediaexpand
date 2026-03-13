@@ -1470,9 +1470,9 @@ def video_delete_view(request, pk):
 
 @login_required
 def video_convert_mp4_view(request, pk):
-    """Converte um vídeo para MP4 480p:
-    H.264 Baseline, Level 3.1, 480×854 (vertical) ou 854×480 (horizontal),
-    sem color box, 2 Mbps.
+    """Converte um vídeo para MP4 1080p FireTV-safe (V6):
+    H.264 Main 4.0, 1080×1920 (vertical) ou 1920×1080 (horizontal),
+    BT.709, VBV 5M, GOP 60, brand mp42.
     """
     import subprocess
     import shutil
@@ -1516,30 +1516,38 @@ def video_convert_mp4_view(request, pk):
         orientacao, orig_w, orig_h = Video._detectar_orientacao_video(input_path)
         scale_filter = Video._calcular_scale_filter(orig_w, orig_h, orientacao)
 
-        # Bitrate para 480p (~2 Mbps)
-        bitrate = '2M'
-        maxrate = '2M'
-        bufsize = '4M'
+        # Bitrate 1080p — VBV calibrado para Fire TV (V6 validado)
+        bitrate = '5M'
+        maxrate = '5M'
+        bufsize = '10M'
 
-        # Pipeline 480p — Baseline 3.1 sem colr box
+        # Pipeline 1080p FireTV-safe — Main 4.0 + BT.709 + VBV + GOP 60 + mp42
         cmd = [
             'ffmpeg', '-y',
             '-i', input_path,
             '-vf', scale_filter,
+            '-map_metadata', '-1',
             '-c:v', 'libx264',
-            '-profile:v', 'baseline',
-            '-level', '3.1',
+            '-profile:v', 'main',
+            '-level', '4.0',
             '-pix_fmt', 'yuv420p',
             '-r', '30',
             '-b:v', bitrate,
             '-maxrate', maxrate,
             '-bufsize', bufsize,
-            '-preset', 'fast',
+            '-g', '60',
+            '-keyint_min', '60',
+            '-preset', 'medium',
+            '-color_range', 'tv',
+            '-colorspace', 'bt709',
+            '-color_primaries', 'bt709',
+            '-color_trc', 'bt709',
             '-c:a', 'aac',
-            '-b:a', '128k',
+            '-b:a', '160k',
             '-ar', '44100',
-            '-map_metadata', '-1',
             '-movflags', '+faststart',
+            '-brand', 'mp42',
+            '-tag:v', 'avc1',
             '-vsync', 'cfr',
             temp_output
         ]
@@ -1548,7 +1556,7 @@ def video_convert_mp4_view(request, pk):
             cmd,
             capture_output=True,
             text=True,
-            timeout=600  # 10 minutos de timeout para conversão
+            timeout=900  # 15 minutos — 1080p demora mais que 480p
         )
 
         if result.returncode != 0:
@@ -1591,7 +1599,7 @@ def video_convert_mp4_view(request, pk):
             os.remove(temp_output)
         return JsonResponse({
             'success': False,
-            'error': 'Conversão excedeu o tempo limite de 10 minutos. Tente com um vídeo menor.'
+            'error': 'Conversão excedeu o tempo limite de 15 minutos. Tente com um vídeo menor.'
         }, status=504)
     except Exception as e:
         if 'temp_output' in locals() and os.path.exists(temp_output):
