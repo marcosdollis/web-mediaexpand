@@ -747,6 +747,53 @@ class DispositivoTV(models.Model):
         playlists = self.get_playlists_ativas_por_horario()
         return playlists[0] if playlists else None
 
+    def get_agendamentos_ativos_por_horario(self):
+        """Igual a get_playlists_ativas_por_horario() mas retorna os objetos
+        AgendamentoExibicao em vez de apenas as playlists, preservando o campo
+        percentual para cálculo de composição proporcional.
+
+        Retorna lista de AgendamentoExibicao na mesma ordem de prioridade.
+        """
+        agendamentos = self.agendamentos.filter(
+            ativo=True,
+            playlist__ativa=True,
+        ).select_related('playlist')
+
+        now = timezone.localtime(timezone.now())
+        dia_semana = now.weekday()
+        hora_atual = now.time()
+
+        horario = []
+        fulltime = []
+
+        for ag in agendamentos:
+            if not ag.playlist:
+                continue
+            dias = ag.dias_efetivos
+            if ag.is_fulltime:
+                if dia_semana in dias:
+                    fulltime.append(ag)
+            else:
+                if dia_semana in dias and ag.hora_inicio <= hora_atual <= ag.hora_fim:
+                    horario.append(ag)
+
+        resultado = []
+        if horario:
+            resultado.extend(sorted(horario, key=lambda x: x.prioridade, reverse=True))
+        if fulltime:
+            resultado.extend(sorted(fulltime, key=lambda x: x.prioridade, reverse=True))
+
+        if not resultado:
+            # Fallback: playlist_atual sem percentual
+            if self.playlist_atual:
+                dummy = AgendamentoExibicao.__new__(AgendamentoExibicao)
+                dummy.playlist = self.playlist_atual
+                dummy.percentual = 100
+                return [dummy]
+            return []
+
+        return resultado
+
     def status_conexao(self):
         """
         Retorna o status real de conexão baseado no consumo da API:
@@ -820,6 +867,14 @@ class AgendamentoExibicao(models.Model):
     prioridade = models.IntegerField(
         default=0,
         help_text='Prioridade (maior = maior prioridade). Usado para resolver conflitos.'
+    )
+    percentual = models.IntegerField(
+        default=100,
+        help_text=(
+            'Percentual desta playlist na composição total (0-100). '
+            'Ex: 80 = 80% dos slots para esta playlist. '
+            'Se todos forem 0 ou houver apenas uma playlist, o comportamento é sequencial normal.'
+        )
     )
     ativo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

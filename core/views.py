@@ -337,6 +337,47 @@ class LogExibicaoViewSet(viewsets.ModelViewSet):
         return Response(stats)
 
 
+# ─── Distribuição proporcional por percentual (Bresenham weighted) ───────────
+def _distribuir_por_percentual(pairs):
+    """
+    Recebe lista de (video_list, percentual) e devolve uma lista interleaved
+    proporcionalmente aos pesos.
+    Ex: ([A,A2], 80), ([B], 20)  →  [A, A2, B, A, A2]  (∼80% A, 20% B)
+    """
+    from math import gcd
+    from functools import reduce
+    import itertools
+
+    valid = [(vids, pct) for vids, pct in pairs if vids and pct and pct > 0]
+    if not valid:
+        return [v for vids, _ in pairs for v in vids]
+    if len(valid) == 1:
+        return list(valid[0][0])
+
+    total_pct = sum(pct for _, pct in valid)
+    int_pcts = [max(1, round(pct * 100 / total_pct)) for _, pct in valid]
+    g = reduce(gcd, int_pcts)
+    slot_counts = [p // g for p in int_pcts]
+    total_slots = sum(slot_counts)
+
+    # Cap to avoid huge lists
+    if total_slots > 200:
+        scale = total_slots / 20
+        slot_counts = [max(1, round(s / scale)) for s in slot_counts]
+        total_slots = sum(slot_counts)
+
+    iters = [itertools.cycle(vids) for vids, _ in valid]
+    errors = [0.0] * len(valid)
+    result = []
+    for _ in range(total_slots):
+        for i in range(len(valid)):
+            errors[i] += slot_counts[i]
+        chosen = max(range(len(valid)), key=lambda i: errors[i])
+        result.append(next(iters[chosen]))
+        errors[chosen] -= total_slots
+    return result
+
+
 # API específica para o App de TV
 class TVAPIView(APIView):
     """
@@ -367,39 +408,43 @@ class TVAPIView(APIView):
             dispositivo.save()
             
             # Retorna TODAS as playlists ativas no horário atual mescladas
-            playlists_ativas = dispositivo.get_playlists_ativas_por_horario()
-            
-            if playlists_ativas:
-                # Mescla todos os vídeos de todas as playlists em uma única lista
-                all_videos = []
+            agendamentos_ativos = dispositivo.get_agendamentos_ativos_por_horario()
+
+            if agendamentos_ativos:
+                pairs = []  # (video_list, percentual)
                 playlist_ids = []
                 playlist_names = []
-                
-                for playlist in playlists_ativas:
+
+                for ag in agendamentos_ativos:
+                    playlist = ag.playlist
                     if not playlist.ativa:
                         continue
                     playlist_ids.append(playlist.id)
                     playlist_names.append(playlist.nome)
-                    
-                    # Serializa os vídeos desta playlist
-                    serializer = PlaylistTVSerializer(
+                    pl_serializer = PlaylistTVSerializer(
                         playlist,
                         context={'request': request, 'dispositivo_id': dispositivo.id}
                     )
-                    videos = serializer.data.get('videos', [])
-                    all_videos.extend(videos)
-                
-                # Retorna uma "mega-playlist" com todos os vídeos em sequência
+                    videos = pl_serializer.data.get('videos', [])
+                    pairs.append((videos, ag.percentual))
+
+                # Usar distribuição proporcional se houver percentuais variados
+                has_varied = len(pairs) > 1 and any(pct != 100 for _, pct in pairs)
+                if has_varied:
+                    all_videos = _distribuir_por_percentual(pairs)
+                else:
+                    all_videos = [v for vids, _ in pairs for v in vids]
+
                 return Response({
                     'dispositivo_id': dispositivo.id,
                     'dispositivo_nome': dispositivo.nome,
                     'municipio': str(dispositivo.municipio),
                     'playlist': {
-                        'id': playlist_ids[0] if len(playlist_ids) == 1 else 0,  # 0 = múltiplas playlists mescladas
-                        'nome': ' + '.join(playlist_names),  # "Playlist A + Playlist B"
+                        'id': playlist_ids[0] if len(playlist_ids) == 1 else 0,
+                        'nome': ' + '.join(playlist_names),
                         'duracao_total_segundos': sum(v.get('duracao_segundos', 0) for v in all_videos),
                         'videos': all_videos,
-                        'playlists_mescladas': playlist_ids,  # IDs das playlists que foram mescladas
+                        'playlists_mescladas': playlist_ids,
                     }
                 })
             else:

@@ -116,6 +116,24 @@
 
                         <hr class="my-4">
 
+                        <!-- Percentual de Composição -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.percentual.id_for_label }}" class="form-label">
+                                    Percentual de Composição
+                                </label>
+                                {{ form.percentual }}
+                                {% if form.percentual.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.percentual.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">
+                                    {{ form.percentual.help_text }}
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Prioridade e Ativo -->
                         <div class="row mb-3">
                             <div class="col-md-6">

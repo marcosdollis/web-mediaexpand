@@ -317,9 +317,12 @@ class AgendamentoExibicaoForm(forms.ModelForm):
 
     class Meta:
         model = AgendamentoExibicao
-        fields = ['playlist', 'hora_inicio', 'hora_fim', 'prioridade', 'ativo']
+        fields = ['playlist', 'percentual', 'hora_inicio', 'hora_fim', 'prioridade', 'ativo']
         widgets = {
             'playlist': forms.Select(attrs={'class': 'form-select'}),
+            'percentual': forms.NumberInput(attrs={
+                'class': 'form-control', 'min': '0', 'max': '100', 'placeholder': '100',
+            }),
             'hora_inicio': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
             'hora_fim': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
             'prioridade': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': '0'}),
@@ -331,6 +334,11 @@ class AgendamentoExibicaoForm(forms.ModelForm):
         self.fields['playlist'].queryset = Playlist.objects.filter(ativa=True)
         self.fields['playlist'].required = True
         self.fields['playlist'].help_text = 'Playlist a ser exibida neste dispositivo'
+        self.fields['percentual'].help_text = (
+            'Peso percentual desta playlist (0–100). '
+            'Ex: 80/20 para misturar conteúdo local + anúncios. '
+            'Use 100 em todas para exibir sequencialmente.'
+        )
         self.fields['hora_inicio'].required = False
         self.fields['hora_inicio'].help_text = 'Deixe vazio para rodar 24h'
         self.fields['hora_fim'].required = False
