@@ -1,0 +1,126 @@
+{% extends 'base/base.html' %}
+
+{% block title %}LAB — Codificação FireTV{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="row mb-3">
+    <div class="col">
+      <h2>🧪 LAB — Teste de Variantes de Codificação FireTV</h2>
+      <p class="text-muted">
+        Faz upload de um vídeo original e gera <strong>{{ variants|length }} variantes</strong> de codificação.
+        Cada variante cria um vídeo acessível nas playlists com o prefixo <code>[LAB ...]</code>.
+      </p>
+    </div>
+  </div>
+
+  {% if not ffmpeg_ok %}
+  <div class="alert alert-danger">
+    <strong>⚠️ ffmpeg não encontrado neste servidor.</strong>
+    As conversões só funcionam no Railway (ambiente de produção com nixpacks).
+    Você ainda pode fazer o upload — a conversão ocorrerá normalmente no deploy.
+  </div>
+  {% endif %}
+
+  {% if error %}
+  <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+
+  <!-- TABELA DE VARIANTES -->
+  <div class="card mb-4">
+    <div class="card-header"><strong>Variantes que serão geradas</strong></div>
+    <div class="card-body p-0">
+      <table class="table table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Identificador</th>
+            <th>Resolução Vertical</th>
+            <th>Resolução Horizontal</th>
+            <th>Profile / Level</th>
+            <th>Bitrate</th>
+            <th>GOP</th>
+            <th>BT.709</th>
+            <th>Brand</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in variants %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td><code>{{ v.key }}</code></td>
+            <td>{{ v.res_v.0 }}×{{ v.res_v.1 }}</td>
+            <td>{{ v.res_h.0 }}×{{ v.res_h.1 }}</td>
+            <td><code>{{ v.profile }} {{ v.level }}</code></td>
+            <td>{{ v.bitrate }}</td>
+            <td>{% if v.gop %}{{ v.gop }}{% else %}<span class="text-muted">auto</span>{% endif %}</td>
+            <td>{% if v.color %}<span class="badge bg-success">sim</span>{% else %}<span class="badge bg-secondary">não</span>{% endif %}</td>
+            <td>{% if v.brand %}<code>{{ v.brand }}</code>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- FORMULÁRIO DE UPLOAD -->
+  <div class="card">
+    <div class="card-header"><strong>Upload do vídeo original</strong></div>
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data" id="uploadForm">
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label class="form-label">Título base <span class="text-danger">*</span></label>
+          <input type="text" name="titulo" class="form-control" placeholder="Ex: Spot Verão 2026" required>
+          <div class="form-text">Os vídeos gerados usarão: <code>[LAB V1_...] {título}</code></div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Cliente <span class="text-danger">*</span></label>
+          <select name="cliente_id" class="form-select" required>
+            <option value="">── selecione ──</option>
+            {% for c in clientes %}
+            <option value="{{ c.id }}">{{ c.empresa }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Arquivo de vídeo <span class="text-danger">*</span></label>
+          <input type="file" name="arquivo" class="form-control" accept="video/*" required id="fileInput">
+          <div class="form-text" id="fileSizeInfo"></div>
+        </div>
+
+        <div class="alert alert-warning">
+          <strong>⏱️ Atenção:</strong> Serão geradas <strong>{{ variants|length }} conversões em paralelo</strong>.
+          O tempo total depende do tamanho do vídeo original e da capacidade do servidor.
+          A página de progresso será exibida imediatamente após o upload — você pode fechar e voltar depois.
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+          🚀 Iniciar Conversões ({{ variants|length }} variantes)
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script>
+document.getElementById('fileInput').addEventListener('change', function() {
+  const file = this.files[0];
+  if (file) {
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    document.getElementById('fileSizeInfo').textContent = `Arquivo: ${file.name} (${mb} MB)`;
+  }
+});
+
+document.getElementById('uploadForm').addEventListener('submit', function() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Enviando arquivo... aguarde';
+});
+</script>
+{% endblock %}

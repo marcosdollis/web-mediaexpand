@@ -4724,3 +4724,367 @@ def design_search_stickers_view(request):
             'results': [],
         }, status=500)
 
+
+# =============================================================================
+# LAB DE CODIFICAÇÃO DE VÍDEO — página provisória para testar variantes FireTV
+# =============================================================================
+
+import os
+import subprocess
+import threading
+import uuid as _uuid
+
+# Dicionário em memória para rastrear status dos jobs de codificação.
+# Chave: job_id (str). Valor: dict com lista de variantes e seus status.
+_LAB_JOBS: dict = {}
+_LAB_JOBS_LOCK = threading.Lock()
+
+# Variantes de codificação a testar no Fire TV Stick
+LAB_VARIANTS = [
+    {
+        'key': 'v1_480p_baseline31',
+        'label': 'V1 — 480p Baseline 3.1 (referência atual)',
+        'res_v': (480, 854),    # largura × altura para vídeo VERTICAL
+        'res_h': (854, 480),    # largura × altura para vídeo HORIZONTAL
+        'profile': 'baseline',
+        'level': '3.1',
+        'bitrate': '2M', 'maxrate': '2M', 'bufsize': '4M',
+        'gop': None,
+        'color': False,   # sem flags -colorspace/-color_primaries/-color_trc
+        'brand': None,
+        'extra_vf': '',
+    },
+    {
+        'key': 'v2_540p_baseline31',
+        'label': 'V2 — 540p Baseline 3.1',
+        'res_v': (540, 960),
+        'res_h': (960, 540),
+        'profile': 'baseline',
+        'level': '3.1',
+        'bitrate': '2M', 'maxrate': '2M', 'bufsize': '4M',
+        'gop': None,
+        'color': False,
+        'brand': None,
+        'extra_vf': '',
+    },
+    {
+        'key': 'v3_720p_baseline31',
+        'label': 'V3 — 720p Baseline 3.1',
+        'res_v': (720, 1280),
+        'res_h': (1280, 720),
+        'profile': 'baseline',
+        'level': '3.1',
+        'bitrate': '3M', 'maxrate': '3M', 'bufsize': '6M',
+        'gop': None,
+        'color': False,
+        'brand': None,
+        'extra_vf': '',
+    },
+    {
+        'key': 'v4_720p_main31_color',
+        'label': 'V4 — 720p Main 3.1 + VBV + BT.709',
+        'res_v': (720, 1280),
+        'res_h': (1280, 720),
+        'profile': 'main',
+        'level': '3.1',
+        'bitrate': '3M', 'maxrate': '3M', 'bufsize': '6M',
+        'gop': 60,
+        'color': True,
+        'brand': 'mp42',
+        'extra_vf': ',setsar=1',
+    },
+    {
+        'key': 'v5_720p_main40_color',
+        'label': 'V5 — 720p Main 4.0 + VBV + BT.709',
+        'res_v': (720, 1280),
+        'res_h': (1280, 720),
+        'profile': 'main',
+        'level': '4.0',
+        'bitrate': '3M', 'maxrate': '3M', 'bufsize': '6M',
+        'gop': 60,
+        'color': True,
+        'brand': 'mp42',
+        'extra_vf': ',setsar=1',
+    },
+    {
+        'key': 'v6_1080p_main40_color',
+        'label': 'V6 — 1080p Main 4.0 + VBV + BT.709 (sugestão GPT)',
+        'res_v': (1080, 1920),
+        'res_h': (1920, 1080),
+        'profile': 'main',
+        'level': '4.0',
+        'bitrate': '5M', 'maxrate': '5M', 'bufsize': '10M',
+        'gop': 60,
+        'color': True,
+        'brand': 'mp42',
+        'extra_vf': ',setsar=1',
+    },
+    {
+        'key': 'v7_1080p_main40_nocolor',
+        'label': 'V7 — 1080p Main 4.0 + VBV sem BT.709',
+        'res_v': (1080, 1920),
+        'res_h': (1920, 1080),
+        'profile': 'main',
+        'level': '4.0',
+        'bitrate': '5M', 'maxrate': '5M', 'bufsize': '10M',
+        'gop': 60,
+        'color': False,
+        'brand': None,
+        'extra_vf': '',
+    },
+    {
+        'key': 'v8_1080p_baseline40',
+        'label': 'V8 — 1080p Baseline 4.0 sem color',
+        'res_v': (1080, 1920),
+        'res_h': (1920, 1080),
+        'profile': 'baseline',
+        'level': '4.0',
+        'bitrate': '4M', 'maxrate': '4M', 'bufsize': '8M',
+        'gop': None,
+        'color': False,
+        'brand': None,
+        'extra_vf': '',
+    },
+]
+
+
+def _lab_build_ffmpeg_cmd(variant, input_path, output_path, orient):
+    """Constrói o comando ffmpeg para uma variante do lab."""
+    w, h = variant['res_v'] if orient == 'VERTICAL' else variant['res_h']
+    vf = f'scale={w}:{h}:flags=lanczos,format=yuv420p{variant["extra_vf"]}'
+
+    cmd = [
+        'ffmpeg', '-y',
+        '-i', input_path,
+        '-vf', vf,
+        '-map_metadata', '-1',
+        '-c:v', 'libx264',
+        '-profile:v', variant['profile'],
+        '-level', variant['level'],
+        '-pix_fmt', 'yuv420p',
+        '-r', '30',
+        '-b:v', variant['bitrate'],
+        '-maxrate', variant['maxrate'],
+        '-bufsize', variant['bufsize'],
+        '-preset', 'medium',
+        '-vsync', 'cfr',
+    ]
+
+    if variant['gop']:
+        cmd += ['-g', str(variant['gop']), '-keyint_min', str(variant['gop'])]
+
+    if variant['color']:
+        cmd += [
+            '-color_range', 'tv',
+            '-colorspace', 'bt709',
+            '-color_primaries', 'bt709',
+            '-color_trc', 'bt709',
+        ]
+
+    cmd += ['-c:a', 'aac', '-b:a', '160k', '-ar', '44100']
+
+    movflags = '+faststart'
+    cmd += ['-movflags', movflags]
+
+    if variant['brand']:
+        cmd += ['-brand', variant['brand'], '-tag:v', 'avc1']
+
+    cmd.append(output_path)
+    return cmd
+
+
+def _lab_run_variant(job_id, variant_key, client_id, title, input_path, orient):
+    """Executa ffmpeg para uma variante em background e cria o Video resultante."""
+    import shutil
+    import tempfile
+    from django.conf import settings
+
+    variant = next(v for v in LAB_VARIANTS if v['key'] == variant_key)
+
+    def _set_status(s, msg='', video_id=None):
+        with _LAB_JOBS_LOCK:
+            for item in _LAB_JOBS[job_id]['variants']:
+                if item['key'] == variant_key:
+                    item['status'] = s
+                    item['msg'] = msg
+                    if video_id:
+                        item['video_id'] = video_id
+                    break
+
+    _set_status('running', 'Codificando com ffmpeg...')
+
+    try:
+        lab_dir = os.path.join(settings.MEDIA_ROOT, 'lab_outputs')
+        os.makedirs(lab_dir, exist_ok=True)
+
+        out_filename = f'lab_{job_id[:8]}_{variant_key}.mp4'
+        out_path = os.path.join(lab_dir, out_filename)
+
+        cmd = _lab_build_ffmpeg_cmd(variant, input_path, out_path, orient)
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+
+        if result.returncode != 0:
+            _set_status('error', result.stderr[-400:] if result.stderr else 'ffmpeg falhou')
+            return
+
+        if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
+            _set_status('error', 'Arquivo de saída vazio ou não gerado')
+            return
+
+        # Cria um Video no banco para ser acessado nas playlists.
+        # Salva SEM arquivo para não disparar _normalizar_video() no save(),
+        # depois atualiza o arquivo via update() (que não chama o hook).
+        from .models import Cliente
+        try:
+            cliente = Cliente.objects.get(pk=client_id)
+        except Cliente.DoesNotExist:
+            _set_status('error', f'Cliente ID {client_id} não encontrado')
+            return
+
+        rel_path = os.path.join('lab_outputs', out_filename).replace('\\', '/')
+
+        video = Video(
+            cliente=cliente,
+            titulo=f'[LAB {variant["key"].upper()}] {title}',
+            descricao=f'Variante: {variant["label"]}\nJob: {job_id}',
+            status='APPROVED',
+            ativo=True,
+            orientacao=orient,
+            # arquivo NOT set aqui — evita disparar _normalizar_video() no save()
+        )
+        video.save()
+
+        # Agora define o arquivo via update() — não passa pelo hook save()
+        Video.objects.filter(pk=video.pk).update(arquivo=rel_path, orientacao=orient)
+
+        file_size_mb = round(os.path.getsize(out_path) / 1024 / 1024, 1)
+        _set_status('done', f'{file_size_mb} MB — Video ID {video.pk}', video_id=video.pk)
+
+    except subprocess.TimeoutExpired:
+        _set_status('error', 'Timeout após 15 minutos')
+    except Exception as e:
+        _set_status('error', str(e)[:300])
+
+
+@login_required
+def lab_video_encode_view(request):
+    """Página provisória para testar variantes de codificação de vídeo no Fire TV."""
+    import shutil
+
+    ffmpeg_ok = bool(shutil.which('ffmpeg'))
+    clientes = Cliente.objects.order_by('empresa')
+
+    if request.method == 'POST':
+        arquivo = request.FILES.get('arquivo')
+        titulo = request.POST.get('titulo', '').strip()
+        cliente_id = request.POST.get('cliente_id')
+
+        if not arquivo or not titulo or not cliente_id:
+            return render(request, 'lab/video_encode.html', {
+                'clientes': clientes,
+                'ffmpeg_ok': ffmpeg_ok,
+                'error': 'Preencha todos os campos obrigatórios.',
+                'variants': LAB_VARIANTS,
+            })
+
+        # Salva o original em lab_uploads/
+        from django.conf import settings
+        lab_input_dir = os.path.join(settings.MEDIA_ROOT, 'lab_uploads')
+        os.makedirs(lab_input_dir, exist_ok=True)
+
+        job_id = str(_uuid.uuid4())
+        ext = os.path.splitext(arquivo.name)[1].lower() or '.mp4'
+        input_filename = f'lab_{job_id[:8]}_original{ext}'
+        input_path = os.path.join(lab_input_dir, input_filename)
+
+        with open(input_path, 'wb') as f:
+            for chunk in arquivo.chunks():
+                f.write(chunk)
+
+        # Detecta orientação do arquivo original
+        orient, orig_w, orig_h = Video._detectar_orientacao_video(input_path)
+
+        # Registra o job em memória
+        with _LAB_JOBS_LOCK:
+            _LAB_JOBS[job_id] = {
+                'titulo': titulo,
+                'cliente_id': int(cliente_id),
+                'orient': orient,
+                'input_path': input_path,
+                'variants': [
+                    {
+                        'key': v['key'],
+                        'label': v['label'],
+                        'status': 'queued',
+                        'msg': '',
+                        'video_id': None,
+                    }
+                    for v in LAB_VARIANTS
+                ],
+            }
+
+        # Dispara uma thread por variante (paralelas)
+        for v in LAB_VARIANTS:
+            t = threading.Thread(
+                target=_lab_run_variant,
+                args=(job_id, v['key'], int(cliente_id), titulo, input_path, orient),
+                daemon=True,
+            )
+            t.start()
+
+        return redirect(f'/lab/video-encode/{job_id}/')
+
+    return render(request, 'lab/video_encode.html', {
+        'clientes': clientes,
+        'ffmpeg_ok': ffmpeg_ok,
+        'variants': LAB_VARIANTS,
+    })
+
+
+@login_required
+def lab_video_job_view(request, job_id):
+    """Página de progresso de um job de codificação. Exibe status de cada variante."""
+    clientes = Cliente.objects.order_by('empresa')
+    ffmpeg_ok = True
+
+    with _LAB_JOBS_LOCK:
+        job = _LAB_JOBS.get(job_id)
+
+    if not job:
+        return render(request, 'lab/video_encode.html', {
+            'clientes': clientes,
+            'ffmpeg_ok': ffmpeg_ok,
+            'variants': LAB_VARIANTS,
+            'error': f'Job {job_id} não encontrado (servidor pode ter reiniciado).',
+        })
+
+    return render(request, 'lab/video_job.html', {
+        'job_id': job_id,
+        'job': job,
+    })
+
+
+@login_required
+def lab_video_status_api(request, job_id):
+    """Retorna JSON com status de todas as variantes de um job."""
+    with _LAB_JOBS_LOCK:
+        job = _LAB_JOBS.get(job_id)
+
+    if not job:
+        return JsonResponse({'error': 'Job não encontrado'}, status=404)
+
+    total = len(job['variants'])
+    done = sum(1 for v in job['variants'] if v['status'] == 'done')
+    errors = sum(1 for v in job['variants'] if v['status'] == 'error')
+
+    return JsonResponse({
+        'job_id': job_id,
+        'titulo': job['titulo'],
+        'orient': job['orient'],
+        'total': total,
+        'done': done,
+        'errors': errors,
+        'finished': (done + errors) == total,
+        'variants': job['variants'],
+    })

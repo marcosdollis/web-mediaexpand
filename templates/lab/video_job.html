@@ -1,0 +1,185 @@
+{% extends 'base/base.html' %}
+
+{% block title %}LAB — Progresso de Codificação{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="row mb-3">
+    <div class="col">
+      <h2>🧪 LAB — Progresso das Codificações</h2>
+      <p class="text-muted">
+        Título: <strong>{{ job.titulo }}</strong> &nbsp;|&nbsp;
+        Orientação detectada: <strong>{{ job.orient }}</strong> &nbsp;|&nbsp;
+        Job: <code>{{ job_id }}</code>
+      </p>
+    </div>
+    <div class="col-auto">
+      <a href="/lab/video-encode/" class="btn btn-outline-secondary">← Nova codificação</a>
+    </div>
+  </div>
+
+  <!-- BARRA DE PROGRESSO GERAL -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span id="progressLabel">Aguardando status...</span>
+        <span id="progressCount" class="badge bg-primary fs-6">0 / {{ job.variants|length }}</span>
+      </div>
+      <div class="progress" style="height: 24px;">
+        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+             style="width: 0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABELA DE VARIANTES -->
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>Variantes</strong>
+      <span id="statusNote" class="text-muted small">Atualizando a cada 4s...</span>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-sm mb-0" id="variantsTable">
+        <thead class="table-light">
+          <tr>
+            <th style="width:40px">#</th>
+            <th style="width:220px">Variante</th>
+            <th>Status</th>
+            <th>Detalhes</th>
+            <th style="width:160px">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in job.variants %}
+          <tr id="row-{{ v.key }}">
+            <td>{{ forloop.counter }}</td>
+            <td>
+              <code class="small">{{ v.key }}</code><br>
+              <span class="text-muted small">{{ v.label }}</span>
+            </td>
+            <td id="status-{{ v.key }}">
+              <span class="badge bg-secondary">queued</span>
+            </td>
+            <td id="msg-{{ v.key }}" class="small text-muted">—</td>
+            <td id="actions-{{ v.key }}">—</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- INSTRUCOES -->
+  <div class="card mt-4">
+    <div class="card-body">
+      <h6>📱 Como testar no Fire TV Stick</h6>
+      <ol class="mb-0">
+        <li>Aguarde as conversões terminarem (status <span class="badge bg-success">done</span>).</li>
+        <li>Acesse <strong>Playlists</strong> e crie uma playlist de teste.</li>
+        <li>Adicione os vídeos <code>[LAB ...]</code> gerados à playlist, um por vez.</li>
+        <li>Atribua a playlist a um dispositivo Fire TV Stick.</li>
+        <li>Observe qual variante exibe corretamente <strong>sem zoom</strong> e <strong>sem cores estoradas</strong>.</li>
+        <li>Anote qual variante (V1–V8) funcionou e informe o assistente para padronizar.</li>
+      </ol>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const JOB_ID = "{{ job_id }}";
+const STATUS_URL = `/lab/video-encode/${JOB_ID}/status/`;
+const TOTAL = {{ job.variants|length }};
+
+const STATUS_BADGE = {
+  queued:  'bg-secondary',
+  running: 'bg-warning text-dark',
+  done:    'bg-success',
+  error:   'bg-danger',
+};
+
+const STATUS_ICON = {
+  queued:  '⏳ queued',
+  running: '🔄 codificando...',
+  done:    '✅ pronto',
+  error:   '❌ erro',
+};
+
+function renderVariants(variants, orient) {
+  let done = 0, errors = 0;
+
+  variants.forEach(v => {
+    const statusEl = document.getElementById(`status-${v.key}`);
+    const msgEl    = document.getElementById(`msg-${v.key}`);
+    const actEl    = document.getElementById(`actions-${v.key}`);
+
+    if (statusEl) {
+      const cls = STATUS_BADGE[v.status] || 'bg-secondary';
+      const txt = STATUS_ICON[v.status] || v.status;
+      statusEl.innerHTML = `<span class="badge ${cls}">${txt}</span>`;
+    }
+
+    if (msgEl) {
+      msgEl.textContent = v.msg || '—';
+    }
+
+    if (actEl) {
+      if (v.status === 'done' && v.video_id) {
+        const wRes = orient === 'VERTICAL' ? '9:16' : '16:9';
+        actEl.innerHTML = `
+          <a href="/videos/${v.video_id}/update/" class="btn btn-sm btn-outline-primary me-1" target="_blank">Ver</a>
+          <small class="text-muted">${wRes} | ID ${v.video_id}</small>
+        `;
+      } else if (v.status === 'error') {
+        actEl.innerHTML = '<span class="text-danger small">Ver logs do servidor</span>';
+      } else {
+        actEl.innerHTML = '<span class="text-muted small">—</span>';
+      }
+    }
+
+    if (v.status === 'done')  done++;
+    if (v.status === 'error') errors++;
+  });
+
+  // Barra de progresso
+  const finished = done + errors;
+  const pct = Math.round((finished / TOTAL) * 100);
+  const bar = document.getElementById('progressBar');
+  const count = document.getElementById('progressCount');
+  const label = document.getElementById('progressLabel');
+
+  bar.style.width = pct + '%';
+  count.textContent = `${finished} / ${TOTAL}`;
+
+  if (finished === TOTAL) {
+    bar.classList.remove('progress-bar-animated', 'progress-bar-striped');
+    label.textContent = `Concluído! ${done} ok, ${errors} erro(s).`;
+    document.getElementById('statusNote').textContent = 'Finalizado';
+    if (errors === 0) bar.classList.add('bg-success');
+    else bar.classList.replace('bg-success', errors === TOTAL ? 'bg-danger' : 'bg-warning');
+  } else {
+    label.textContent = `${finished} de ${TOTAL} concluídas...`;
+  }
+
+  return finished === TOTAL;
+}
+
+async function poll() {
+  try {
+    const r = await fetch(STATUS_URL);
+    const data = await r.json();
+    const finished = renderVariants(data.variants, data.orient);
+    if (!finished) {
+      setTimeout(poll, 4000);
+    }
+  } catch(e) {
+    document.getElementById('statusNote').textContent = 'Erro ao buscar status, tentando novamente...';
+    setTimeout(poll, 6000);
+  }
+}
+
+// Inicia polling
+poll();
+</script>
+{% endblock %}

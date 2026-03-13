@@ -104,4 +104,9 @@ urlpatterns = [
     path('corporativo/design/search-icons/', views.design_search_icons_view, name='design_search_icons'),
     path('corporativo/design/get-icon-svg/', views.design_get_icon_svg_view, name='design_get_icon_svg'),
     path('corporativo/design/search-stickers/', views.design_search_stickers_view, name='design_search_stickers'),
+
+    # LAB — Teste de variantes de codificação FireTV (página provisória)
+    path('lab/video-encode/', views.lab_video_encode_view, name='lab_video_encode'),
+    path('lab/video-encode/<str:job_id>/', views.lab_video_job_view, name='lab_video_job'),
+    path('lab/video-encode/<str:job_id>/status/', views.lab_video_status_api, name='lab_video_status'),
 ]
