@@ -50,14 +50,17 @@
                             <label for="cliente" class="form-label fw-bold">
                                 <i class="bi bi-person-badge text-primary me-2"></i>Cliente
                             </label>
-                            <select name="cliente" id="cliente" class="form-select" required>
+                            <select name="cliente" id="cliente" class="form-select" required
+                                onchange="this.classList.remove('is-invalid')">
                                 <option value="">Selecione o cliente...</option>
                                 {% for cliente in clientes %}
-                                <option value="{{ cliente.id }}">
+                                <option value="{{ cliente.id }}"
+                                    {% if request.POST.cliente == cliente.id|stringformat:"s" %}selected{% endif %}>
                                     {{ cliente.empresa }} - {{ cliente.user.username }}
                                 </option>
                                 {% endfor %}
                             </select>
+                            <div class="invalid-feedback">Selecione um cliente.</div>
                             <div class="form-text">
                                 <small class="text-muted">Selecione para qual cliente este vídeo será enviado</small>
                             </div>
@@ -620,15 +623,40 @@ document.addEventListener('DOMContentLoaded', function() {
         const modoLink = document.querySelector('input[name="_source_type"]:checked')?.value === 'link';
         const urlExternaVal = (document.getElementById('id_url_externa') || document.getElementById('url_externa'))?.value?.trim();
         const temArquivo = fileInput && fileInput.files && fileInput.files.length > 0;
-        const temFonte = modoLink ? !!urlExternaVal : (temArquivo || !!document.querySelector('[data-has-file="true"]'));
 
-        // Só bloqueia se não for edição E não tem nenhuma fonte
-        const isEdit = !!document.querySelector('input[name="arquivo"]') &&
-                       !document.querySelector('input[name="arquivo"]').hasAttribute('required');
-        if (!isEdit && !temFonte && !modoLink) {
+        // Validar cliente (select obrigatório para owner/franqueado)
+        const selectCliente = document.getElementById('cliente');
+        if (selectCliente && !selectCliente.value) {
             e.preventDefault();
-            showAlert('Por favor, selecione um arquivo de vídeo ou informe uma URL externa.', 'warning');
+            selectCliente.classList.add('is-invalid');
+            selectCliente.focus();
+            showAlert('Selecione o cliente antes de enviar.', 'warning');
             return;
+        }
+
+        // Validar título
+        const inputTitulo = document.querySelector('input[name="titulo"], #id_titulo');
+        if (inputTitulo && !inputTitulo.value.trim()) {
+            e.preventDefault();
+            inputTitulo.classList.add('is-invalid');
+            inputTitulo.focus();
+            showAlert('O título é obrigatório.', 'warning');
+            return;
+        }
+
+        // Validar fonte de vídeo
+        if (modoLink && !urlExternaVal) {
+            e.preventDefault();
+            showAlert('Informe a URL externa do vídeo.', 'warning');
+            return;
+        }
+        if (!modoLink && !temArquivo) {
+            const temArquivoSalvo = document.querySelector('.alert-info .fa-file-video');
+            if (!temArquivoSalvo) {
+                e.preventDefault();
+                showAlert('Selecione um arquivo de vídeo.', 'warning');
+                return;
+            }
         }
 
         // Show progress apenas se tiver arquivo novo
