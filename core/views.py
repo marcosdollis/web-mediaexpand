@@ -2191,6 +2191,49 @@ def dispositivo_detail_view(request, pk):
 
 
 @login_required
+def dispositivo_tv_preview_view(request, pk):
+    """Preview do que está passando na TV — para mostrar ao cliente no celular/tablet"""
+    dispositivo = get_object_or_404(DispositivoTV, pk=pk)
+    user = request.user
+
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+        messages.error(request, 'Sem permissão para visualizar este dispositivo.')
+        return redirect('dispositivo_list')
+
+    # Reutiliza a mesma lógica da TVAPIView para montar a fila de vídeos
+    agendamentos_ativos = dispositivo.get_agendamentos_ativos_por_horario()
+    videos = []
+
+    if agendamentos_ativos:
+        pairs = []
+        for ag in agendamentos_ativos:
+            playlist = ag.playlist
+            if not playlist.ativa:
+                continue
+            pl_serializer = PlaylistTVSerializer(
+                playlist,
+                context={'request': request, 'dispositivo_id': dispositivo.id}
+            )
+            pl_videos = pl_serializer.data.get('videos', [])
+            pairs.append((pl_videos, ag.percentual))
+
+        has_varied = len(pairs) > 1 and any(pct != 100 for _, pct in pairs)
+        if has_varied:
+            videos = _distribuir_por_percentual(pairs)
+        else:
+            videos = [v for vids, _ in pairs for v in vids]
+
+    import json as _json
+    videos_json = _json.dumps(videos)
+
+    return render(request, 'dispositivos/dispositivo_tv_preview.html', {
+        'dispositivo': dispositivo,
+        'videos_json': videos_json,
+        'total_videos': len(videos),
+    })
+
+
+@login_required
 def dispositivo_update_view(request, pk):
     """Editar dispositivo TV"""
     dispositivo = get_object_or_404(DispositivoTV, pk=pk)

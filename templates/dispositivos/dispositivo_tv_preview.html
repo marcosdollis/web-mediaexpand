@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Preview TV – {{ dispositivo.nome }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%;
+            background: #000;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        /* ── Player ── */
+        #player {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #player video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* webview / iframe content */
+        #player iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* ── Tarja inferior ── */
+        #tarja {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: #c00;
+            color: #fff;
+            padding: 8px 16px;
+            font-size: 1rem;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            display: none;
+            z-index: 20;
+        }
+        #tarja-text {
+            display: inline-block;
+            animation: scroll-tarja 18s linear infinite;
+        }
+        @keyframes scroll-tarja {
+            from { transform: translateX(100vw); }
+            to   { transform: translateX(-100%); }
+        }
+
+        /* ── QR Code overlay ── */
+        #qr-overlay {
+            position: fixed;
+            bottom: 48px; right: 16px;
+            background: rgba(0,0,0,.75);
+            border-radius: 12px;
+            padding: 10px;
+            display: none;
+            z-index: 21;
+            text-align: center;
+        }
+        #qr-overlay img { width: 100px; height: 100px; display: block; }
+        #qr-label {
+            color: #fff;
+            font-size: .65rem;
+            margin-top: 4px;
+            max-width: 100px;
+            word-break: break-word;
+        }
+
+        /* ── UI overlay (top bar) ── */
+        #ui {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,.7), transparent);
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 30;
+            opacity: 0;
+            transition: opacity .3s;
+        }
+        #ui:hover, body.show-ui #ui { opacity: 1; }
+        #ui-title {
+            color: #fff;
+            font-size: .9rem;
+            font-weight: bold;
+            text-shadow: 0 1px 4px #000;
+        }
+        #ui-btns { display: flex; gap: 8px; }
+        #ui-btns a, #ui-btns button {
+            background: rgba(255,255,255,.2);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,.4);
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: .8rem;
+            cursor: pointer;
+            text-decoration: none;
+            backdrop-filter: blur(4px);
+        }
+        #ui-btns a:hover, #ui-btns button:hover { background: rgba(255,255,255,.35); color:#fff; }
+
+        /* ── Progress bar ── */
+        #progress {
+            position: fixed;
+            bottom: 0; left: 0;
+            height: 3px;
+            background: #e63535;
+            width: 0%;
+            z-index: 25;
+            transition: width .5s linear;
+        }
+
+        /* ── Spinner / loading ── */
+        #loading {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            color: #fff;
+            gap: 16px;
+        }
+        .spinner {
+            width: 48px; height: 48px;
+            border: 4px solid rgba(255,255,255,.2);
+            border-top-color: #e63535;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Empty state ── */
+        #empty {
+            position: fixed;
+            inset: 0;
+            background: #111;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            gap: 12px;
+        }
+        #empty svg { width: 64px; opacity: .4; }
+        #empty p { font-size: 1.1rem; }
+
+        /* ── Counter ── */
+        #counter {
+            position: fixed;
+            top: 10px; right: 14px;
+            color: rgba(255,255,255,.5);
+            font-size: .75rem;
+            z-index: 31;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="loading">
+    <div class="spinner"></div>
+    <p>Carregando playlist…</p>
+</div>
+
+<div id="empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5">
+        <rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 20h8M12 18v2"/>
+    </svg>
+    <p>Nenhum vídeo na playlist agora</p>
+    <a href="javascript:window.close()" style="color:#555;font-size:.85rem;">Fechar</a>
+</div>
+
+<div id="player">
+    <video id="vid" playsinline webkit-playsinline></video>
+    <iframe id="frm" style="display:none"></iframe>
+</div>
+
+<div id="tarja"><span id="tarja-text"></span></div>
+<div id="qr-overlay"><img id="qr-img" src="" alt="QR"><div id="qr-label"></div></div>
+
+<div id="ui">
+    <div id="ui-title">
+        <i style="font-size:.7rem;vertical-align:middle">▶</i>
+        {{ dispositivo.nome }} — {{ dispositivo.localizacao }}
+    </div>
+    <div id="ui-btns">
+        <button id="btn-prev" onclick="prevVideo()">&#9664; Anterior</button>
+        <button id="btn-next" onclick="nextVideo()">Próximo &#9654;</button>
+        <a href="{% url 'dispositivo_detail' dispositivo.pk %}">✕ Fechar</a>
+    </div>
+</div>
+
+<div id="progress"></div>
+<div id="counter"></div>
+
+<script>
+const VIDEOS = {{ videos_json|safe }};
+
+let idx = 0;
+let progressTimer = null;
+
+const vid    = document.getElementById('vid');
+const frm    = document.getElementById('frm');
+const tarja  = document.getElementById('tarja');
+const tarjaTx= document.getElementById('tarja-text');
+const qrOv   = document.getElementById('qr-overlay');
+const qrImg  = document.getElementById('qr-img');
+const qrLbl  = document.getElementById('qr-label');
+const loading= document.getElementById('loading');
+const empty  = document.getElementById('empty');
+const bar    = document.getElementById('progress');
+const counter= document.getElementById('counter');
+
+// Show UI briefly on touch/click
+document.addEventListener('click', () => {
+    document.body.classList.add('show-ui');
+    clearTimeout(window._uiTimer);
+    window._uiTimer = setTimeout(() => document.body.classList.remove('show-ui'), 3000);
+});
+
+function showLoading(on) { loading.style.display = on ? 'flex' : 'none'; }
+
+function startProgress(dur) {
+    clearInterval(progressTimer);
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    if (!dur || dur <= 0) return;
+    let elapsed = 0;
+    const step = 200;
+    progressTimer = setInterval(() => {
+        elapsed += step;
+        const pct = Math.min((elapsed / (dur * 1000)) * 100, 99);
+        bar.style.transition = `width ${step}ms linear`;
+        bar.style.width = pct + '%';
+    }, step);
+}
+
+function stopProgress() {
+    clearInterval(progressTimer);
+    bar.style.transition = 'width .2s';
+    bar.style.width = '100%';
+    setTimeout(() => { bar.style.transition = 'none'; bar.style.width = '0%'; }, 250);
+}
+
+function playAt(i) {
+    if (!VIDEOS.length) {
+        showLoading(false);
+        empty.style.display = 'flex';
+        return;
+    }
+    idx = ((i % VIDEOS.length) + VIDEOS.length) % VIDEOS.length;
+    const v = VIDEOS[idx];
+    counter.textContent = `${idx + 1} / ${VIDEOS.length}`;
+
+    // Tarja
+    if (v.texto_tarja) {
+        tarjaTx.textContent = v.texto_tarja;
+        tarja.style.display = 'block';
+    } else {
+        tarja.style.display = 'none';
+    }
+
+    // QR Code
+    if (v.qrcode && v.qrcode.tracking_url) {
+        const qrApi = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(v.qrcode.tracking_url)}`;
+        qrImg.src = qrApi;
+        qrLbl.textContent = v.qrcode.descricao || '';
+        qrOv.style.display = 'block';
+    } else {
+        qrOv.style.display = 'none';
+    }
+
+    showLoading(true);
+
+    if (v.tipo === 'corporativo') {
+        // WebView
+        vid.style.display = 'none';
+        frm.style.display = 'block';
+        frm.src = v.arquivo_url;
+        startProgress(v.duracao_segundos || 10);
+        setTimeout(() => {
+            showLoading(false);
+            setTimeout(nextVideo, (v.duracao_segundos || 10) * 1000);
+        }, 1200);
+    } else {
+        // Vídeo
+        frm.style.display = 'none';
+        frm.src = '';
+        vid.style.display = 'block';
+        vid.src = v.arquivo_url;
+        vid.load();
+        vid.play().catch(() => {});
+    }
+}
+
+vid.addEventListener('canplay', () => showLoading(false));
+vid.addEventListener('playing', () => startProgress(vid.duration || VIDEOS[idx]?.duracao_segundos));
+vid.addEventListener('ended',   () => { stopProgress(); nextVideo(); });
+vid.addEventListener('error',   () => { showLoading(false); setTimeout(nextVideo, 1500); });
+
+function nextVideo() { playAt(idx + 1); }
+function prevVideo() { playAt(idx - 1); }
+
+// Swipe support (mobile)
+let touchX = null;
+document.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+document.addEventListener('touchend', e => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 60) dx < 0 ? nextVideo() : prevVideo();
+    touchX = null;
+});
+
+// Start
+if (VIDEOS.length) {
+    playAt(0);
+} else {
+    showLoading(false);
+    empty.style.display = 'flex';
+}
+</script>
+</body>
+</html>

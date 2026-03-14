@@ -58,6 +58,7 @@ urlpatterns = [
     path('dispositivos/', views.dispositivo_list_view, name='dispositivo_list'),
     path('dispositivos/create/', views.dispositivo_create_view, name='dispositivo_create'),
     path('dispositivos/<int:pk>/', views.dispositivo_detail_view, name='dispositivo_detail'),
+    path('dispositivos/<int:pk>/preview/', views.dispositivo_tv_preview_view, name='dispositivo_tv_preview'),
     path('dispositivos/<int:pk>/update/', views.dispositivo_update_view, name='dispositivo_update'),
     path('dispositivos/<int:pk>/delete/', views.dispositivo_delete_view, name='dispositivo_delete'),
     
