@@ -491,33 +491,36 @@ document.addEventListener('DOMContentLoaded', function() {
     const radios = document.querySelectorAll('input[name="_source_type"]');
     const panelUpload = document.getElementById('panel-upload');
     const panelLink   = document.getElementById('panel-link');
+    const inputArquivo   = document.getElementById('id_arquivo') || document.getElementById('arquivo');
+    const inputUrlExt    = document.getElementById('id_url_externa') || document.getElementById('url_externa');
+
     function applySourceToggle(val) {
         if (val === 'link') {
             panelUpload.style.display = 'none';
             panelLink.style.display   = '';
+            if (inputArquivo) inputArquivo.disabled = true;
+            if (inputUrlExt)  inputUrlExt.disabled  = false;
         } else {
             panelUpload.style.display = '';
             panelLink.style.display   = 'none';
+            if (inputArquivo) inputArquivo.disabled = false;
+            if (inputUrlExt)  inputUrlExt.disabled  = true;
         }
     }
     radios.forEach(r => r.addEventListener('change', () => applySourceToggle(r.value)));
-    // estado inicial já definido pelo checked do Django template
+    // aplicar estado inicial
+    const checkedRadio = document.querySelector('input[name="_source_type"]:checked');
+    applySourceToggle(checkedRadio ? checkedRadio.value : 'upload');
     // ─────────────────────────────────────────────────────────────────────────
 
     const uploadArea = document.getElementById('uploadArea');
-    // Buscar o input de arquivo (Django pode gerar id_arquivo)
-    const fileInput = document.getElementById('id_arquivo') || document.getElementById('arquivo');
+    // fileInput já declarado acima como inputArquivo
+    const fileInput = inputArquivo;
     const uploadContent = document.getElementById('uploadContent');
-    if (!uploadArea) return; // modo link: sem uploadArea
-    const uploadProgress = uploadArea.querySelector('.upload-progress');
-    const progressBar = uploadProgress.querySelector('.progress-bar');
+    const uploadProgress = uploadArea ? uploadArea.querySelector('.upload-progress') : null;
+    const progressBar = uploadProgress ? uploadProgress.querySelector('.progress-bar') : null;
     const submitBtn = document.getElementById('submitBtn');
     const form = document.querySelector('form');
-
-    if (!fileInput) {
-        console.error('Input de arquivo não encontrado');
-        return;
-    }
 
     // Drag and drop functionality
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -614,17 +617,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Form submission
     form.addEventListener('submit', function(e) {
-        // Se não é edição e não tem arquivo, bloquear
-        const isEdit = document.querySelector('input[name="arquivo"]').hasAttribute('required') === false;
-        
-        if (!isEdit && !fileInput.files.length) {
+        const modoLink = document.querySelector('input[name="_source_type"]:checked')?.value === 'link';
+        const urlExternaVal = (document.getElementById('id_url_externa') || document.getElementById('url_externa'))?.value?.trim();
+        const temArquivo = fileInput && fileInput.files && fileInput.files.length > 0;
+        const temFonte = modoLink ? !!urlExternaVal : (temArquivo || !!document.querySelector('[data-has-file="true"]'));
+
+        // Só bloqueia se não for edição E não tem nenhuma fonte
+        const isEdit = !!document.querySelector('input[name="arquivo"]') &&
+                       !document.querySelector('input[name="arquivo"]').hasAttribute('required');
+        if (!isEdit && !temFonte && !modoLink) {
             e.preventDefault();
-            showAlert('Por favor, selecione um arquivo de vídeo', 'warning');
+            showAlert('Por favor, selecione um arquivo de vídeo ou informe uma URL externa.', 'warning');
             return;
         }
 
         // Show progress apenas se tiver arquivo novo
-        if (fileInput.files.length > 0) {
+        if (temArquivo && !modoLink && uploadArea) {
             uploadContent.classList.add('d-none');
             uploadProgress.classList.remove('d-none');
 
