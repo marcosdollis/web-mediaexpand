@@ -133,7 +133,7 @@ if not DEBUG:
     # Endpoint: https://<account_id>.r2.cloudflarestorage.com
     AWS_S3_ENDPOINT_URL   = config('R2_ENDPOINT_URL')
     # Public domain (custom domain ou sub-domain do R2):
-    AWS_S3_CUSTOM_DOMAIN  = config('R2_PUBLIC_DOMAIN', default='')
+    AWS_S3_CUSTOM_DOMAIN  = config('R2_PUBLIC_DOMAIN', default='').removeprefix('https://').removeprefix('http://')
     AWS_DEFAULT_ACL       = None          # permissões via bucket policy
     AWS_QUERYSTRING_AUTH  = False         # URLs públicas sem assinatura
     AWS_S3_FILE_OVERWRITE = False         # nunca sobrescreve acidentalmente
