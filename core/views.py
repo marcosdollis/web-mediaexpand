@@ -493,6 +493,16 @@ class TVAPIView(APIView):
                 {'error': 'Dispositivo não encontrado ou inativo'},
                 status=status.HTTP_404_NOT_FOUND
             )
+        except Exception as e:
+            import traceback as _tb
+            import logging as _logging
+            _logging.getLogger(__name__).error(
+                "TVAPIView 500: %s\n%s", e, _tb.format_exc()
+            )
+            return Response(
+                {'error': f'Erro interno: {type(e).__name__}: {e}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class TVLogExibicaoView(APIView):
