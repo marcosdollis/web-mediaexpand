@@ -337,44 +337,75 @@ class LogExibicaoViewSet(viewsets.ModelViewSet):
         return Response(stats)
 
 
-# ─── Distribuição proporcional por percentual (Bresenham weighted) ───────────
-def _distribuir_por_percentual(pairs):
+# ─── Distribuição proporcional por tempo (Weighted Fair Queuing) ─────────────
+def _distribuir_por_percentual(pairs, max_videos=200):
     """
-    Recebe lista de (video_list, percentual) e devolve uma lista interleaved
-    proporcionalmente aos pesos.
-    Ex: ([A,A2], 80), ([B], 20)  →  [A, A2, B, A, A2]  (∼80% A, 20% B)
-    """
-    from math import gcd
-    from functools import reduce
-    import itertools
+    Weighted Fair Queuing baseado em duração real dos vídeos.
 
-    valid = [(vids, pct) for vids, pct in pairs if vids and pct and pct > 0]
+    Cada playlist acumula créditos de tempo proporcionais ao seu peso (percentual).
+    A playlist com MAIS crédito acumulado ("mais devida") é a próxima a ser exibida.
+    Ao exibir um vídeo, o crédito diminui pela duração real normalizada pela média
+    global — vídeos mais longos "custam" mais crédito, garantindo equidade por tempo
+    de tela e não apenas por contagem de vídeos.
+
+    Ex: playlist A (80 %, vídeos 60 s) e B (20 %, vídeos 15 s):
+        → A aparece ~4× para cada aparição de B (tempo de tela ≈ 80 %/20 %).
+    """
+    import itertools
+    from math import lcm
+    from functools import reduce
+
+    valid = [(list(vids), pct) for vids, pct in pairs if vids and pct and pct > 0]
     if not valid:
         return [v for vids, _ in pairs for v in vids]
     if len(valid) == 1:
         return list(valid[0][0])
 
     total_pct = sum(pct for _, pct in valid)
-    int_pcts = [max(1, round(pct * 100 / total_pct)) for _, pct in valid]
-    g = reduce(gcd, int_pcts)
-    slot_counts = [p // g for p in int_pcts]
-    total_slots = sum(slot_counts)
+    weights = [pct / total_pct for _, pct in valid]  # e.g. [0.8, 0.2]
 
-    # Cap to avoid huge lists
-    if total_slots > 200:
-        scale = total_slots / 20
-        slot_counts = [max(1, round(s / scale)) for s in slot_counts]
-        total_slots = sum(slot_counts)
+    # Duração média global (todos os vídeos de todas as playlists)
+    all_vids_flat = [v for vids, _ in valid for v in vids]
+    all_durs = [
+        v.get('duracao_segundos', 30)
+        for v in all_vids_flat
+        if isinstance(v, dict) and v.get('duracao_segundos', 0) > 0
+    ]
+    avg_dur = (sum(all_durs) / len(all_durs)) if all_durs else 30.0
+
+    # Tamanho do ciclo: LCM dos tamanhos das playlists, escalado pelo menor peso,
+    # limitado a max_videos para não gerar listas enormes
+    lengths = [len(vids) for vids, _ in valid]
+    try:
+        cycle_len = reduce(lcm, lengths)
+    except Exception:
+        cycle_len = max(lengths)
+    min_weight = min(weights)
+    needed = int(max(lengths) / min_weight)  # garante ciclo completo de cada playlist
+    total = min(max(needed, cycle_len), max_videos)
 
     iters = [itertools.cycle(vids) for vids, _ in valid]
-    errors = [0.0] * len(valid)
+    credits = [0.0] * len(valid)
     result = []
-    for _ in range(total_slots):
+
+    for _ in range(total):
+        # Cada playlist acumula crédito proporcional ao seu peso
         for i in range(len(valid)):
-            errors[i] += slot_counts[i]
-        chosen = max(range(len(valid)), key=lambda i: errors[i])
-        result.append(next(iters[chosen]))
-        errors[chosen] -= total_slots
+            credits[i] += weights[i]
+
+        # Executa a playlist com maior crédito acumulado (a "mais devida")
+        chosen = max(range(len(valid)), key=lambda i: credits[i])
+        video = next(iters[chosen])
+
+        # Desconta pela duração real normalizada:
+        # vídeo de 60 s com média 30 s custa 2 créditos; de 15 s custa 0,5.
+        dur = video.get('duracao_segundos', avg_dur) if isinstance(video, dict) else avg_dur
+        if dur <= 0:
+            dur = avg_dur
+        credits[chosen] -= dur / avg_dur
+
+        result.append(video)
+
     return result
 
 
@@ -1546,16 +1577,30 @@ def video_convert_mp4_view(request, pk):
     if not shutil.which('ffmpeg'):
         return JsonResponse({'success': False, 'error': 'ffmpeg não está instalado no servidor'}, status=500)
 
+    tmp_input = None
+    tmp_output = None
+    is_remote = False
     try:
-        input_path = video.arquivo.path
-        input_dir = os.path.dirname(input_path)
-        input_basename = os.path.splitext(os.path.basename(input_path))[0]
-        output_filename = f'{input_basename}.mp4'
-        output_path = os.path.join(input_dir, output_filename)
+        from django.core.files import File as DjangoFile
 
-        # Sempre usar arquivo temporário para segurança
-        fd, temp_output = tempfile.mkstemp(suffix='.mp4', dir=input_dir)
+        # ── Obter input (local ou download do R2) ──────────────────────────
+        try:
+            input_path = video.arquivo.path  # storage local
+        except NotImplementedError:
+            is_remote = True
+            ext = os.path.splitext(video.arquivo.name)[1] or '.mp4'
+            fd, tmp_input = tempfile.mkstemp(suffix=ext, dir='/tmp')
+            os.close(fd)
+            with video.arquivo.open('rb') as src:
+                with open(tmp_input, 'wb') as dst:
+                    shutil.copyfileobj(src, dst)
+            input_path = tmp_input
+
+        fd, tmp_output = tempfile.mkstemp(suffix='.mp4', dir='/tmp')
         os.close(fd)
+
+        input_basename = os.path.splitext(os.path.basename(video.arquivo.name))[0]
+        output_filename = f'{input_basename}.mp4'
 
         # Detectar orientação e resolução real do vídeo via ffprobe
         orientacao, orig_w, orig_h = Video._detectar_orientacao_video(input_path)
@@ -1594,42 +1639,53 @@ def video_convert_mp4_view(request, pk):
             '-brand', 'mp42',
             '-tag:v', 'avc1',
             '-vsync', 'cfr',
-            temp_output
+            tmp_output
         ]
 
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=900  # 15 minutos — 1080p demora mais que 480p
+            timeout=900  # 15 minutos
         )
 
         if result.returncode != 0:
-            if os.path.exists(temp_output):
-                os.remove(temp_output)
             return JsonResponse({
                 'success': False,
                 'error': f'Erro na conversão: {result.stderr[:500]}'
             }, status=500)
 
-        # Remover arquivo original
-        if os.path.exists(input_path):
+        new_size = os.path.getsize(tmp_output)
+
+        if is_remote:
+            # ── Upload para R2 ───────────────────────────────────
+            storage_name = os.path.splitext(video.arquivo.name)[0] + '.mp4'
             try:
-                os.remove(input_path)
-            except OSError:
+                video.arquivo.storage.delete(video.arquivo.name)
+            except Exception:
                 pass
-
-        # Mover arquivo convertido para caminho final
-        shutil.move(temp_output, output_path)
-
-        # Usar update() direto para não disparar save() → _normalizar_video() de novo
-        relative_path = os.path.relpath(output_path, settings.MEDIA_ROOT).replace('\\', '/')
-        Video.objects.filter(pk=video.pk).update(
-            arquivo=relative_path,
-            orientacao=orientacao
-        )
-
-        new_size = os.path.getsize(output_path)
+            with open(tmp_output, 'rb') as f:
+                saved_name = video.arquivo.storage.save(storage_name, DjangoFile(f))
+            Video.objects.filter(pk=video.pk).update(
+                arquivo=saved_name,
+                orientacao=orientacao,
+            )
+        else:
+            # ── Storage local: substituir no disco ────────────────────
+            input_dir = os.path.dirname(input_path)
+            output_path = os.path.join(input_dir, output_filename)
+            if os.path.exists(input_path):
+                try:
+                    os.remove(input_path)
+                except OSError:
+                    pass
+            shutil.move(tmp_output, output_path)
+            tmp_output = None  # já movido, não precisa remover no finally
+            relative_path = os.path.relpath(output_path, settings.MEDIA_ROOT).replace('\\', '/')
+            Video.objects.filter(pk=video.pk).update(
+                arquivo=relative_path,
+                orientacao=orientacao,
+            )
 
         return JsonResponse({
             'success': True,
@@ -1640,22 +1696,22 @@ def video_convert_mp4_view(request, pk):
         })
 
     except subprocess.TimeoutExpired:
-        if 'temp_output' in locals() and os.path.exists(temp_output):
-            os.remove(temp_output)
         return JsonResponse({
             'success': False,
             'error': 'Conversão excedeu o tempo limite de 15 minutos. Tente com um vídeo menor.'
         }, status=504)
     except Exception as e:
-        if 'temp_output' in locals() and os.path.exists(temp_output):
-            try:
-                os.remove(temp_output)
-            except OSError:
-                pass
         return JsonResponse({
             'success': False,
             'error': f'Erro inesperado: {str(e)}'
         }, status=500)
+    finally:
+        for tmp in (tmp_input, tmp_output):
+            if tmp and os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
 
 
 @login_required
@@ -3317,17 +3373,26 @@ def app_download_view(request):
     app_version.save(update_fields=['downloads'])
     
     # Verificar se arquivo existe
-    if not app_version.arquivo_apk or not os.path.exists(app_version.arquivo_apk.path):
+    if not app_version.arquivo_apk:
         raise Http404("Arquivo não encontrado")
-    
-    # Retornar arquivo para download
-    response = FileResponse(
-        open(app_version.arquivo_apk.path, 'rb'),
-        content_type='application/vnd.android.package-archive'
-    )
-    response['Content-Disposition'] = f'attachment; filename="MediaExpandTV-v{app_version.versao}.apk"'
-    
-    return response
+
+    # Com storage remoto (R2): redirecionar direto para a URL do bucket
+    # Com storage local: servir o arquivo
+    try:
+        app_version.arquivo_apk.path  # levanta NotImplementedError se R2
+        local_path = app_version.arquivo_apk.path
+        if not os.path.exists(local_path):
+            raise Http404("Arquivo não encontrado")
+        response = FileResponse(
+            open(local_path, 'rb'),
+            content_type='application/vnd.android.package-archive'
+        )
+        response['Content-Disposition'] = f'attachment; filename="MediaExpandTV-v{app_version.versao}.apk"'
+        return response
+    except NotImplementedError:
+        # Storage remoto — redirecionar para URL do R2
+        from django.shortcuts import redirect as _redirect
+        return _redirect(app_version.arquivo_apk.url)
 
 
 # ============================================================
@@ -3390,13 +3455,21 @@ def serve_media_streaming(request, path):
     from django.conf import settings
     
     # Construir caminho completo e validar contra path traversal
-    full_path = os.path.join(settings.MEDIA_ROOT, path)
+    full_path = os.path.join(str(settings.MEDIA_ROOT), path)
     full_path = os.path.normpath(full_path)
     media_root = os.path.normpath(str(settings.MEDIA_ROOT))
-    
+
+    # Com storage remoto (R2): o arquivo está no bucket, redirecionar direto
+    from django.core.files.storage import default_storage
+    try:
+        default_storage.path(path)  # levanta NotImplementedError se S3/R2
+    except NotImplementedError:
+        from django.shortcuts import redirect as _sr
+        return _sr(default_storage.url(path))
+
     if not full_path.startswith(media_root):
         raise Http404("Acesso negado")
-    
+
     if not os.path.isfile(full_path):
         raise Http404("Arquivo não encontrado")
     
@@ -4276,21 +4349,20 @@ def design_video_upload_view(request):
         return JsonResponse({'success': False, 'message': 'Arquivo muito grande (máx 200 MB)'}, status=400)
 
     filename = f'video_{uuid.uuid4().hex[:8]}{ext}'
-    from django.conf import settings
-    save_dir = os.path.join(settings.MEDIA_ROOT, 'designs', 'videos')
-    os.makedirs(save_dir, exist_ok=True)
-    save_path = os.path.join(save_dir, filename)
+    from django.core.files.storage import default_storage
+    from django.core.files.base import ContentFile
 
-    with open(save_path, 'wb') as f:
-        for chunk in video_file.chunks():
-            f.write(chunk)
+    storage_path = f'designs/videos/{filename}'
+    default_storage.save(storage_path, ContentFile(video_file.read()))
 
-    media_url = settings.MEDIA_URL.rstrip('/')
-    relative_url = f'{media_url}/designs/videos/{filename}'
-    # Força HTTPS em produção Railway
-    video_url = request.build_absolute_uri(relative_url)
-    if 'railway.app' in video_url:
-        video_url = video_url.replace('http://', 'https://')
+    raw_url = default_storage.url(storage_path)
+    # Se URL relativa (storage local), tornar absoluta
+    if raw_url.startswith('/'):
+        video_url = request.build_absolute_uri(raw_url)
+        if 'railway.app' in video_url:
+            video_url = video_url.replace('http://', 'https://')
+    else:
+        video_url = raw_url  # R2 já retorna URL absoluta
     return JsonResponse({
         'success': True,
         'videoUrl': video_url,
@@ -4967,11 +5039,9 @@ def _lab_run_variant(job_id, variant_key, client_id, title, input_path, orient):
     _set_status('running', 'Codificando com ffmpeg...')
 
     try:
-        lab_dir = os.path.join(settings.MEDIA_ROOT, 'lab_outputs')
-        os.makedirs(lab_dir, exist_ok=True)
-
+        # Sempre usar /tmp para output (funciona com local e R2)
         out_filename = f'lab_{job_id[:8]}_{variant_key}.mp4'
-        out_path = os.path.join(lab_dir, out_filename)
+        out_path = os.path.join('/tmp', out_filename)
 
         cmd = _lab_build_ffmpeg_cmd(variant, input_path, out_path, orient)
 
@@ -4995,7 +5065,19 @@ def _lab_run_variant(job_id, variant_key, client_id, title, input_path, orient):
             _set_status('error', f'Cliente ID {client_id} não encontrado')
             return
 
-        rel_path = os.path.join('lab_outputs', out_filename).replace('\\', '/')
+        # Upload para storage (R2 ou local)
+        from django.core.files.storage import default_storage
+        from django.core.files import File as DjangoFile
+        storage_path = f'lab_outputs/{out_filename}'
+        try:
+            with open(out_path, 'rb') as f:
+                saved_name = default_storage.save(storage_path, DjangoFile(f))
+        finally:
+            if os.path.exists(out_path):
+                try:
+                    os.remove(out_path)
+                except OSError:
+                    pass
 
         video = Video(
             cliente=cliente,
@@ -5004,14 +5086,15 @@ def _lab_run_variant(job_id, variant_key, client_id, title, input_path, orient):
             status='APPROVED',
             ativo=True,
             orientacao=orient,
-            # arquivo NOT set aqui — evita disparar _normalizar_video() no save()
         )
         video.save()
 
-        # Agora define o arquivo via update() — não passa pelo hook save()
-        Video.objects.filter(pk=video.pk).update(arquivo=rel_path, orientacao=orient)
+        Video.objects.filter(pk=video.pk).update(arquivo=saved_name, orientacao=orient)
 
-        file_size_mb = round(os.path.getsize(out_path) / 1024 / 1024, 1)
+        try:
+            file_size_mb = round(default_storage.size(saved_name) / 1024 / 1024, 1)
+        except Exception:
+            file_size_mb = 0
         _set_status('done', f'{file_size_mb} MB — Video ID {video.pk}', video_id=video.pk)
 
     except subprocess.TimeoutExpired:
@@ -5041,15 +5124,13 @@ def lab_video_encode_view(request):
                 'variants': LAB_VARIANTS,
             })
 
-        # Salva o original em lab_uploads/
-        from django.conf import settings
-        lab_input_dir = os.path.join(settings.MEDIA_ROOT, 'lab_uploads')
-        os.makedirs(lab_input_dir, exist_ok=True)
+        # Salva o original em /tmp (s\u00f3 precisa existir durante processamento ffmpeg)
 
         job_id = str(_uuid.uuid4())
         ext = os.path.splitext(arquivo.name)[1].lower() or '.mp4'
         input_filename = f'lab_{job_id[:8]}_original{ext}'
-        input_path = os.path.join(lab_input_dir, input_filename)
+        # Usa /tmp para o input original (só precisa existir durante processamento)
+        input_path = os.path.join('/tmp', input_filename)
 
         with open(input_path, 'wb') as f:
             for chunk in arquivo.chunks():

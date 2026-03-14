@@ -333,26 +333,46 @@ class Video(models.Model):
         - 5 Mbps VBV, GOP 60, BT.709, brand mp42 / tag avc1
         - map_metadata -1 remove rotate/clap/pasp/display matrix
         - setsar=1 + setdar implícito eliminam anamorfismo
+
+        Compatível com storage local E Cloudflare R2 (S3):
+        - Storage local: processa no disco, substitui arquivo in-place.
+        - Storage remoto (R2): baixa para /tmp, processa, faz upload de volta.
         """
-        import shutil
+        import shutil, tempfile
+        from django.core.files import File
 
         if not shutil.which('ffmpeg'):
             logger.warning('ffmpeg não encontrado — vídeo %s não normalizado', self.pk)
             return
 
+        # ── 1. Obter input local (download do R2 se necessário) ──────────────
+        tmp_input = None
+        is_remote = False
         try:
-            caminho_original = self.arquivo.path
+            input_path = self.arquivo.path  # funciona para storage local
+        except NotImplementedError:
+            # Storage remoto (R2/S3) — baixar para /tmp
+            is_remote = True
+            ext = os.path.splitext(self.arquivo.name)[1] or '.mp4'
+            fd, tmp_input = tempfile.mkstemp(suffix=ext, dir='/tmp')
+            os.close(fd)
+            with self.arquivo.open('rb') as src:
+                with open(tmp_input, 'wb') as dst:
+                    shutil.copyfileobj(src, dst)
+            input_path = tmp_input
         except (ValueError, OSError):
             return
 
-        if not os.path.exists(caminho_original):
+        if not os.path.exists(input_path):
+            logger.warning('Arquivo de entrada não encontrado para vídeo %s', self.pk)
             return
 
-        base, _ = os.path.splitext(caminho_original)
-        caminho_temp = base + '_tmp.mp4'
+        # ── 2. Arquivo de output em /tmp ──────────────────────────────────────
+        fd, tmp_output = tempfile.mkstemp(suffix='.mp4', dir='/tmp')
+        os.close(fd)
 
         # Detectar orientação e resolução real do vídeo
-        orient, orig_w, orig_h = self._detectar_orientacao_video(caminho_original)
+        orient, orig_w, orig_h = self._detectar_orientacao_video(input_path)
         scale_filter = self._calcular_scale_filter(orig_w, orig_h, orient)
 
         # Bitrate 1080p — VBV calibrado para Fire TV (V6)
@@ -363,7 +383,7 @@ class Video(models.Model):
         try:
             resultado = subprocess.run([
                 'ffmpeg', '-y',
-                '-i', caminho_original,
+                '-i', input_path,
                 '-vf', scale_filter,
                 '-map_metadata', '-1',
                 '-c:v', 'libx264',
@@ -388,66 +408,86 @@ class Video(models.Model):
                 '-brand', 'mp42',
                 '-tag:v', 'avc1',
                 '-vsync', 'cfr',
-                caminho_temp
+                tmp_output
             ], capture_output=True, text=True, timeout=900)
 
-            if resultado.returncode == 0 and os.path.exists(caminho_temp):
-                # Substituir o original (pode ter mudado de extensão)
-                if caminho_original != caminho_temp:
+            if resultado.returncode == 0 and os.path.getsize(tmp_output) > 0:
+                if is_remote:
+                    # ── Upload para R2, mesmo prefixo de path, forçando .mp4 ──
+                    storage_name = os.path.splitext(self.arquivo.name)[0] + '.mp4'
                     try:
-                        os.remove(caminho_original)
-                    except OSError:
+                        self.arquivo.storage.delete(self.arquivo.name)
+                    except Exception:
                         pass
-                # Garantir extensão .mp4
-                caminho_final = base + '.mp4'
-                os.replace(caminho_temp, caminho_final)
-                # Atualizar campo orientacao com a orientação detectada
-                from django.conf import settings
-                rel = os.path.relpath(caminho_final, settings.MEDIA_ROOT).replace('\\', '/')
-                Video.objects.filter(pk=self.pk).update(arquivo=rel, orientacao=orient)
+                    with open(tmp_output, 'rb') as f:
+                        saved_name = self.arquivo.storage.save(storage_name, File(f))
+                    Video.objects.filter(pk=self.pk).update(arquivo=saved_name, orientacao=orient)
+                else:
+                    # ── Local: substituir arquivo no disco ──
+                    base = os.path.splitext(input_path)[0]
+                    caminho_final = base + '.mp4'
+                    if input_path != caminho_final:
+                        try:
+                            os.remove(input_path)
+                        except OSError:
+                            pass
+                    os.replace(tmp_output, caminho_final)
+                    from django.conf import settings
+                    rel = os.path.relpath(caminho_final, settings.MEDIA_ROOT).replace('\\', '/')
+                    Video.objects.filter(pk=self.pk).update(arquivo=rel, orientacao=orient)
                 logger.info('Vídeo %s normalizado com sucesso (%s)', self.pk, orient)
             else:
                 logger.error('ffmpeg falhou para vídeo %s: %s', self.pk, resultado.stderr[:500])
-                if os.path.exists(caminho_temp):
-                    os.remove(caminho_temp)
 
         except subprocess.TimeoutExpired:
             logger.error('ffmpeg timeout para vídeo %s', self.pk)
-            if os.path.exists(caminho_temp):
-                os.remove(caminho_temp)
         except Exception as e:
             logger.error('Erro ao normalizar vídeo %s: %s', self.pk, e)
-            if os.path.exists(caminho_temp):
+        finally:
+            # Limpar temporários
+            if tmp_input and os.path.exists(tmp_input):
                 try:
-                    os.remove(caminho_temp)
+                    os.remove(tmp_input)
+                except OSError:
+                    pass
+            if os.path.exists(tmp_output):
+                try:
+                    os.remove(tmp_output)
                 except OSError:
                     pass
 
     def get_file_size(self):
-        """Retorna o tamanho do arquivo em MB"""
-        if self.arquivo and os.path.exists(self.arquivo.path):
+        """Retorna o tamanho do arquivo em MB (funciona com local e R2)"""
+        if self.arquivo:
             try:
                 return round(self.arquivo.size / (1024 * 1024), 2)
-            except (OSError, ValueError):
+            except Exception:
                 return 0
         return 0
-    
+
     @property
     def file_size_bytes(self):
         """Retorna o tamanho do arquivo em bytes, ou 0 se não existir"""
-        if self.arquivo and os.path.exists(self.arquivo.path):
+        if self.arquivo:
             try:
                 return self.arquivo.size
-            except (OSError, ValueError):
+            except Exception:
                 return 0
         return 0
-    
+
     def arquivo_existe(self):
-        """Verifica se o arquivo físico existe no sistema de arquivos"""
+        """Verifica se o arquivo existe no storage (local ou R2)"""
         if not self.arquivo:
             return False
         try:
+            # Storage local: usa os.path
             return os.path.exists(self.arquivo.path)
+        except NotImplementedError:
+            # Storage remoto (R2/S3): usa o método do storage
+            try:
+                return self.arquivo.storage.exists(self.arquivo.name)
+            except Exception:
+                return False
         except (ValueError, OSError):
             return False
 

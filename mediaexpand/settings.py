@@ -123,14 +123,30 @@ WHITENOISE_USE_FINDERS = True
 WHITENOISE_AUTOREFRESH = True if DEBUG else False
 
 # Media files
-# Em desenvolvimento: usa pasta local 'media/'
-# Em produção (Railway): usa volume montado em '/data/media'
-if DEBUG:
-    MEDIA_URL = 'media/'
-    MEDIA_ROOT = BASE_DIR / 'media'
+# Desenvolvimento: local media/
+# Produção: Cloudflare R2 (S3-compatible) via django-storages
+if not DEBUG:
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    AWS_ACCESS_KEY_ID     = config('R2_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = config('R2_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = config('R2_BUCKET_NAME')
+    # Endpoint: https://<account_id>.r2.cloudflarestorage.com
+    AWS_S3_ENDPOINT_URL   = config('R2_ENDPOINT_URL')
+    # Public domain (custom domain ou sub-domain do R2):
+    AWS_S3_CUSTOM_DOMAIN  = config('R2_PUBLIC_DOMAIN', default='')
+    AWS_DEFAULT_ACL       = None          # permissões via bucket policy
+    AWS_QUERYSTRING_AUTH  = False         # URLs públicas sem assinatura
+    AWS_S3_FILE_OVERWRITE = False         # nunca sobrescreve acidentalmente
+    AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+    # Região não é usada pelo R2, mas boto3 exige algum valor
+    AWS_S3_REGION_NAME    = 'auto'
+    _r2_domain = AWS_S3_CUSTOM_DOMAIN or f"{config('R2_ENDPOINT_URL')}/{config('R2_BUCKET_NAME')}"
+    _r2_domain_clean = _r2_domain.removeprefix('https://').removeprefix('http://')
+    MEDIA_URL  = f'https://{_r2_domain_clean}/'
+    MEDIA_ROOT = '/tmp/django_media'      # apenas para ffmpeg local (nunca persistido)
 else:
-    MEDIA_URL = '/media/'
-    MEDIA_ROOT = '/data/media'
+    MEDIA_URL  = 'media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
 
 # File upload settings — Permitir uploads grandes de vídeo (até 500MB)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 500 * 1024 * 1024  # 500MB
