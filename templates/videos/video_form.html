@@ -44,23 +44,30 @@
                             {% endif %}
                         {% endif %}
 
-                        {% if clientes %}
+                        {% if show_cliente_select %}
                         <!-- Cliente Selection (for Owner/Franchisee) -->
                         <div class="mb-4">
                             <label for="cliente" class="form-label fw-bold">
-                                <i class="bi bi-person-badge text-primary me-2"></i>Cliente
+                                <i class="bi bi-person-badge text-primary me-2"></i>Cliente <span class="text-danger">*</span>
                             </label>
+                            {% if clientes %}
                             <select name="cliente" id="cliente" class="form-select" required
                                 onchange="this.classList.remove('is-invalid')">
                                 <option value="">Selecione o cliente...</option>
-                                {% for cliente in clientes %}
-                                <option value="{{ cliente.id }}"
-                                    {% if request.POST.cliente == cliente.id|stringformat:"s" %}selected{% endif %}>
-                                    {{ cliente.empresa }} - {{ cliente.user.username }}
+                                {% for c in clientes %}
+                                <option value="{{ c.id }}"
+                                    {% if request.POST.cliente == c.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ c.empresa }} - {{ c.user.username }}
                                 </option>
                                 {% endfor %}
                             </select>
                             <div class="invalid-feedback">Selecione um cliente.</div>
+                            {% else %}
+                            <div class="alert alert-warning py-2">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Nenhum cliente ativo encontrado. <a href="{% url 'cliente_create' %}">Cadastre um cliente</a> antes de enviar vídeos.
+                            </div>
+                            {% endif %}
                             <div class="form-text">
                                 <small class="text-muted">Selecione para qual cliente este vídeo será enviado</small>
                             </div>
@@ -526,41 +533,44 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form');
 
     // Drag and drop functionality
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, preventDefaults, false);
-    });
+    if (uploadArea) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
+        });
+    }
 
     function preventDefaults(e) {
         e.preventDefault();
         e.stopPropagation();
     }
 
-    ['dragenter', 'dragover'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
-    });
-
     ['dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
+        if (uploadArea) uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
     });
 
-    uploadArea.addEventListener('drop', function(e) {
-        const dt = e.dataTransfer;
-        const files = dt.files;
+    if (uploadArea) {
+        uploadArea.addEventListener('drop', function(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
 
-        if (files.length > 0) {
-            // Criar um novo DataTransfer para setar no input
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(files[0]);
-            fileInput.files = dataTransfer.files;
-            
-            // Disparar evento change manualmente
-            const changeEvent = new Event('change', { bubbles: true });
-            fileInput.dispatchEvent(changeEvent);
-        }
-    }, false);
+            if (files.length > 0) {
+                // Criar um novo DataTransfer para setar no input
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(files[0]);
+                fileInput.files = dataTransfer.files;
+                
+                // Disparar evento change manualmente
+                const changeEvent = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(changeEvent);
+            }
+        }, false);
+    }
 
     // File input change
-    fileInput.addEventListener('change', function(e) {
+    if (fileInput) fileInput.addEventListener('change', function(e) {
         if (this.files.length > 0) {
             updateFileDisplay(this.files[0]);
         }
