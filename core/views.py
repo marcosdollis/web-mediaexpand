@@ -1405,8 +1405,16 @@ def video_create_view(request):
             arquivo = request.FILES.get('arquivo')
             url_externa = request.POST.get('url_externa', '').strip() or None
 
-            if not cliente_id or not titulo or (not arquivo and not url_externa):
-                messages.error(request, 'Cliente, título e arquivo de vídeo (ou URL externa) são obrigatórios.')
+            erros = []
+            if not cliente_id:
+                erros.append('cliente')
+            if not titulo:
+                erros.append('título')
+            if not arquivo and not url_externa:
+                erros.append('arquivo de vídeo ou URL externa')
+
+            if erros:
+                messages.error(request, f'Campo(s) obrigatório(s) faltando: {", ".join(erros)}.')
             else:
                 try:
                     cliente = Cliente.objects.get(id=cliente_id)
