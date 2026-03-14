@@ -126,7 +126,7 @@
                                     </small>
                                 </div>
                                 <div class="d-flex gap-2 align-items-center">
-                                    {% if item.video.arquivo %}
+                                    {% if item.video.arquivo or item.video.url_externa %}
                                     <button type="button" class="btn btn-sm btn-primary" 
                                             data-bs-toggle="modal" 
                                             data-bs-target="#videoModal{{ item.video.pk }}">
@@ -213,7 +213,7 @@
 
 <!-- Modals para cada vídeo -->
 {% for item in items %}
-{% if item.video and item.video.arquivo %}
+{% if item.video and item.video.arquivo or item.video and item.video.url_externa %}
 <div class="modal fade" id="videoModal{{ item.video.pk }}" tabindex="-1" aria-labelledby="videoModalLabel{{ item.video.pk }}" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -225,7 +225,7 @@
             </div>
             <div class="modal-body p-0">
                 <video id="videoPlayer{{ item.video.pk }}" class="w-100" controls>
-                    <source src="{{ item.video.arquivo.url }}" type="video/mp4">
+                    <source src="{% if item.video.url_externa %}{{ item.video.url_externa }}{% else %}{{ item.video.arquivo.url }}{% endif %}" type="video/mp4">
                     Seu navegador não suporta a tag de vídeo.
                 </video>
             </div>

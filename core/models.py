@@ -167,7 +167,16 @@ class Video(models.Model):
     descricao = models.TextField(blank=True, null=True)
     arquivo = models.FileField(
         upload_to=video_upload_path,
-        validators=[FileExtensionValidator(allowed_extensions=['mp4', 'avi', 'mov', 'mkv', 'webm'])]
+        validators=[FileExtensionValidator(allowed_extensions=['mp4', 'avi', 'mov', 'mkv', 'webm'])],
+        blank=True,
+        null=True,
+    )
+    url_externa = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        verbose_name='URL externa do vídeo',
+        help_text='Link direto para o vídeo (ex: CDN, Instagram CDN) — substitui o upload de arquivo',
     )
     duracao_segundos = models.IntegerField(default=0, help_text='Duração em segundos')
     thumbnail = models.ImageField(upload_to='thumbnails/', blank=True, null=True)
@@ -478,6 +487,8 @@ class Video(models.Model):
 
     def arquivo_existe(self):
         """Verifica se o arquivo existe no storage (local ou R2)"""
+        if self.url_externa:
+            return True
         if not self.arquivo:
             return False
         try:

@@ -138,6 +138,8 @@ class VideoSerializer(serializers.ModelSerializer):
         return obj.get_file_size()
     
     def get_arquivo_url(self, obj):
+        if obj.url_externa:
+            return obj.url_externa
         if obj.arquivo:
             request = self.context.get('request')
             if request:
@@ -297,14 +299,17 @@ class PlaylistTVSerializer(serializers.ModelSerializer):
             if not item.video:
                 continue
             video = item.video
-            if not video.arquivo or not video.ativo:
+            if (not video.arquivo and not video.url_externa) or not video.ativo:
                 continue
             # Verificar visibilidade: APPROVED sempre, SCHEDULED se na janela de datas
             if not video.esta_visivel_nas_tvs:
                 continue
                 
             for _ in range(item.repeticoes):
-                arquivo_url = self._build_url(video.arquivo.url)
+                if video.url_externa:
+                    arquivo_url = video.url_externa
+                else:
+                    arquivo_url = self._build_url(video.arquivo.url)
                 
                 video_data = {
                     'id': video.id,

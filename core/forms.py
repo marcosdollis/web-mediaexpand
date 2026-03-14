@@ -132,7 +132,7 @@ class VideoForm(forms.ModelForm):
     class Meta:
         model = Video
         fields = [
-            'titulo', 'descricao', 'arquivo',
+            'titulo', 'descricao', 'arquivo', 'url_externa',
             'orientacao',
             'qrcode_url_destino', 'qrcode_descricao', 'texto_tarja',
             'status', 'data_publicacao', 'data_expiracao',
@@ -141,6 +141,10 @@ class VideoForm(forms.ModelForm):
             'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título do vídeo'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descrição do vídeo'}),
             'arquivo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'video/*'}),
+            'url_externa': forms.URLInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'https://cdn.exemplo.com/video.mp4',
+            }),
             'orientacao': forms.Select(attrs={'class': 'form-select'}),
             'qrcode_url_destino': forms.URLInput(attrs={
                 'class': 'form-control',
@@ -169,9 +173,11 @@ class VideoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        # Se estiver editando um vídeo que já tem arquivo, não exige novo upload
-        if self.instance and self.instance.pk and self.instance.arquivo:
-            self.fields['arquivo'].required = False
+        # arquivo sempre opcional no form — validado em clean()
+        self.fields['arquivo'].required = False
+        self.fields['url_externa'].required = False
+        self.fields['url_externa'].label = 'URL externa do vídeo'
+        self.fields['url_externa'].help_text = 'Cole o link direto do vídeo (MP4 acessível publicamente). Será enviado ao app TV no lugar do arquivo.'
         # Status: não é editado neste formulário (muda via aprovar/rejeitar)
         # Sempre oculto e preservado para evitar falha de validação quando o campo
         # não está renderizado no template
@@ -193,6 +199,17 @@ class VideoForm(forms.ModelForm):
         cleaned_data = super().clean()
         status = cleaned_data.get('status')
         data_pub = cleaned_data.get('data_publicacao')
+        arquivo = cleaned_data.get('arquivo')
+        url_externa = cleaned_data.get('url_externa')
+        # Deve ter arquivo OU url_externa (ou já ter arquivo salvo ao editar)
+        tem_arquivo_salvo = (
+            self.instance and self.instance.pk and
+            (self.instance.arquivo or self.instance.url_externa)
+        )
+        if not arquivo and not url_externa and not tem_arquivo_salvo:
+            raise forms.ValidationError(
+                'Envie um arquivo de vídeo ou informe uma URL externa.'
+            )
         if status == 'SCHEDULED' and not data_pub:
             raise forms.ValidationError(
                 'Vídeos com status "Agendado" precisam de uma data de publicação.'

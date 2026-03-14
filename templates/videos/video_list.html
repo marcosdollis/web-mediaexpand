@@ -138,7 +138,9 @@
 
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <small class="text-muted">
-                            {% if video.arquivo %}
+                            {% if video.url_externa %}
+                            <i class="fas fa-link me-1"></i><span class="badge bg-info">Link externo</span>
+                            {% elif video.arquivo %}
                             <i class="fas fa-file-video me-1"></i>{{ video.file_size_bytes|filesizeformat }}
                             <span class="badge bg-{{ video.extensao_class }} ms-1">{{ video.extensao }}</span>
                             {% else %}
@@ -172,13 +174,14 @@
 
                     <!-- Action Buttons -->
                     <div class="d-flex flex-column gap-2">
-                        {% if video.arquivo %}
+                        {% if video.arquivo or video.url_externa %}
                         <button type="button" class="btn btn-primary btn-sm" 
                                 data-bs-toggle="modal" 
                                 data-bs-target="#videoModal{{ video.pk }}">
                             <i class="fas fa-play me-1"></i>Assistir
                         </button>
-                        
+                        {% endif %}
+                        {% if video.arquivo %}
                         <!-- Converter para MP4 -->
                         <button type="button" class="btn btn-info btn-sm text-white convert-mp4-btn"
                                 data-video-id="{{ video.pk }}"
@@ -255,7 +258,7 @@
 
 <!-- Video Modals -->
 {% for video in videos %}
-{% if video.arquivo %}
+{% if video.arquivo or video.url_externa %}
 <div class="modal fade" id="videoModal{{ video.pk }}" tabindex="-1" aria-labelledby="videoModalLabel{{ video.pk }}" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -267,7 +270,7 @@
             </div>
             <div class="modal-body p-0">
                 <video id="videoPlayer{{ video.pk }}" class="w-100" controls>
-                    <source src="{{ video.arquivo.url }}" type="video/mp4">
+                    <source src="{% if video.url_externa %}{{ video.url_externa }}{% else %}{{ video.arquivo.url }}{% endif %}" type="video/mp4">
                     Seu navegador não suporta a reprodução de vídeos.
                 </video>
             </div>

@@ -64,56 +64,88 @@
                         </div>
                         {% endif %}
 
-                        <!-- Video File -->
+                        <!-- Video Source Toggle -->
                         <div class="mb-4">
-                            <label for="{% if form %}{{ form.arquivo.id_for_label }}{% else %}arquivo{% endif %}" class="form-label fw-bold">
-                                <i class="fas fa-video text-primary me-2"></i>Arquivo de Vídeo <span class="text-danger">*</span>
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-video text-primary me-2"></i>Fonte do Vídeo <span class="text-danger">*</span>
                             </label>
-                            
-                            {% if video and video.arquivo %}
-                            <!-- Mostra arquivo atual quando editando -->
-                            <div class="alert alert-info mb-2">
-                                <i class="fas fa-file-video me-2"></i>
-                                <strong>Arquivo atual:</strong> {{ video.arquivo.name|truncatechars:40 }}
-                                <span class="badge bg-secondary ms-2">{{ video.file_size_bytes|filesizeformat }}</span>
-                                <br><small class="text-muted">Deixe em branco para manter o arquivo atual, ou selecione um novo para substituir.</small>
+                            <div class="btn-group w-100 mb-3" role="group">
+                                <input type="radio" class="btn-check" name="_source_type" id="srcUpload" value="upload"
+                                    {% if not video or not video.url_externa %}checked{% endif %}>
+                                <label class="btn btn-outline-primary" for="srcUpload">
+                                    <i class="fas fa-upload me-2"></i>Fazer Upload
+                                </label>
+                                <input type="radio" class="btn-check" name="_source_type" id="srcLink" value="link"
+                                    {% if video and video.url_externa %}checked{% endif %}>
+                                <label class="btn btn-outline-secondary" for="srcLink">
+                                    <i class="fas fa-link me-2"></i>Usar Link Externo
+                                </label>
                             </div>
-                            {% endif %}
-                            
-                            <div class="upload-area" id="uploadArea">
-                                <div class="upload-content" id="uploadContent">
-                                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                                    {% if video %}
-                                    <h5 class="text-muted">Arraste um novo vídeo aqui</h5>
-                                    <p class="text-muted small mb-3">ou clique para substituir o vídeo atual</p>
-                                    {% else %}
-                                    <h5 class="text-muted">Arraste seu vídeo aqui</h5>
-                                    <p class="text-muted small mb-3">ou clique para selecionar</p>
-                                    {% endif %}
+
+                            <!-- Upload area -->
+                            <div id="panel-upload" {% if video and video.url_externa %}style="display:none"{% endif %}>
+                                {% if video and video.arquivo %}
+                                <div class="alert alert-info mb-2">
+                                    <i class="fas fa-file-video me-2"></i>
+                                    <strong>Arquivo atual:</strong> {{ video.arquivo.name|truncatechars:40 }}
+                                    <span class="badge bg-secondary ms-2">{{ video.file_size_bytes|filesizeformat }}</span>
+                                    <br><small class="text-muted">Deixe em branco para manter o arquivo atual, ou selecione um novo para substituir.</small>
                                 </div>
-                                {% if form %}
-                                    {{ form.arquivo }}
-                                {% else %}
-                                    <input type="file" name="arquivo" id="arquivo" accept="video/*" {% if not video %}required{% endif %}>
                                 {% endif %}
-                                <div class="upload-progress d-none">
-                                    <div class="progress mb-2">
-                                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                <div class="upload-area" id="uploadArea">
+                                    <div class="upload-content" id="uploadContent">
+                                        <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                        {% if video and video.arquivo %}
+                                        <h5 class="text-muted">Arraste um novo vídeo aqui</h5>
+                                        <p class="text-muted small mb-3">ou clique para substituir o vídeo atual</p>
+                                        {% else %}
+                                        <h5 class="text-muted">Arraste seu vídeo aqui</h5>
+                                        <p class="text-muted small mb-3">ou clique para selecionar</p>
+                                        {% endif %}
                                     </div>
-                                    <small class="text-muted">Enviando vídeo...</small>
+                                    {% if form %}
+                                        {{ form.arquivo }}
+                                    {% else %}
+                                        <input type="file" name="arquivo" id="arquivo" accept="video/*">
+                                    {% endif %}
+                                    <div class="upload-progress d-none">
+                                        <div class="progress mb-2">
+                                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                        <small class="text-muted">Enviando vídeo...</small>
+                                    </div>
+                                </div>
+                                {% if form.arquivo.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.arquivo.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">
+                                    <small class="text-muted">Formatos aceitos: MP4, AVI, MOV, WMV. Tamanho máximo: 500MB</small>
                                 </div>
                             </div>
-                            {% if form.arquivo.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {% for error in form.arquivo.errors %}
-                                        {{ error }}
-                                    {% endfor %}
+
+                            <!-- URL externa -->
+                            <div id="panel-link" {% if not video or not video.url_externa %}style="display:none"{% endif %}>
+                                {% if form %}
+                                    {{ form.url_externa }}
+                                {% else %}
+                                    <input type="url" name="url_externa" id="id_url_externa" class="form-control"
+                                           placeholder="https://cdn.exemplo.com/video.mp4"
+                                           value="{{ video.url_externa|default:'' }}">
+                                {% endif %}
+                                {% if form.url_externa.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.url_externa.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Cole o link direto do vídeo (MP4 público). Esse link será enviado ao app TV no lugar do arquivo.
+                                        Útil para vídeos do Instagram, CDN próprio, etc.
+                                    </small>
                                 </div>
-                            {% endif %}
-                            <div class="form-text">
-                                <small class="text-muted">
-                                    Formatos aceitos: MP4, AVI, MOV, WMV. Tamanho máximo: 500MB
-                                </small>
                             </div>
                         </div>
 
@@ -454,10 +486,29 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+
+    // ── Toggle upload / link externo ──────────────────────────────────────────
+    const radios = document.querySelectorAll('input[name="_source_type"]');
+    const panelUpload = document.getElementById('panel-upload');
+    const panelLink   = document.getElementById('panel-link');
+    function applySourceToggle(val) {
+        if (val === 'link') {
+            panelUpload.style.display = 'none';
+            panelLink.style.display   = '';
+        } else {
+            panelUpload.style.display = '';
+            panelLink.style.display   = 'none';
+        }
+    }
+    radios.forEach(r => r.addEventListener('change', () => applySourceToggle(r.value)));
+    // estado inicial já definido pelo checked do Django template
+    // ─────────────────────────────────────────────────────────────────────────
+
     const uploadArea = document.getElementById('uploadArea');
     // Buscar o input de arquivo (Django pode gerar id_arquivo)
     const fileInput = document.getElementById('id_arquivo') || document.getElementById('arquivo');
     const uploadContent = document.getElementById('uploadContent');
+    if (!uploadArea) return; // modo link: sem uploadArea
     const uploadProgress = uploadArea.querySelector('.upload-progress');
     const progressBar = uploadProgress.querySelector('.progress-bar');
     const submitBtn = document.getElementById('submitBtn');
