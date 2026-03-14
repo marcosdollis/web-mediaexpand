@@ -1402,33 +1402,43 @@ def video_create_view(request):
         if request.method == 'POST':
             cliente_id = request.POST.get('cliente')
             titulo = request.POST.get('titulo')
-            descricao = request.POST.get('descricao')
             arquivo = request.FILES.get('arquivo')
-            qrcode_url_destino = request.POST.get('qrcode_url_destino', '').strip() or None
-            qrcode_descricao = request.POST.get('qrcode_descricao', '').strip() or None
-            texto_tarja = request.POST.get('texto_tarja', '').strip() or None
-            
-            if not cliente_id or not titulo or not arquivo:
-                messages.error(request, 'Cliente, título e arquivo de vídeo são obrigatórios.')
+            url_externa = request.POST.get('url_externa', '').strip() or None
+
+            if not cliente_id or not titulo or (not arquivo and not url_externa):
+                messages.error(request, 'Cliente, título e arquivo de vídeo (ou URL externa) são obrigatórios.')
             else:
                 try:
                     cliente = Cliente.objects.get(id=cliente_id)
-                    
+
                     # Verificar se franqueado tem permissão
                     if user.is_franchisee() and cliente.franqueado != user:
                         messages.error(request, 'Você não tem permissão para enviar vídeos para este cliente.')
                         return redirect('video_list')
-                    
-                    video = Video.objects.create(
+
+                    descricao = request.POST.get('descricao')
+                    qrcode_url_destino = request.POST.get('qrcode_url_destino', '').strip() or None
+                    qrcode_descricao = request.POST.get('qrcode_descricao', '').strip() or None
+                    texto_tarja = request.POST.get('texto_tarja', '').strip() or None
+                    orientacao = request.POST.get('orientacao', 'HORIZONTAL')
+                    duracao_segundos = int(request.POST.get('duracao_segundos') or 0)
+
+                    create_kwargs = dict(
                         cliente=cliente,
                         titulo=titulo,
                         descricao=descricao,
-                        arquivo=arquivo,
+                        url_externa=url_externa,
                         qrcode_url_destino=qrcode_url_destino,
                         qrcode_descricao=qrcode_descricao,
                         texto_tarja=texto_tarja,
-                        status='PENDING'
+                        orientacao=orientacao,
+                        duracao_segundos=duracao_segundos,
+                        status='PENDING',
                     )
+                    if arquivo:
+                        create_kwargs['arquivo'] = arquivo
+
+                    video = Video.objects.create(**create_kwargs)
                     messages.success(request, f'Vídeo enviado com sucesso para {cliente.empresa}!')
                     return redirect('video_list')
                 except Cliente.DoesNotExist:
