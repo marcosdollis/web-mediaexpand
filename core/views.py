@@ -296,23 +296,13 @@ class DispositivoTVViewSet(viewsets.ModelViewSet):
     permission_classes = [IsFranchiseeOrOwner]
     lookup_field = 'identificador_unico'
 
-    def get_permissions(self):
-        # TV apps fazem GET /api/dispositivos/<uuid>/ sem auth de franqueado
-        if self.action == 'retrieve':
-            return [permissions.AllowAny()]
-        return super().get_permissions()
-
     def get_queryset(self):
         user = self.request.user
         qs = DispositivoTV.objects.select_related('municipio', 'municipio__franqueado', 'playlist_atual')
-        # retrieve é público (lookup por identificador_unico), sem filtro por user
-        if self.action == 'retrieve':
+        if user.is_owner():
             return qs
-        if user.is_authenticated:
-            if user.is_owner():
-                return qs
-            elif user.is_franchisee():
-                return qs.filter(municipio__franqueado=user)
+        elif user.is_franchisee():
+            return qs.filter(municipio__franqueado=user)
         return DispositivoTV.objects.none()
 
 
