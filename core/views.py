@@ -1452,7 +1452,10 @@ def video_create_view(request):
                 except Cliente.DoesNotExist:
                     messages.error(request, 'Cliente não encontrado.')
         
-        return render(request, 'videos/video_form.html', {'clientes': clientes})
+        return render(request, 'videos/video_form.html', {
+            'clientes': clientes,
+            'show_cliente_select': True,
+        })
     
     else:
         messages.error(request, 'Você não tem permissão para enviar vídeos.')
