@@ -172,7 +172,7 @@ class Video(models.Model):
         null=True,
     )
     url_externa = models.URLField(
-        max_length=500,
+        max_length=2000,
         blank=True,
         null=True,
         verbose_name='URL externa do vídeo',
