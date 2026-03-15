@@ -4078,15 +4078,18 @@ def design_duplicate_view(request, pk):
         ativo=True,
         franqueado=user if user.is_franchisee() else None,
     )
-    # Copiar thumbnail
+    # Copiar thumbnail (pode não existir no storage)
     if original.design_thumbnail:
         from django.core.files.base import ContentFile
         import uuid
-        novo.design_thumbnail.save(
-            f'design_{uuid.uuid4().hex[:8]}.png',
-            ContentFile(original.design_thumbnail.read()),
-            save=False,
-        )
+        try:
+            novo.design_thumbnail.save(
+                f'design_{uuid.uuid4().hex[:8]}.png',
+                ContentFile(original.design_thumbnail.read()),
+                save=False,
+            )
+        except (FileNotFoundError, Exception):
+            pass  # thumbnail ausente no storage — continua sem ela
     novo.save()
     messages.success(request, f'Design duplicado! Editando "{novo.titulo}".')
     return redirect('design_editor_edit', pk=novo.pk)
