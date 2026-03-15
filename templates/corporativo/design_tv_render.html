@@ -2,25 +2,22 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width={{ conteudo.design_largura }}, height={{ conteudo.design_altura }}, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MediaExpand TV — Design: {{ conteudo.titulo }}</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
-    width: 100vw;
-    height: 100vh;
+    width: 100%; height: 100%;
     overflow: hidden;
     background: #000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: relative;
 }
 #tv-container {
-    position: relative;
+    position: absolute;
     width: {{ conteudo.design_largura }}px;
     height: {{ conteudo.design_altura }}px;
-    transform-origin: center center;
+    transform-origin: top left;
 }
 canvas { display: block; }
 /* Fabric.js wraps each StaticCanvas in a .canvas-container div (position:relative).
@@ -91,20 +88,25 @@ canvas { display: block; }
 }
 </style>
 <script>
-// Auto-scale to fit viewport
+// Auto-scale to fit viewport — mesma abordagem de conteudo_tv.html
 window.addEventListener('DOMContentLoaded', function() {
     var container = document.getElementById('tv-container');
     if (!container) return;
-    
+    var designW = {{ conteudo.design_largura }};
+    var designH = {{ conteudo.design_altura }};
+
     function scaleToFit() {
-        var designW = {{ conteudo.design_largura }};
-        var designH = {{ conteudo.design_altura }};
-        var scaleX = window.innerWidth / designW;
-        var scaleY = window.innerHeight / designH;
-        var scale = Math.min(scaleX, scaleY); // Escala para caber na tela (mantém proporção)
+        var cvw = window.innerWidth  || document.documentElement.clientWidth  || screen.width;
+        var cvh = window.innerHeight || document.documentElement.clientHeight || screen.height;
+        var scale = Math.min(cvw / designW, cvh / designH);
         container.style.transform = 'scale(' + scale + ')';
+        // Centraliza dentro do body (igual conteudo_tv.html)
+        var offsetX = (cvw - designW * scale) / 2;
+        var offsetY = (cvh - designH * scale) / 2;
+        container.style.left = Math.max(0, offsetX) + 'px';
+        container.style.top  = Math.max(0, offsetY) + 'px';
     }
-    
+
     scaleToFit();
     window.addEventListener('resize', scaleToFit);
 });
