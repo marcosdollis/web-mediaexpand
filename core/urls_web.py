@@ -107,6 +107,15 @@ urlpatterns = [
     path('corporativo/design/get-icon-svg/', views.design_get_icon_svg_view, name='design_get_icon_svg'),
     path('corporativo/design/search-stickers/', views.design_search_stickers_view, name='design_search_stickers'),
 
+    # Campanhas
+    path('campanhas/', views.campanha_list_view, name='campanha_list'),
+    path('campanhas/criar/', views.campanha_create_view, name='campanha_create'),
+    path('campanhas/<int:pk>/configurar/', views.campanha_configure_view, name='campanha_configure'),
+    path('campanhas/<int:pk>/', views.campanha_detail_view, name='campanha_detail'),
+    path('campanhas/<int:pk>/delete/', views.campanha_delete_view, name='campanha_delete'),
+    path('campanhas/<int:pk>/toggle-status/', views.campanha_toggle_status_view, name='campanha_toggle_status'),
+    path('campanhas/<int:pk>/leads/', views.campanha_leads_view, name='campanha_leads'),
+
     # LAB — Teste de variantes de codificação FireTV (página provisória)
     path('lab/video-encode/', views.lab_video_encode_view, name='lab_video_encode'),
     path('lab/video-encode/<str:job_id>/', views.lab_video_job_view, name='lab_video_job'),

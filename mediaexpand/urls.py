@@ -137,7 +137,7 @@ Todos os endpoints REST padrão para gerenciamento de:
    permission_classes=(permissions.AllowAny,),
 )
 
-from core.views import qrcode_redirect_view, serve_media_streaming
+from core.views import qrcode_redirect_view, serve_media_streaming, campanha_landing_view
 
 urlpatterns = [
     path('', include('core.urls_web')),  # Web URLs (templates)
@@ -148,6 +148,9 @@ urlpatterns = [
     
     # QR Code Tracking Redirect
     path('r/<uuid:tracking_code>/', qrcode_redirect_view, name='qrcode_redirect'),
+
+    # Landing Page Pública de Campanhas (sem login)
+    path('c/<uuid:token>/', campanha_landing_view, name='campanha_landing'),
     
     # Swagger/OpenAPI Documentation
     re_path(r'^api/swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),

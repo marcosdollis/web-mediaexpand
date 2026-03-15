@@ -1396,3 +1396,185 @@ class ConfiguracaoAPI(models.Model):
             'NOTICIAS': 'noticias_requests_hoje',
         }
         return fields.get(tipo, 'weather_requests_hoje')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  CAMPANHAS  (cupom de desconto + futuros tipos)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Campanha(models.Model):
+    """Campanha de marketing gerada pelo franqueado.
+
+    Cada campanha produz um link/QR Code público. O tipo determina qual
+    configuração complementar é necessária (ex: CampanhaCupomConfig).
+    """
+
+    TIPO_CHOICES = [
+        ('CUPOM', 'Resgate de Cupom de Desconto'),
+        # Adicionar outros tipos aqui conforme necessário:
+        # ('SORTEIO', 'Sorteio'),
+        # ('PESQUISA', 'Pesquisa de Satisfação'),
+    ]
+
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('ATIVA', 'Ativa'),
+        ('ENCERRADA', 'Encerrada'),
+    ]
+
+    franqueado = models.ForeignKey(
+        'User',
+        on_delete=models.CASCADE,
+        related_name='campanhas',
+        limit_choices_to={'role': 'FRANCHISEE'},
+        verbose_name='Franqueado',
+    )
+    nome = models.CharField(max_length=200, verbose_name='Nome da Campanha')
+    tipo = models.CharField(
+        max_length=30,
+        choices=TIPO_CHOICES,
+        default='CUPOM',
+        verbose_name='Tipo de Campanha',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='RASCUNHO',
+    )
+    token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        help_text='Identificador único da URL pública desta campanha.',
+    )
+    data_fim = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Data/Hora de Encerramento',
+        help_text='Deixe em branco para campanha sem prazo definido.',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Campanha'
+        verbose_name_plural = 'Campanhas'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f"{self.nome} ({self.get_tipo_display()})"
+
+    @property
+    def is_ativa(self):
+        if self.status == 'ENCERRADA':
+            return False
+        if self.data_fim and timezone.now() > self.data_fim:
+            return False
+        return self.status == 'ATIVA'
+
+    @property
+    def expirada(self):
+        return bool(self.data_fim and timezone.now() > self.data_fim)
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse('campanha_landing', kwargs={'token': str(self.token)})
+
+
+class CampanhaCupomConfig(models.Model):
+    """Configuração específica para campanhas do tipo CUPOM."""
+
+    MODO_CHOICES = [
+        ('SEM_LEAD', 'Sem captura de dados — exibir código direto'),
+        ('CODIGO_UNICO', 'Código único para todos'),
+        ('CODIGO_POR_CLIENTE', 'Código individual por cliente (gerado na hora)'),
+    ]
+
+    campanha = models.OneToOneField(
+        Campanha,
+        on_delete=models.CASCADE,
+        related_name='config_cupom',
+    )
+
+    # ── Código ────────────────────────────────────────────────────────────────
+    modo_codigo = models.CharField(
+        max_length=25,
+        choices=MODO_CHOICES,
+        default='CODIGO_UNICO',
+        verbose_name='Modo de Código',
+    )
+    codigo_unico = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Código do Cupom',
+        help_text='Código que será exibido a todos os usuários (modo Código Único).',
+    )
+    prefixo_codigo = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name='Prefixo dos Códigos',
+        help_text='Prefixo para os códigos individuais gerados. Ex: "PROMO" → PROMO-A1B2.',
+    )
+
+    # ── Captura de leads ──────────────────────────────────────────────────────
+    capturar_nome = models.BooleanField(default=False, verbose_name='Capturar Nome')
+    capturar_cpf = models.BooleanField(default=False, verbose_name='Capturar CPF')
+    capturar_telefone = models.BooleanField(default=False, verbose_name='Capturar Telefone')
+    capturar_endereco = models.BooleanField(default=False, verbose_name='Capturar Endereço')
+
+    # ── Landing page ──────────────────────────────────────────────────────────
+    titulo_pagina = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Título da Página',
+        help_text='Deixe em branco para usar o nome da campanha.',
+    )
+    descricao_pagina = models.TextField(
+        blank=True,
+        verbose_name='Descrição / Instrução',
+        help_text='Texto exibido na landing page antes do formulário.',
+    )
+    cor_primaria = models.CharField(
+        max_length=7,
+        default='#0d6efd',
+        verbose_name='Cor Principal (hex)',
+    )
+
+    class Meta:
+        verbose_name = 'Configuração de Cupom'
+
+    def __str__(self):
+        return f"Config cupom – {self.campanha.nome}"
+
+    @property
+    def captura_algum_dado(self):
+        return any([self.capturar_nome, self.capturar_cpf,
+                    self.capturar_telefone, self.capturar_endereco])
+
+
+class CampanhaLead(models.Model):
+    """Registro de resgaste/lead gerado por uma campanha."""
+
+    campanha = models.ForeignKey(
+        Campanha,
+        on_delete=models.CASCADE,
+        related_name='leads',
+    )
+    # Dados do cliente (preenchidos apenas quando captura está ativa)
+    nome = models.CharField(max_length=200, blank=True)
+    cpf = models.CharField(max_length=14, blank=True)
+    telefone = models.CharField(max_length=20, blank=True)
+    endereco = models.CharField(max_length=400, blank=True)
+    # Código entregue ao cliente
+    codigo_cupom = models.CharField(max_length=100, blank=True)
+    # Metadados
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Lead de Campanha'
+        verbose_name_plural = 'Leads de Campanha'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f"Lead #{self.pk} – {self.campanha.nome}"

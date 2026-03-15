@@ -1,0 +1,72 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block title %}Leads — {{ campanha.nome }}{% endblock %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'campanha_list' %}">Campanhas</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'campanha_detail' campanha.pk %}">{{ campanha.nome }}</a></li>
+                <li class="breadcrumb-item active">Leads</li>
+            </ol>
+        </nav>
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0"><i class="fas fa-users me-2 text-primary"></i>Leads</h1>
+                <p class="text-muted mb-0">{{ campanha.nome }} &bull; {{ leads|length }} registro{{ leads|length|pluralize:",s" }}</p>
+            </div>
+            {% if leads %}
+            <a href="?export=csv" class="btn btn-outline-success btn-sm">
+                <i class="fas fa-file-csv me-2"></i>Exportar CSV
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if not leads %}
+<div class="card text-center py-5">
+    <div class="card-body">
+        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+        <h5 class="text-muted">Nenhum lead capturado ainda</h5>
+        <p class="text-muted">Os dados aparecem aqui quando alguém resgata o cupom pela landing page.</p>
+    </div>
+</div>
+{% else %}
+<div class="card shadow">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Nome</th>
+                        <th>CPF</th>
+                        <th>Telefone</th>
+                        <th>Endereço</th>
+                        <th>Código</th>
+                        <th>Data</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lead in leads %}
+                    <tr>
+                        <td class="text-muted small">{{ forloop.counter }}</td>
+                        <td>{{ lead.nome|default:"—" }}</td>
+                        <td><code>{{ lead.cpf|default:"—" }}</code></td>
+                        <td>{{ lead.telefone|default:"—" }}</td>
+                        <td>{{ lead.endereco|default:"—" }}</td>
+                        <td><code class="text-success fw-bold">{{ lead.codigo_cupom|default:"—" }}</code></td>
+                        <td class="small text-muted text-nowrap">{{ lead.criado_em|date:"d/m/Y H:i" }}</td>
+                        <td class="small text-muted font-monospace">{{ lead.ip|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,156 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block title %}{{ campanha.nome }} - Campanhas{% endblock %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'campanha_list' %}">Campanhas</a></li>
+                <li class="breadcrumb-item active">{{ campanha.nome }}</li>
+            </ol>
+        </nav>
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h1 class="h3 mb-1">{{ campanha.nome }}</h1>
+                <span class="badge {% if campanha.status == 'ATIVA' %}bg-success{% elif campanha.status == 'ENCERRADA' %}bg-secondary{% else %}bg-warning text-dark{% endif %}">
+                    {{ campanha.get_status_display }}{% if campanha.expirada %} — Expirada{% endif %}
+                </span>
+                <span class="badge bg-light text-dark ms-1">{{ campanha.get_tipo_display }}</span>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                {% if campanha.status != 'ATIVA' %}
+                <button class="btn btn-success btn-sm" onclick="toggleStatus('ATIVA')">
+                    <i class="fas fa-play me-1"></i>Ativar
+                </button>
+                {% else %}
+                <button class="btn btn-secondary btn-sm" onclick="toggleStatus('ENCERRADA')">
+                    <i class="fas fa-stop me-1"></i>Encerrar
+                </button>
+                {% endif %}
+                <a href="{% url 'campanha_configure' campanha.pk %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-cog me-1"></i>Editar
+                </a>
+                <a href="{% url 'campanha_leads' campanha.pk %}" class="btn btn-outline-info btn-sm">
+                    <i class="fas fa-users me-1"></i>Ver Leads ({{ leads_count }})
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if messages %}{% for msg in messages %}
+<div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}success{% endif %} alert-dismissible fade show">
+    {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}{% endif %}
+
+<div class="row g-4">
+    <!-- Link & QR code -->
+    <div class="col-lg-5">
+        <div class="card shadow h-100">
+            <div class="card-header fw-semibold"><i class="fas fa-qrcode me-2"></i>Link Público / QR Code</div>
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <canvas id="qrCanvas"></canvas>
+                </div>
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control form-control-sm" id="publicUrl"
+                           value="{{ request.scheme }}://{{ request.get_host }}{{ campanha.get_absolute_url }}" readonly>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="copyUrl()">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <a href="{{ campanha.get_absolute_url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-external-link-alt me-1"></i>Abrir Landing Page
+                </a>
+                <div class="mt-3">
+                    <button class="btn btn-outline-success btn-sm" onclick="downloadQR()">
+                        <i class="fas fa-download me-1"></i>Baixar QR Code
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Config summary -->
+    <div class="col-lg-7">
+        <div class="card shadow h-100">
+            <div class="card-header fw-semibold"><i class="fas fa-info-circle me-2"></i>Configuração da Campanha</div>
+            <div class="card-body">
+                {% if config %}
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <th class="text-muted fw-normal" style="width:40%">Modo de Código</th>
+                        <td><strong>{{ config.get_modo_codigo_display }}</strong></td>
+                    </tr>
+                    {% if config.codigo_unico %}
+                    <tr>
+                        <th class="text-muted fw-normal">Código do Cupom</th>
+                        <td><code class="fs-5">{{ config.codigo_unico }}</code></td>
+                    </tr>
+                    {% endif %}
+                    {% if config.prefixo_codigo %}
+                    <tr>
+                        <th class="text-muted fw-normal">Prefixo</th>
+                        <td><code>{{ config.prefixo_codigo }}</code></td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th class="text-muted fw-normal">Captura de Dados</th>
+                        <td>
+                            {% if config.capturar_nome %}<span class="badge bg-light text-dark me-1">Nome</span>{% endif %}
+                            {% if config.capturar_cpf %}<span class="badge bg-light text-dark me-1">CPF</span>{% endif %}
+                            {% if config.capturar_telefone %}<span class="badge bg-light text-dark me-1">Telefone</span>{% endif %}
+                            {% if config.capturar_endereco %}<span class="badge bg-light text-dark me-1">Endereço</span>{% endif %}
+                            {% if not config.captura_algum_dado %}<span class="text-muted">Nenhuma</span>{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Encerramento</th>
+                        <td>{% if campanha.data_fim %}{{ campanha.data_fim|date:"d/m/Y H:i" }}{% else %}<span class="text-muted">Sem prazo</span>{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Total de Leads</th>
+                        <td><strong>{{ leads_count }}</strong></td>
+                    </tr>
+                </table>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
+<script>
+const publicUrl = document.getElementById('publicUrl').value;
+const qr = new QRCode(document.getElementById('qrCanvas'), {
+    text: publicUrl,
+    width: 200,
+    height: 200,
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H,
+});
+function copyUrl() {
+    navigator.clipboard.writeText(publicUrl);
+    const btn = event.currentTarget;
+    btn.innerHTML = '<i class="fas fa-check text-success"></i>';
+    setTimeout(() => btn.innerHTML = '<i class="fas fa-copy"></i>', 1500);
+}
+function downloadQR() {
+    const img = document.querySelector('#qrCanvas img') || document.querySelector('#qrCanvas canvas');
+    const link = document.createElement('a');
+    link.href = img.tagName === 'IMG' ? img.src : img.toDataURL();
+    link.download = 'qrcode-campanha-{{ campanha.pk }}.png';
+    link.click();
+}
+function toggleStatus(s) {
+    fetch('/campanhas/{{ campanha.pk }}/toggle-status/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'status=' + s,
+    }).then(r => r.json()).then(d => { if (d.success) location.reload(); });
+}
+</script>
+{% endblock %}

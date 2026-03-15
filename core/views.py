@@ -11,7 +11,8 @@ from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion,
     QRCodeClick, AgendamentoExibicao, ConteudoCorporativo, ConfiguracaoAPI,
-    HorarioFuncionamento, LogExibicaoWebView
+    HorarioFuncionamento, LogExibicaoWebView,
+    Campanha, CampanhaCupomConfig, CampanhaLead,
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -5421,4 +5422,258 @@ def lab_video_status_api(request, job_id):
         'errors': errors,
         'finished': (done + errors) == total,
         'variants': job['variants'],
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  CAMPANHAS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _campanha_qs(user):
+    """Queryset de campanhas visíveis para o usuário."""
+    if user.is_owner():
+        return Campanha.objects.select_related('franqueado').prefetch_related('config_cupom')
+    return Campanha.objects.filter(franqueado=user).select_related('franqueado').prefetch_related('config_cupom')
+
+
+@login_required
+def campanha_list_view(request):
+    if not (request.user.is_owner() or request.user.is_franchisee()):
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+
+    campanhas = _campanha_qs(request.user).order_by('-criado_em')
+    # Atualiza status de expiradas automaticamente
+    now = timezone.now()
+    campanhas.filter(status='ATIVA', data_fim__lt=now).update(status='ENCERRADA')
+    campanhas = campanhas.all()  # re-evaluate
+    return render(request, 'campanhas/campanha_list.html', {'campanhas': campanhas})
+
+
+@login_required
+def campanha_create_view(request):
+    """Passo 1: cria a campanha (nome + tipo). Redireciona para configurar."""
+    if not (request.user.is_owner() or request.user.is_franchisee()):
+        messages.error(request, 'Acesso negado.')
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        tipo = request.POST.get('tipo', 'CUPOM')
+        if not nome:
+            messages.error(request, 'Informe o nome da campanha.')
+            return render(request, 'campanhas/campanha_create.html', {'nome': nome, 'tipo': tipo})
+
+        franqueado = request.user if request.user.is_franchisee() else None
+        if request.user.is_owner():
+            fid = request.POST.get('franqueado')
+            if fid:
+                try:
+                    franqueado = User.objects.get(pk=fid, role='FRANCHISEE')
+                except User.DoesNotExist:
+                    pass
+            if franqueado is None:
+                # owner pode criar sem franqueado? Usar o próprio owner como placeholder.
+                franqueado = request.user
+
+        campanha = Campanha.objects.create(nome=nome, tipo=tipo, franqueado=franqueado)
+
+        # Cria configuração padrão conforme o tipo
+        if tipo == 'CUPOM':
+            CampanhaCupomConfig.objects.create(campanha=campanha)
+
+        messages.success(request, f'Campanha "{nome}" criada. Configure os detalhes abaixo.')
+        return redirect('campanha_configure', pk=campanha.pk)
+
+    franqueados = User.objects.filter(role='FRANCHISEE', is_active=True).order_by('first_name', 'username') if request.user.is_owner() else None
+    return render(request, 'campanhas/campanha_create.html', {
+        'franqueados': franqueados,
+        'tipo_choices': Campanha.TIPO_CHOICES,
+    })
+
+
+@login_required
+def campanha_configure_view(request, pk):
+    """Passo 2: configura os detalhes específicos do tipo de campanha."""
+    campanha = get_object_or_404(Campanha, pk=pk)
+    user = request.user
+    if not user.is_owner() and campanha.franqueado != user:
+        messages.error(request, 'Sem permissão.')
+        return redirect('campanha_list')
+
+    if campanha.tipo == 'CUPOM':
+        config, _ = CampanhaCupomConfig.objects.get_or_create(campanha=campanha)
+
+        if request.method == 'POST':
+            config.modo_codigo   = request.POST.get('modo_codigo', 'CODIGO_UNICO')
+            config.codigo_unico  = request.POST.get('codigo_unico', '').strip()
+            config.prefixo_codigo = request.POST.get('prefixo_codigo', '').strip()
+            config.capturar_nome     = 'capturar_nome'     in request.POST
+            config.capturar_cpf      = 'capturar_cpf'      in request.POST
+            config.capturar_telefone = 'capturar_telefone' in request.POST
+            config.capturar_endereco = 'capturar_endereco' in request.POST
+            config.titulo_pagina    = request.POST.get('titulo_pagina', '').strip()
+            config.descricao_pagina = request.POST.get('descricao_pagina', '').strip()
+            config.cor_primaria     = request.POST.get('cor_primaria', '#0d6efd').strip()
+            config.save()
+
+            campanha.nome     = request.POST.get('nome', campanha.nome).strip() or campanha.nome
+            campanha.data_fim  = request.POST.get('data_fim') or None
+            campanha.status    = request.POST.get('status', campanha.status)
+            campanha.save()
+
+            messages.success(request, 'Campanha salva com sucesso!')
+            return redirect('campanha_detail', pk=campanha.pk)
+
+        return render(request, 'campanhas/campanha_configure_cupom.html', {
+            'campanha': campanha,
+            'config': config,
+            'modo_choices': CampanhaCupomConfig.MODO_CHOICES,
+            'status_choices': Campanha.STATUS_CHOICES,
+        })
+
+    messages.warning(request, 'Tipo de campanha ainda não suportado.')
+    return redirect('campanha_list')
+
+
+@login_required
+def campanha_detail_view(request, pk):
+    campanha = get_object_or_404(Campanha, pk=pk)
+    user = request.user
+    if not user.is_owner() and campanha.franqueado != user:
+        messages.error(request, 'Sem permissão.')
+        return redirect('campanha_list')
+
+    leads_count = campanha.leads.count()
+    config = getattr(campanha, 'config_cupom', None)
+    return render(request, 'campanhas/campanha_detail.html', {
+        'campanha': campanha,
+        'config': config,
+        'leads_count': leads_count,
+    })
+
+
+@login_required
+def campanha_delete_view(request, pk):
+    campanha = get_object_or_404(Campanha, pk=pk)
+    user = request.user
+    if not user.is_owner() and campanha.franqueado != user:
+        return JsonResponse({'success': False, 'error': 'Sem permissão.'}, status=403)
+    campanha.delete()
+    messages.success(request, 'Campanha excluída.')
+    return JsonResponse({'success': True})
+
+
+@login_required
+def campanha_toggle_status_view(request, pk):
+    """Ativa / Encerra a campanha via POST."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    campanha = get_object_or_404(Campanha, pk=pk)
+    user = request.user
+    if not user.is_owner() and campanha.franqueado != user:
+        return JsonResponse({'success': False, 'error': 'Sem permissão.'}, status=403)
+    new_status = request.POST.get('status', 'ATIVA')
+    if new_status in ('ATIVA', 'ENCERRADA', 'RASCUNHO'):
+        campanha.status = new_status
+        campanha.save()
+    return JsonResponse({'success': True, 'status': campanha.status})
+
+
+@login_required
+def campanha_leads_view(request, pk):
+    campanha = get_object_or_404(Campanha, pk=pk)
+    user = request.user
+    if not user.is_owner() and campanha.franqueado != user:
+        messages.error(request, 'Sem permissão.')
+        return redirect('campanha_list')
+
+    leads = campanha.leads.order_by('-criado_em')
+
+    # CSV export
+    if request.GET.get('export') == 'csv':
+        import csv
+        from django.http import HttpResponse
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        fname = f'leads_{campanha.pk}.csv'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        writer = csv.writer(response)
+        writer.writerow(['#', 'Nome', 'CPF', 'Telefone', 'Endereço', 'Código Cupom', 'Data'])
+        for i, lead in enumerate(leads, 1):
+            writer.writerow([i, lead.nome, lead.cpf, lead.telefone,
+                             lead.endereco, lead.codigo_cupom,
+                             lead.criado_em.strftime('%d/%m/%Y %H:%M')])
+        return response
+
+    return render(request, 'campanhas/campanha_leads.html', {
+        'campanha': campanha,
+        'leads': leads,
+    })
+
+
+# ── LANDING PAGE (pública) ────────────────────────────────────────────────────
+
+def campanha_landing_view(request, token):
+    """Página pública da campanha — sem login."""
+    from django.utils.crypto import get_random_string
+    campanha = get_object_or_404(Campanha, token=token)
+
+    # Verificar se está ativa
+    if campanha.expirada and campanha.status == 'ATIVA':
+        campanha.status = 'ENCERRADA'
+        campanha.save(update_fields=['status'])
+
+    encerrada = not campanha.is_ativa
+    config = getattr(campanha, 'config_cupom', None)
+
+    if request.method == 'POST' and not encerrada and campanha.tipo == 'CUPOM' and config:
+        nome     = request.POST.get('nome', '').strip()
+        cpf      = request.POST.get('cpf', '').strip()
+        telefone = request.POST.get('telefone', '').strip()
+        endereco = request.POST.get('endereco', '').strip()
+
+        # Determinar o código a entregar
+        if config.modo_codigo == 'CODIGO_UNICO':
+            codigo = config.codigo_unico
+        elif config.modo_codigo == 'CODIGO_POR_CLIENTE':
+            prefix = (config.prefixo_codigo.rstrip('-') + '-') if config.prefixo_codigo else ''
+            codigo = prefix + get_random_string(6).upper()
+        else:  # SEM_LEAD
+            codigo = config.codigo_unico
+
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip()
+
+        # Salvar lead (sempre salva quando há captura ou código individual)
+        if config.modo_codigo != 'SEM_LEAD' or config.captura_algum_dado:
+            CampanhaLead.objects.create(
+                campanha=campanha,
+                nome=nome,
+                cpf=cpf,
+                telefone=telefone,
+                endereco=endereco,
+                codigo_cupom=codigo,
+                ip=ip or None,
+            )
+
+        return render(request, 'campanhas/campanha_resgate_sucesso.html', {
+            'campanha': campanha,
+            'config': config,
+            'codigo': codigo,
+        })
+
+    # GET: mostrar o formulário (ou código direto no modo SEM_LEAD)
+    exibir_codigo_direto = (
+        config and config.modo_codigo == 'SEM_LEAD' and not encerrada
+    )
+    if exibir_codigo_direto and config:
+        codigo_direto = config.codigo_unico
+    else:
+        codigo_direto = None
+
+    return render(request, 'campanhas/campanha_landing.html', {
+        'campanha': campanha,
+        'config': config,
+        'encerrada': encerrada,
+        'exibir_codigo_direto': exibir_codigo_direto,
+        'codigo_direto': codigo_direto,
     })

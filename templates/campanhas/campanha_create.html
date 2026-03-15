@@ -1,0 +1,71 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block title %}Nova Campanha - MediaExpand{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="mb-4">
+            <h1 class="h3 mb-0"><i class="fas fa-bullhorn me-2 text-primary"></i>Nova Campanha</h1>
+            <p class="text-muted">Passo 1 de 2 — Básico</p>
+        </div>
+
+        {% if messages %}{% for msg in messages %}
+        <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}success{% endif %} alert-dismissible fade show">
+            {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}{% endif %}
+
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% if franqueados %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Franqueado <span class="text-danger">*</span></label>
+                        <select name="franqueado" class="form-select" required>
+                            <option value="">— Selecione —</option>
+                            {% for f in franqueados %}
+                            <option value="{{ f.pk }}">{{ f.get_full_name|default:f.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nome da Campanha <span class="text-danger">*</span></label>
+                        <input type="text" name="nome" class="form-control" value="{{ nome|default:'' }}"
+                               placeholder="Ex: Promoção Dia das Mães — 20% Off" required autofocus>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Tipo de Campanha <span class="text-danger">*</span></label>
+                        {% for value, label in tipo_choices %}
+                        <div class="form-check border rounded p-3 mb-2 {% if forloop.first %}border-primary bg-primary bg-opacity-10{% endif %}">
+                            <input class="form-check-input" type="radio" name="tipo" id="tipo_{{ value }}"
+                                   value="{{ value }}" {% if forloop.first %}checked{% endif %}>
+                            <label class="form-check-label fw-semibold" for="tipo_{{ value }}">
+                                {% if value == 'CUPOM' %}<i class="fas fa-ticket-alt text-primary me-2"></i>{% endif %}
+                                {{ label }}
+                            </label>
+                            {% if value == 'CUPOM' %}
+                            <div class="small text-muted mt-1">
+                                Gera uma página de resgate onde o cliente pode preencher dados e receber um código de desconto.
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex gap-3">
+                        <a href="{% url 'campanha_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary px-4">
+                            Próximo <i class="fas fa-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cupom Resgatado — {{ campanha.nome }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { --cor: {{ config.cor_primaria|default:"#0d6efd" }}; }
+        body {
+            background: linear-gradient(135deg, var(--cor) 0%, color-mix(in srgb, var(--cor) 60%, #000) 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .card-main { border-radius: 1.5rem; box-shadow: 0 20px 60px rgba(0,0,0,.3); border: none; }
+        .success-icon {
+            width: 80px; height: 80px;
+            background: #198754;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 1.25rem;
+            font-size: 2.2rem; color: #fff;
+            box-shadow: 0 4px 20px rgba(25,135,84,.4);
+            animation: popIn .4s cubic-bezier(.34,1.56,.64,1);
+        }
+        @keyframes popIn { from { transform: scale(0); opacity:0 } to { transform: scale(1); opacity:1 } }
+        .cupom-box {
+            background: #f8f9fa;
+            border: 2px dashed var(--cor);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .cupom-code {
+            font-size: 2.5rem; font-weight: 700; letter-spacing: .2em;
+            color: #212529; word-break: break-all;
+        }
+        .btn-copy {
+            background: var(--cor); border: none; color: #fff;
+            border-radius: 2rem; padding: .6rem 1.5rem; font-weight: 600;
+            transition: opacity .2s;
+        }
+        .btn-copy:hover { opacity:.85; color:#fff; }
+    </style>
+</head>
+<body class="d-flex align-items-center py-4 px-2">
+<div class="container" style="max-width:440px">
+    <div class="card card-main p-4 p-md-5">
+        <div class="success-icon">
+            <i class="fas fa-check"></i>
+        </div>
+        <h2 class="h4 text-center fw-bold mb-1">Cupom Resgatado!</h2>
+        <p class="text-center text-muted mb-4">{{ campanha.nome }}</p>
+
+        <div class="cupom-box mb-4">
+            <p class="text-muted mb-2 small text-uppercase fw-semibold">Seu código de desconto</p>
+            <div class="cupom-code" id="codigoText">{{ codigo }}</div>
+        </div>
+
+        <button class="btn btn-copy w-100 mb-3" onclick="copyCupom()">
+            <i class="fas fa-copy me-2"></i>Copiar Código
+        </button>
+
+        <p class="text-muted text-center small">
+            <i class="fas fa-info-circle me-1"></i>
+            Apresente este código no caixa para garantir seu desconto.
+        </p>
+    </div>
+    <p class="text-center text-white-50 mt-3 small">Powered by MediaExpand</p>
+</div>
+<script>
+function copyCupom() {
+    const code = document.getElementById('codigoText').textContent.trim();
+    navigator.clipboard.writeText(code).then(() => {
+        const btn = event.currentTarget;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check me-2"></i>Copiado!';
+        setTimeout(() => btn.innerHTML = orig, 2000);
+    });
+}
+</script>
+</body>
+</html>

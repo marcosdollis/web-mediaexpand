@@ -1,0 +1,115 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block title %}Campanhas - MediaExpand{% endblock %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0"><i class="fas fa-bullhorn me-2 text-primary"></i>Campanhas</h1>
+                <p class="text-muted mb-0">Crie campanhas de cupom e capture leads diretamente do QR Code</p>
+            </div>
+            <a href="{% url 'campanha_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Nova Campanha
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if messages %}{% for msg in messages %}
+<div class="alert alert-{% if msg.tags == 'error' %}danger{% elif msg.tags == 'success' %}success{% else %}info{% endif %} alert-dismissible fade show">
+    {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}{% endif %}
+
+{% if not campanhas %}
+<div class="card text-center py-5">
+    <div class="card-body">
+        <i class="fas fa-bullhorn fa-4x text-muted mb-3"></i>
+        <h4 class="text-muted">Nenhuma campanha criada ainda</h4>
+        <p class="text-muted">Crie sua primeira campanha e gere um QR Code para capturar leads.</p>
+        <a href="{% url 'campanha_create' %}" class="btn btn-primary mt-2">
+            <i class="fas fa-plus me-2"></i>Criar Primeira Campanha
+        </a>
+    </div>
+</div>
+{% else %}
+<div class="row g-4">
+    {% for c in campanhas %}
+    <div class="col-xl-4 col-lg-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="badge {% if c.status == 'ATIVA' %}bg-success{% elif c.status == 'ENCERRADA' %}bg-secondary{% else %}bg-warning text-dark{% endif %} fs-7">
+                    {{ c.get_status_display }}{% if c.expirada %} (expirada){% endif %}
+                </span>
+                <span class="badge bg-light text-dark">{{ c.get_tipo_display }}</span>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title mb-1">{{ c.nome }}</h5>
+                <small class="text-muted d-block mb-3">
+                    <i class="fas fa-user me-1"></i>{{ c.franqueado.get_full_name|default:c.franqueado.username }}
+                    &bull; Criada {{ c.criado_em|date:"d/m/Y" }}
+                </small>
+                {% if c.data_fim %}
+                <div class="small text-muted mb-2">
+                    <i class="fas fa-clock me-1"></i>Encerra em: <strong>{{ c.data_fim|date:"d/m/Y H:i" }}</strong>
+                </div>
+                {% endif %}
+                <div class="d-flex gap-2 align-items-center mt-1">
+                    <span class="badge bg-info text-dark">
+                        <i class="fas fa-users me-1"></i>{{ c.leads.count }} leads
+                    </span>
+                </div>
+            </div>
+            <div class="card-footer d-flex gap-2 flex-wrap">
+                <a href="{% url 'campanha_detail' c.pk %}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-eye me-1"></i>Ver
+                </a>
+                <a href="{% url 'campanha_configure' c.pk %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-cog me-1"></i>Editar
+                </a>
+                <a href="{% url 'campanha_leads' c.pk %}" class="btn btn-sm btn-outline-info">
+                    <i class="fas fa-list me-1"></i>Leads
+                </a>
+                <button class="btn btn-sm btn-outline-danger ms-auto" onclick="deleteCampanha({{ c.pk }}, '{{ c.nome|escapejs }}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Delete modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Excluir Campanha</h5></div>
+            <div class="modal-body">Tem certeza que deseja excluir a campanha <strong id="deleteNome"></strong>? Todos os leads serão perdidos.</div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-danger" id="confirmDelete">Excluir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let pendingDeletePk = null;
+function deleteCampanha(pk, nome) {
+    pendingDeletePk = pk;
+    document.getElementById('deleteNome').textContent = nome;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+document.getElementById('confirmDelete').addEventListener('click', function() {
+    if (!pendingDeletePk) return;
+    fetch(`/campanhas/${pendingDeletePk}/delete/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    }).then(r => r.json()).then(d => {
+        if (d.success) location.reload();
+    });
+});
+</script>
+{% endblock %}

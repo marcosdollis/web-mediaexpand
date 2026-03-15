@@ -159,6 +159,21 @@
 
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-megaphone me-1"></i>Campanhas
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'campanha_list' %}">
+                                <i class="bi bi-list me-2"></i>Ver Campanhas
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'campanha_create' %}">
+                                <i class="bi bi-plus-circle me-2"></i>Nova Campanha
+                            </a></li>
+                        </ul>
+                    </li>
+
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-display me-1"></i>TVs
                         </a>
                         <ul class="dropdown-menu">

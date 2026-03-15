@@ -1,0 +1,194 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block title %}Configurar Campanha - MediaExpand{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="mb-4">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'campanha_list' %}">Campanhas</a></li>
+                    <li class="breadcrumb-item active">Configurar</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0"><i class="fas fa-ticket-alt me-2 text-primary"></i>Configurar Cupom de Desconto</h1>
+            <p class="text-muted">Passo 2 de 2 — {{ campanha.nome }}</p>
+        </div>
+
+        {% if messages %}{% for msg in messages %}
+        <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}success{% endif %} alert-dismissible fade show">
+            {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}{% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- ── Informações gerais ── -->
+            <div class="card shadow mb-4">
+                <div class="card-header fw-semibold"><i class="fas fa-info-circle me-2"></i>Informações Gerais</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Nome da Campanha</label>
+                            <input type="text" name="nome" class="form-control" value="{{ campanha.nome }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Status</label>
+                            <select name="status" class="form-select">
+                                {% for v, l in status_choices %}
+                                <option value="{{ v }}" {% if campanha.status == v %}selected{% endif %}>{{ l }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                Data/Hora de Encerramento
+                                <small class="text-muted fw-normal">(opcional — deixe em branco sem prazo)</small>
+                            </label>
+                            <input type="datetime-local" name="data_fim" class="form-control"
+                                   value="{% if campanha.data_fim %}{{ campanha.data_fim|date:'Y-m-d' }}T{{ campanha.data_fim|time:'H:i' }}{% endif %}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Modo de código ── -->
+            <div class="card shadow mb-4">
+                <div class="card-header fw-semibold"><i class="fas fa-barcode me-2"></i>Modo de Código</div>
+                <div class="card-body">
+                    {% for value, label in modo_choices %}
+                    <div class="form-check border rounded p-3 mb-2 modo-option" id="modo-opt-{{ value }}" style="cursor:pointer"
+                         onclick="selectModo('{{ value }}')">
+                        <input class="form-check-input" type="radio" name="modo_codigo"
+                               id="modo_{{ value }}" value="{{ value }}"
+                               {% if config.modo_codigo == value %}checked{% endif %}
+                               onchange="updateModoUI()">
+                        <label class="form-check-label fw-semibold" for="modo_{{ value }}">
+                            {% if value == 'SEM_LEAD' %}<i class="fas fa-unlock text-secondary me-2"></i>
+                            {% elif value == 'CODIGO_UNICO' %}<i class="fas fa-key text-primary me-2"></i>
+                            {% else %}<i class="fas fa-fingerprint text-success me-2"></i>{% endif %}
+                            {{ label }}
+                        </label>
+                    </div>
+                    {% endfor %}
+
+                    <!-- Código único -->
+                    <div id="section-codigo-unico" class="mt-3">
+                        <label class="form-label fw-semibold">Código do Cupom <span class="text-danger">*</span></label>
+                        <input type="text" name="codigo_unico" class="form-control"
+                               value="{{ config.codigo_unico }}"
+                               placeholder="Ex: PROMO20, DESCONTO10, VERÃO2026">
+                        <div class="form-text">Este código será mostrado a todos os clientes que acessarem a campanha.</div>
+                    </div>
+
+                    <!-- Prefixo (código por cliente) -->
+                    <div id="section-prefixo" class="mt-3" style="display:none">
+                        <label class="form-label fw-semibold">Prefixo dos Códigos <small class="fw-normal text-muted">(opcional)</small></label>
+                        <input type="text" name="prefixo_codigo" class="form-control"
+                               value="{{ config.prefixo_codigo }}"
+                               placeholder="Ex: PROMO → gerará PROMO-A1B2C3">
+                        <div class="form-text">Cada cliente receberá um código único gerado automaticamente com este prefixo.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Captura de leads ── -->
+            <div class="card shadow mb-4" id="section-leads">
+                <div class="card-header fw-semibold"><i class="fas fa-users me-2"></i>Captura de Dados <small class="fw-normal text-muted">(opcional)</small></div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Marque quais dados deseja coletar do cliente antes de exibir o cupom. Deixe todos desmarcados para não capturar nenhum dado.</p>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <div class="form-check border rounded p-3">
+                                <input class="form-check-input" type="checkbox" name="capturar_nome" id="cap_nome"
+                                       {% if config.capturar_nome %}checked{% endif %}>
+                                <label class="form-check-label" for="cap_nome">
+                                    <i class="fas fa-user text-primary me-2"></i><strong>Nome</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="form-check border rounded p-3">
+                                <input class="form-check-input" type="checkbox" name="capturar_cpf" id="cap_cpf"
+                                       {% if config.capturar_cpf %}checked{% endif %}>
+                                <label class="form-check-label" for="cap_cpf">
+                                    <i class="fas fa-id-card text-primary me-2"></i><strong>CPF</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="form-check border rounded p-3">
+                                <input class="form-check-input" type="checkbox" name="capturar_telefone" id="cap_tel"
+                                       {% if config.capturar_telefone %}checked{% endif %}>
+                                <label class="form-check-label" for="cap_tel">
+                                    <i class="fas fa-phone text-primary me-2"></i><strong>Telefone/WhatsApp</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="form-check border rounded p-3">
+                                <input class="form-check-input" type="checkbox" name="capturar_endereco" id="cap_end"
+                                       {% if config.capturar_endereco %}checked{% endif %}>
+                                <label class="form-check-label" for="cap_end">
+                                    <i class="fas fa-map-marker-alt text-primary me-2"></i><strong>Endereço</strong>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Aparência da landing page ── -->
+            <div class="card shadow mb-4">
+                <div class="card-header fw-semibold"><i class="fas fa-paint-brush me-2"></i>Aparência da Página de Resgate</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Título da Página <small class="text-muted">(deixe em branco para usar o nome da campanha)</small></label>
+                            <input type="text" name="titulo_pagina" class="form-control"
+                                   value="{{ config.titulo_pagina }}" placeholder="{{ campanha.nome }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Cor Principal</label>
+                            <input type="color" name="cor_primaria" class="form-control form-control-color w-100"
+                                   value="{{ config.cor_primaria|default:'#0d6efd' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Descrição / Instrução para o Cliente</label>
+                            <textarea name="descricao_pagina" class="form-control" rows="3"
+                                      placeholder="Ex: Preencha seus dados para receber seu cupom de 20% de desconto!">{{ config.descricao_pagina }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'campanha_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Voltar
+                </a>
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="fas fa-save me-2"></i>Salvar Campanha
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function selectModo(v) {
+    document.getElementById('modo_' + v).checked = true;
+    updateModoUI();
+}
+function updateModoUI() {
+    const v = document.querySelector('input[name="modo_codigo"]:checked')?.value;
+    document.getElementById('section-codigo-unico').style.display = (v === 'CODIGO_UNICO') ? '' : 'none';
+    document.getElementById('section-prefixo').style.display      = (v === 'CODIGO_POR_CLIENTE') ? '' : 'none';
+    document.getElementById('section-leads').style.display        = (v === 'SEM_LEAD') ? 'none' : '';
+    document.querySelectorAll('.modo-option').forEach(el => el.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10'));
+    const opt = document.getElementById('modo-opt-' + v);
+    if (opt) { opt.classList.add('border-primary', 'bg-primary', 'bg-opacity-10'); }
+}
+updateModoUI();
+</script>
+{% endblock %}
