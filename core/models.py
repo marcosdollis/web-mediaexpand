@@ -1211,6 +1211,15 @@ class ConteudoCorporativo(models.Model):
         default=False,
         help_text='Se marcado, aparece na galeria de modelos para reutilização'
     )
+    franqueado = models.ForeignKey(
+        'User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        limit_choices_to={'role': 'FRANCHISEE'},
+        related_name='conteudos_corporativos',
+        help_text='Franqueado dono deste conteúdo. Nulo = pertence ao owner. Templates (is_template=True) são visíveis a todos.',
+    )
     
     # Configurações de Cotações (quais exibir)
     cotacoes_moedas = models.JSONField(

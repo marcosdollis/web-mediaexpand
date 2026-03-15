@@ -3638,6 +3638,20 @@ def serve_media_streaming(request, path):
 # ══════════════════════════════════════════════════════════
 
 @login_required
+def _conteudos_visiveis(user):
+    """Retorna queryset de conteúdos corporativos visíveis para o usuário.
+    - Owner: tudo.
+    - Franqueado: os seus + templates (is_template=True).
+    """
+    if user.is_owner():
+        return ConteudoCorporativo.objects.all()
+    # Franqueado
+    return ConteudoCorporativo.objects.filter(
+        Q(franqueado=user) | Q(is_template=True)
+    )
+
+
+@login_required
 def conteudo_corporativo_list_view(request):
     """Lista de conteúdos corporativos"""
     user = request.user
@@ -3645,7 +3659,7 @@ def conteudo_corporativo_list_view(request):
         messages.error(request, 'Você não tem permissão para acessar esta página.')
         return redirect('dashboard')
 
-    conteudos = ConteudoCorporativo.objects.all()
+    conteudos = _conteudos_visiveis(user)
     search = request.GET.get('search', '')
     tipo_filter = request.GET.get('tipo', '')
     if search:
@@ -3671,7 +3685,11 @@ def conteudo_corporativo_create_view(request):
     if request.method == 'POST':
         form = ConteudoCorporativoForm(request.POST)
         if form.is_valid():
-            form.save()
+            conteudo = form.save(commit=False)
+            if user.is_franchisee():
+                conteudo.franqueado = user
+                conteudo.is_template = False  # franqueado não pode criar templates
+            conteudo.save()
             messages.success(request, 'Conteúdo corporativo criado com sucesso!')
             return redirect('conteudo_corporativo_list')
     else:
@@ -3689,10 +3707,19 @@ def conteudo_corporativo_update_view(request, pk):
         return redirect('dashboard')
 
     conteudo = get_object_or_404(ConteudoCorporativo, pk=pk)
+    # Franqueado só pode editar o que é dele (não pode editar templates do owner)
+    if user.is_franchisee() and conteudo.franqueado != user:
+        messages.error(request, 'Você não tem permissão para editar este conteúdo.')
+        return redirect('conteudo_corporativo_list')
+
     if request.method == 'POST':
         form = ConteudoCorporativoForm(request.POST, instance=conteudo)
         if form.is_valid():
-            form.save()
+            updated = form.save(commit=False)
+            if user.is_franchisee():
+                updated.franqueado = user  # garante que não pode mudar o dono
+                updated.is_template = False
+            updated.save()
             messages.success(request, 'Conteúdo corporativo atualizado!')
             return redirect('conteudo_corporativo_list')
     else:
@@ -3710,6 +3737,10 @@ def conteudo_corporativo_delete_view(request, pk):
         return redirect('dashboard')
 
     conteudo = get_object_or_404(ConteudoCorporativo, pk=pk)
+    if user.is_franchisee() and conteudo.franqueado != user:
+        messages.error(request, 'Você não tem permissão para deletar este conteúdo.')
+        return redirect('conteudo_corporativo_list')
+
     if request.method == 'POST':
         conteudo.delete()
         messages.success(request, 'Conteúdo corporativo deletado!')
@@ -3730,7 +3761,11 @@ def conteudo_corporativo_preview_view(request, pk):
         return redirect('dashboard')
 
     conteudo = get_object_or_404(ConteudoCorporativo, pk=pk)
-    
+    # Franqueado só pode visualizar o que é dele ou templates
+    if user.is_franchisee() and conteudo.franqueado != user and not conteudo.is_template:
+        messages.error(request, 'Você não tem permissão para visualizar este conteúdo.')
+        return redirect('conteudo_corporativo_list')
+
     # Se for um DESIGN, redireciona para a visualização TV
     if conteudo.tipo == 'DESIGN':
         return redirect('design_render_tv', pk=pk)
@@ -3862,6 +3897,10 @@ def design_editor_view(request, pk=None):
     design_json_str = 'null'
     if pk:
         conteudo = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
+        # Franqueado só pode editar o que é dele
+        if user.is_franchisee() and conteudo.franqueado != user:
+            messages.error(request, 'Você não tem permissão para editar este design.')
+            return redirect('design_list')
         if conteudo.design_json:
             design_json_str = json_mod.dumps(conteudo.design_json)
 
@@ -3920,16 +3959,22 @@ def design_save_api(request, pk=None):
 
     if pk:
         conteudo = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
+        # Franqueado só pode editar o que é dele
+        if user.is_franchisee() and conteudo.franqueado != user:
+            return JsonResponse({'success': False, 'message': 'Sem permissão para editar este design'}, status=403)
     else:
         conteudo = ConteudoCorporativo(tipo='DESIGN')
+        if user.is_franchisee():
+            conteudo.franqueado = user
 
     conteudo.titulo = titulo
     conteudo.design_json = design_json
     conteudo.design_largura = largura
     conteudo.design_altura = altura
     conteudo.duracao_segundos = duracao
-    conteudo.is_template = is_template
-    conteudo.template_categoria = template_cat
+    # Apenas owner pode marcar como template
+    conteudo.is_template = is_template if user.is_owner() else False
+    conteudo.template_categoria = template_cat if user.is_owner() else ''
 
     # Salvar thumbnail PNG
     if thumbnail_b64 and ',' in thumbnail_b64:
@@ -3955,8 +4000,13 @@ def design_list_view(request):
         messages.error(request, 'Sem permissão.')
         return redirect('dashboard')
 
-    designs = ConteudoCorporativo.objects.filter(tipo='DESIGN', is_template=False).order_by('-updated_at')
+    if user.is_owner():
+        designs = ConteudoCorporativo.objects.filter(tipo='DESIGN', is_template=False)
+    else:
+        # Franqueado vê apenas seus próprios designs (não-templates)
+        designs = ConteudoCorporativo.objects.filter(tipo='DESIGN', is_template=False, franqueado=user)
 
+    designs = designs.order_by('-updated_at')
     search = request.GET.get('search', '')
     if search:
         designs = designs.filter(titulo__icontains=search)
@@ -4011,6 +4061,10 @@ def design_duplicate_view(request, pk):
         return redirect('dashboard')
 
     original = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
+    # Franqueado só pode duplicar seus próprios designs ou templates
+    if user.is_franchisee() and original.franqueado != user and not original.is_template:
+        messages.error(request, 'Você não tem permissão para duplicar este design.')
+        return redirect('design_list')
 
     novo = ConteudoCorporativo(
         titulo=f'{original.titulo} (Cópia)',
@@ -4022,6 +4076,7 @@ def design_duplicate_view(request, pk):
         is_template=False,
         template_categoria='',
         ativo=True,
+        franqueado=user if user.is_franchisee() else None,
     )
     # Copiar thumbnail
     if original.design_thumbnail:
@@ -4046,6 +4101,9 @@ def design_delete_view(request, pk):
         return redirect('dashboard')
 
     conteudo = get_object_or_404(ConteudoCorporativo, pk=pk, tipo='DESIGN')
+    if user.is_franchisee() and conteudo.franqueado != user:
+        messages.error(request, 'Você não tem permissão para deletar este design.')
+        return redirect('design_list')
 
     if request.method == 'POST':
         titulo = conteudo.titulo
