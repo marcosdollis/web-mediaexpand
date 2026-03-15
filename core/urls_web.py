@@ -40,6 +40,7 @@ urlpatterns = [
     # Videos
     path('videos/', views.video_list_view, name='video_list'),
     path('videos/create/', views.video_create_view, name='video_create'),
+    path('videos/bulk-upload/', views.video_bulk_upload_view, name='video_bulk_upload'),
     path('videos/<int:pk>/update/', views.video_update_view, name='video_update'),
     path('videos/<int:pk>/approve/', views.video_approve_view, name='video_approve'),
     path('videos/<int:pk>/reject/', views.video_reject_view, name='video_reject'),

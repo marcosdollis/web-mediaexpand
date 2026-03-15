@@ -1466,6 +1466,67 @@ def video_create_view(request):
 
 
 @login_required
+def video_bulk_upload_view(request):
+    """Upload em lote de vídeos (owner e franqueado apenas).
+    GET  → renderiza a página de bulk upload.
+    POST → endpoint AJAX: recebe UM arquivo por vez, retorna JSON.
+    """
+    from django.http import JsonResponse
+    user = request.user
+
+    if not user.is_owner() and not user.is_franchisee():
+        if request.method == 'POST':
+            return JsonResponse({'success': False, 'error': 'Sem permissão.'}, status=403)
+        messages.error(request, 'Acesso negado.')
+        return redirect('video_list')
+
+    if user.is_owner():
+        clientes = Cliente.objects.filter(ativo=True).select_related('user').order_by('empresa')
+    else:
+        clientes = Cliente.objects.filter(franqueado=user, ativo=True).select_related('user').order_by('empresa')
+
+    if request.method == 'POST':
+        cliente_id  = request.POST.get('cliente')
+        titulo      = request.POST.get('titulo', '').strip()
+        arquivo     = request.FILES.get('arquivo')
+        orientacao  = request.POST.get('orientacao', 'HORIZONTAL')
+        descricao   = request.POST.get('descricao', '').strip() or None
+        texto_tarja = request.POST.get('texto_tarja', '').strip() or None
+        qrcode_url  = request.POST.get('qrcode_url_destino', '').strip() or None
+
+        if not cliente_id:
+            return JsonResponse({'success': False, 'error': 'Cliente não selecionado.'}, status=400)
+        if not titulo:
+            return JsonResponse({'success': False, 'error': 'Título obrigatório.'}, status=400)
+        if not arquivo:
+            return JsonResponse({'success': False, 'error': 'Arquivo não enviado.'}, status=400)
+
+        try:
+            cliente = Cliente.objects.get(id=cliente_id)
+        except Cliente.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Cliente não encontrado.'}, status=400)
+
+        if user.is_franchisee() and cliente.franqueado != user:
+            return JsonResponse({'success': False, 'error': 'Sem permissão para este cliente.'}, status=403)
+
+        video = Video.objects.create(
+            cliente=cliente,
+            titulo=titulo,
+            descricao=descricao,
+            arquivo=arquivo,
+            orientacao=orientacao,
+            texto_tarja=texto_tarja,
+            qrcode_url_destino=qrcode_url,
+            status='PENDING',
+        )
+        return JsonResponse({'success': True, 'id': video.id, 'titulo': video.titulo})
+
+    return render(request, 'videos/video_bulk_upload.html', {
+        'clientes': clientes,
+    })
+
+
+@login_required
 def video_update_view(request, pk):
     """Atualizar vídeo"""
     user = request.user

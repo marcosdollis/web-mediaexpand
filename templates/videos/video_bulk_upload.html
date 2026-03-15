@@ -1,0 +1,356 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Upload em Lote - MediaExpand{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Upload em Lote</h1>
+                <p class="text-muted mb-0">Envie múltiplos vídeos de uma vez</p>
+            </div>
+            <a href="{% url 'video_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Voltar
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left column: shared settings -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-sliders-h me-2"></i>Configurações Gerais</h5>
+                <small class="text-muted">Aplicadas a todos os vídeos</small>
+            </div>
+            <div class="card-body">
+                {% if clientes %}
+                <div class="mb-3">
+                    <label for="cliente" class="form-label fw-semibold">Cliente <span class="text-danger">*</span></label>
+                    <select class="form-select" id="cliente" required>
+                        <option value="">— Selecione o cliente —</option>
+                        {% for c in clientes %}
+                        <option value="{{ c.id }}">{{ c.empresa }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="invalid-feedback">Selecione um cliente antes de enviar.</div>
+                </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Orientação <span class="text-danger">*</span></label>
+                    <div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="orientacao"
+                                   id="ori_h" value="HORIZONTAL" checked>
+                            <label class="form-check-label" for="ori_h">
+                                <i class="fas fa-desktop me-1"></i>Horizontal (16:9)
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="orientacao"
+                                   id="ori_v" value="VERTICAL">
+                            <label class="form-check-label" for="ori_v">
+                                <i class="fas fa-mobile-alt me-1"></i>Vertical (9:16)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="descricao" class="form-label fw-semibold">Descrição <small class="text-muted fw-normal">(opcional)</small></label>
+                    <textarea class="form-control" id="descricao" rows="2"
+                              placeholder="Descrição aplicada a todos os vídeos..."></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label for="texto_tarja" class="form-label fw-semibold">Texto da Tarja <small class="text-muted fw-normal">(opcional)</small></label>
+                    <input type="text" class="form-control" id="texto_tarja"
+                           placeholder="Ex: Promoção válida até...">
+                    <div class="form-text">Aparece como legenda sobre o vídeo no display.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="qrcode_url" class="form-label fw-semibold">URL do QR Code <small class="text-muted fw-normal">(opcional)</small></label>
+                    <input type="url" class="form-control" id="qrcode_url"
+                           placeholder="https://...">
+                    <div class="form-text">QR Code exibido junto ao vídeo no display.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right column: drop zone & queue -->
+    <div class="col-lg-8">
+        <!-- Drop zone -->
+        <div class="card mb-4">
+            <div class="card-body p-0">
+                <label id="dropZone" class="drop-zone w-100 d-flex flex-column align-items-center justify-content-center p-5 text-center"
+                       style="cursor:pointer; border: 2px dashed #6c757d; border-radius: 0.5rem; min-height: 200px; transition: background .2s;">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                    <span class="fw-semibold fs-5">Arraste vídeos aqui ou clique para selecionar</span>
+                    <span class="text-muted mt-1">Múltiplos arquivos suportados · MP4, MOV, AVI, WebM…</span>
+                    <input type="file" id="fileInput" accept="video/*" multiple class="d-none">
+                </label>
+            </div>
+        </div>
+
+        <!-- Queue header + action buttons -->
+        <div class="d-flex justify-content-between align-items-center mb-2" id="queueHeader" style="display:none !important;">
+            <h6 class="mb-0">Fila de envio <span class="badge bg-secondary" id="totalBadge">0</span></h6>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-danger" id="clearBtn" onclick="clearQueue()">
+                    <i class="fas fa-trash me-1"></i>Limpar
+                </button>
+                <button class="btn btn-sm btn-success" id="uploadBtn" onclick="startUpload()">
+                    <i class="fas fa-upload me-1"></i>Enviar Tudo
+                </button>
+            </div>
+        </div>
+
+        <!-- Summary bar (shown after upload) -->
+        <div id="summaryBar" class="alert d-none mb-3"></div>
+
+        <!-- File queue -->
+        <div id="fileQueue"></div>
+    </div>
+</div>
+
+<style>
+.drop-zone.dragover { background: #e8f4ff; border-color: #0d6efd; }
+.queue-item { transition: opacity .3s; }
+.queue-item.done  { opacity: .75; }
+.queue-item.error .card { border-color: #dc3545; }
+.queue-item .progress { height: 4px; }
+.title-input { font-size: .875rem; }
+</style>
+
+<script>
+(function () {
+    'use strict';
+
+    const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+    const dropZone   = document.getElementById('dropZone');
+    const fileInput  = document.getElementById('fileInput');
+    const queueEl    = document.getElementById('fileQueue');
+    const queueHdr   = document.getElementById('queueHeader');
+    const totalBadge = document.getElementById('totalBadge');
+    const summaryBar = document.getElementById('summaryBar');
+    const uploadBtn  = document.getElementById('uploadBtn');
+
+    let queue = [];   // { file, id }
+    let itemId = 0;
+    let isUploading = false;
+
+    /* ── drag & drop ── */
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        addFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
+
+    function addFiles(files) {
+        Array.from(files).forEach(f => {
+            if (!f.type.startsWith('video/')) { return; }
+            const id = ++itemId;
+            const title = f.name.replace(/\.[^.]+$/, '');   // strip extension
+            queue.push({ file: f, id, title });
+            renderItem(id, f, title);
+        });
+        refreshHeader();
+    }
+
+    function renderItem(id, file, defaultTitle) {
+        const sizeMB = (file.size / 1048576).toFixed(1);
+        const div = document.createElement('div');
+        div.id = 'qi-' + id;
+        div.className = 'queue-item card mb-2';
+        div.innerHTML = `
+            <div class="card-body py-2 px-3">
+                <div class="d-flex align-items-center gap-3">
+                    <i class="fas fa-film text-primary fs-4"></i>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <input type="text" class="form-control form-control-sm title-input mb-1"
+                               id="qtitle-${id}" value="${escHtml(defaultTitle)}"
+                               placeholder="Título do vídeo">
+                        <small class="text-muted">${escHtml(file.name)} &bull; ${sizeMB} MB</small>
+                    </div>
+                    <div class="text-end" style="min-width:90px">
+                        <span class="badge bg-secondary" id="qbadge-${id}">pendente</span>
+                    </div>
+                    <button class="btn btn-sm btn-link text-danger p-0" onclick="removeItem(${id})" id="qrm-${id}" title="Remover">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="progress mt-2 d-none" id="qprog-${id}">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                         role="progressbar" style="width:0%"></div>
+                </div>
+                <div class="text-danger small mt-1 d-none" id="qerr-${id}"></div>
+            </div>`;
+        queueEl.appendChild(div);
+    }
+
+    window.removeItem = function(id) {
+        queue = queue.filter(q => q.id !== id);
+        const el = document.getElementById('qi-' + id);
+        if (el) el.remove();
+        refreshHeader();
+    };
+
+    window.clearQueue = function() {
+        if (isUploading) return;
+        queue = [];
+        queueEl.innerHTML = '';
+        summaryBar.className = 'alert d-none mb-3';
+        refreshHeader();
+    };
+
+    function refreshHeader() {
+        const count = queue.length;
+        totalBadge.textContent = count;
+        queueHdr.style.display = count > 0 ? 'flex !important' : 'none !important';
+        // CSS d-none trick — just toggle visibility via inline style
+        queueHdr.style.display = count > 0 ? '' : 'none';
+        queueHdr.hidden = count === 0;
+    }
+
+    /* ── upload ── */
+    window.startUpload = function() {
+        if (isUploading || queue.length === 0) return;
+
+        {% if clientes %}
+        const clienteEl = document.getElementById('cliente');
+        if (!clienteEl.value) {
+            clienteEl.classList.add('is-invalid');
+            clienteEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        clienteEl.classList.remove('is-invalid');
+        {% endif %}
+
+        isUploading = true;
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando…';
+        summaryBar.className = 'alert d-none mb-3';
+
+        // Clone queue so we iterate a snapshot
+        const items = [...queue];
+        let done = 0, errors = 0;
+
+        async function uploadNext(index) {
+            if (index >= items.length) {
+                finish(done, errors, items.length);
+                return;
+            }
+            const item = items[index];
+            const qItem = document.getElementById('qi-' + item.id);
+            const badge = document.getElementById('qbadge-' + item.id);
+            const prog  = document.getElementById('qprog-' + item.id);
+            const errEl = document.getElementById('qerr-' + item.id);
+            const rmBtn = document.getElementById('qrm-' + item.id);
+            const title = document.getElementById('qtitle-' + item.id)?.value.trim();
+
+            badge.textContent = 'enviando…';
+            badge.className = 'badge bg-primary';
+            prog.classList.remove('d-none');
+            if (rmBtn) rmBtn.disabled = true;
+
+            // Animate progress bar (indeterminate feel)
+            const bar = prog.querySelector('.progress-bar');
+            bar.style.width = '30%';
+
+            try {
+                const fd = new FormData();
+                fd.append('arquivo', item.file);
+                fd.append('titulo', title || item.file.name.replace(/\.[^.]+$/, ''));
+                fd.append('orientacao', document.querySelector('input[name="orientacao"]:checked')?.value || 'HORIZONTAL');
+                const desc = document.getElementById('descricao')?.value.trim();
+                if (desc) fd.append('descricao', desc);
+                const tarja = document.getElementById('texto_tarja')?.value.trim();
+                if (tarja) fd.append('texto_tarja', tarja);
+                const qrUrl = document.getElementById('qrcode_url')?.value.trim();
+                if (qrUrl) fd.append('qrcode_url_destino', qrUrl);
+                {% if clientes %}
+                fd.append('cliente', document.getElementById('cliente').value);
+                {% endif %}
+
+                bar.style.width = '60%';
+
+                const resp = await fetch("{% url 'video_bulk_upload' %}", {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': CSRF },
+                    body: fd,
+                });
+                const data = await resp.json();
+
+                bar.style.width = '100%';
+
+                if (data.success) {
+                    done++;
+                    badge.textContent = 'enviado ✓';
+                    badge.className = 'badge bg-success';
+                    qItem.classList.add('done');
+                    // Remove from active queue
+                    queue = queue.filter(q => q.id !== item.id);
+                } else {
+                    errors++;
+                    badge.textContent = 'erro';
+                    badge.className = 'badge bg-danger';
+                    qItem.classList.add('error');
+                    errEl.textContent = data.error || 'Erro desconhecido.';
+                    errEl.classList.remove('d-none');
+                }
+            } catch (e) {
+                errors++;
+                badge.textContent = 'erro';
+                badge.className = 'badge bg-danger';
+                qItem.classList.add('error');
+                errEl.textContent = 'Falha de conexão: ' + e.message;
+                errEl.classList.remove('d-none');
+            }
+
+            // Brief pause between files to avoid hammering the server
+            await new Promise(r => setTimeout(r, 300));
+            uploadNext(index + 1);
+        }
+
+        uploadNext(0);
+    };
+
+    function finish(done, errors, total) {
+        isUploading = false;
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = '<i class="fas fa-upload me-1"></i>Enviar Tudo';
+        refreshHeader();
+
+        summaryBar.classList.remove('d-none');
+        if (errors === 0) {
+            summaryBar.className = 'alert alert-success mb-3';
+            summaryBar.innerHTML = `<i class="fas fa-check-circle me-2"></i><strong>${done} de ${total}</strong> vídeos enviados com sucesso! <a href="{% url 'video_list' %}" class="alert-link">Ver listagem</a>`;
+        } else if (done === 0) {
+            summaryBar.className = 'alert alert-danger mb-3';
+            summaryBar.innerHTML = `<i class="fas fa-times-circle me-2"></i>Nenhum vídeo enviado. Verifique os erros abaixo.`;
+        } else {
+            summaryBar.className = 'alert alert-warning mb-3';
+            summaryBar.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i><strong>${done}</strong> enviados, <strong>${errors}</strong> com erro.`;
+        }
+        summaryBar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function escHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    document.getElementById('cliente')?.addEventListener('change', function() {
+        this.classList.remove('is-invalid');
+    });
+})();
+</script>
+{% endblock %}
