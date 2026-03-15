@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.db.models import Q, Count, Sum
 from django.db import models
 from django.views.decorators.clickjacking import xframe_options_exempt
+from django.utils.decorators import method_decorator
 from .models import (
     User, Municipio, Cliente, Video,
     Playlist, PlaylistItem, DispositivoTV, LogExibicao, Segmento, AppVersion,
@@ -739,6 +740,8 @@ class TVVersionCheckView(APIView):
         })
 
 
+
+@method_decorator(xframe_options_exempt, name='dispatch')
 class TVCorporativoHTMLView(APIView):
     """
     Retorna a página HTML completa de conteúdo corporativo para o app de TV.

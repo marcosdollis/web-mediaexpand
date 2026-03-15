@@ -30,9 +30,12 @@
 
         /* webview / iframe content */
         #player iframe {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
             border: none;
+            background: #000;
         }
 
         /* ── Tarja inferior ── */
@@ -291,13 +294,16 @@ function playAt(i) {
     if (v.tipo === 'corporativo') {
         // WebView
         vid.style.display = 'none';
+        vid.src = '';
         frm.style.display = 'block';
+        frm.onload = () => showLoading(false);
+        frm.onerror = () => { showLoading(false); setTimeout(nextVideo, 2000); };
         frm.src = v.arquivo_url;
         startProgress(v.duracao_segundos || 10);
-        setTimeout(() => {
-            showLoading(false);
-            setTimeout(nextVideo, (v.duracao_segundos || 10) * 1000);
-        }, 1200);
+        // fallback: se onload não disparar em 5s, esconde o spinner mesmo assim
+        const fallbackTimer = setTimeout(() => showLoading(false), 5000);
+        frm.addEventListener('load', () => clearTimeout(fallbackTimer), { once: true });
+        setTimeout(nextVideo, (v.duracao_segundos || 10) * 1000);
     } else {
         // Vídeo
         frm.style.display = 'none';
