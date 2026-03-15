@@ -654,15 +654,15 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Validar fonte de vídeo
-        if (modoLink && !urlExternaVal) {
-            e.preventDefault();
-            showAlert('Informe a URL externa do vídeo.', 'warning');
-            return;
-        }
-        if (!modoLink && !temArquivo) {
-            const temArquivoSalvo = document.querySelector('.alert-info .fa-file-video');
-            if (!temArquivoSalvo) {
+        // Validar fonte de vídeo (apenas no create; no edit o servidor valida)
+        const isEdit = {{ video|yesno:"true,false" }};
+        if (!isEdit) {
+            if (modoLink && !urlExternaVal) {
+                e.preventDefault();
+                showAlert('Informe a URL externa do vídeo.', 'warning');
+                return;
+            }
+            if (!modoLink && !temArquivo) {
                 e.preventDefault();
                 showAlert('Selecione um arquivo de vídeo.', 'warning');
                 return;
