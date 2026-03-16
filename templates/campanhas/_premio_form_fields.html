@@ -1,0 +1,49 @@
+<!-- Partial: campos do formulário de prêmio (usado nos modais add e edit) -->
+<div class="row g-3">
+    <div class="col-md-7">
+        <label class="form-label fw-semibold">Nome do Prêmio <span class="text-danger">*</span></label>
+        <input type="text" name="p_nome" class="form-control" placeholder="Ex: Desconto 20%" required>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label fw-semibold">Emoji</label>
+        <input type="text" name="p_emoji" class="form-control" value="🎁" maxlength="4">
+    </div>
+    <div class="col-md-3">
+        <label class="form-label fw-semibold">Cor do Segmento</label>
+        <input type="color" name="p_cor" class="form-control form-control-color w-100" value="#f4a261">
+    </div>
+    <div class="col-12">
+        <label class="form-label fw-semibold">Descrição <small class="text-muted fw-normal">(opcional)</small></label>
+        <input type="text" name="p_descricao" class="form-control" placeholder="Ex: Válido por 30 dias">
+    </div>
+    <div class="col-12">
+        <label class="form-label fw-semibold">Código de Resgate <small class="text-muted fw-normal">(opcional — entregue ao ganhador)</small></label>
+        <input type="text" name="p_codigo_resgate" class="form-control" placeholder="Ex: PROMO2024">
+    </div>
+    <div class="col-md-4">
+        <label class="form-label fw-semibold">Peso de Probabilidade</label>
+        <input type="number" name="p_peso" class="form-control" value="10" min="1">
+        <div class="form-text">Maior peso = mais chance.</div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label fw-semibold">Qtd. Máxima de Ganhadores</label>
+        <input type="number" name="p_quantidade_maxima" class="form-control" min="1" placeholder="Em branco = ilimitado">
+    </div>
+    <div class="col-md-4">
+        <label class="form-label fw-semibold">Ordem na Roleta</label>
+        <input type="number" name="p_ordem" class="form-control" value="0" min="0">
+    </div>
+    <div class="col-6">
+        <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" name="p_eh_perdedor" id="p_eh_perdedor_{{ forloop.counter }}">
+            <label class="form-check-label fw-semibold text-danger" for="p_eh_perdedor_{{ forloop.counter }}">É segmento perdedor?</label>
+        </div>
+        <div class="form-text">Marque para "Tente novamente" ou similar — sem prêmio entregue.</div>
+    </div>
+    <div class="col-6">
+        <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" name="p_ativo" id="p_ativo_{{ forloop.counter }}" checked>
+            <label class="form-check-label fw-semibold" for="p_ativo_{{ forloop.counter }}">Ativo</label>
+        </div>
+    </div>
+</div>

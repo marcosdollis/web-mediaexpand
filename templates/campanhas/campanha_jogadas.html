@@ -1,0 +1,119 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block title %}Jogadas — {{ campanha.nome }}{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="mb-4 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'campanha_list' %}">Campanhas</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'campanha_detail' campanha.pk %}">{{ campanha.nome }}</a></li>
+                    <li class="breadcrumb-item active">Jogadas</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0"><i class="fas fa-dharmachakra me-2 text-danger"></i>Jogadas — {{ campanha.nome }}</h1>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="?export=csv" class="btn btn-outline-success">
+                <i class="fas fa-file-csv me-1"></i>Exportar CSV
+            </a>
+            <a href="{% url 'campanha_detail' campanha.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Voltar
+            </a>
+        </div>
+    </div>
+
+    <!-- Resumo -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-4">
+            <div class="card text-center border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="fs-2 fw-bold text-primary">{{ total }}</div>
+                    <div class="text-muted small">Total de Jogadas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card text-center border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="fs-2 fw-bold text-success">{{ ganhadores }}</div>
+                    <div class="text-muted small">Ganhadores</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card text-center border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="fs-2 fw-bold text-secondary">{{ total|add:"-"|add:ganhadores|default_if_none:0 }}</div>
+                    <div class="text-muted small">Não ganharam</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header fw-semibold">
+            <i class="fas fa-list me-2"></i>Histórico de Jogadas
+        </div>
+        <div class="card-body p-0">
+            {% if jogadas %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle mb-0" style="font-size:.9rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Data/Hora</th>
+                            <th>IP</th>
+                            <th>Prêmio</th>
+                            <th class="text-center">Resultado</th>
+                            <th>Nome</th>
+                            <th>Telefone</th>
+                            <th>CPF</th>
+                            <th>Endereço</th>
+                            <th class="text-center">Lead Salvo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for j in jogadas %}
+                        <tr class="{% if j.ganhou %}table-success{% endif %}">
+                            <td class="text-muted">{{ j.pk }}</td>
+                            <td>{{ j.criado_em|date:"d/m/Y H:i" }}</td>
+                            <td><small>{{ j.ip|default:"—" }}</small></td>
+                            <td>
+                                {% if j.premio %}
+                                <span style="display:inline-block;width:.9rem;height:.9rem;border-radius:50%;background:{{ j.premio.cor }};vertical-align:middle;margin-right:.3rem;border:1px solid #ccc;"></span>
+                                {{ j.premio.emoji }} {{ j.premio.nome }}
+                                {% else %}—{% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if j.ganhou %}
+                                <span class="badge bg-success">Ganhou</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Não ganhou</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ j.nome|default:"—" }}</td>
+                            <td>{{ j.telefone|default:"—" }}</td>
+                            <td>{{ j.cpf|default:"—" }}</td>
+                            <td>{{ j.endereco|default:"—" }}</td>
+                            <td class="text-center">
+                                {% if j.lead_salvo %}
+                                <span class="badge bg-info text-dark">Sim</span>
+                                {% else %}—{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
+                <p>Nenhuma jogada registrada ainda.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

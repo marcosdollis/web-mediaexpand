@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if config and config.titulo_pagina %}{{ config.titulo_pagina }}{% else %}{{ campanha.nome }}{% endif %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        :root {
+            --cor-primaria: {{ config.cor_primaria|default:"#e63946" }};
+        }
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--cor-primaria) 0%, #1d3557 100%);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 2rem 1rem;
+        }
+        .wheel-container {
+            background: rgba(255,255,255,.97);
+            border-radius: 1.5rem;
+            padding: 2rem 1.5rem;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,.35);
+            text-align: center;
+        }
+        h1.titulo { font-size: 1.7rem; font-weight: 800; color: var(--cor-primaria); }
+        .wheel-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 1rem 0;
+        }
+        #wheel-canvas { border-radius: 50%; display: block; }
+        .wheel-pointer {
+            position: absolute;
+            top: -14px; left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 14px solid transparent;
+            border-right: 14px solid transparent;
+            border-top: 28px solid var(--cor-primaria);
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,.4));
+            z-index: 10;
+        }
+        #btn-girar {
+            background: var(--cor-primaria);
+            border: none;
+            color: #fff;
+            font-weight: 800;
+            font-size: 1.1rem;
+            padding: .75rem 2.5rem;
+            border-radius: 3rem;
+            cursor: pointer;
+            transition: transform .1s, opacity .2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,.25);
+            margin-top: 1rem;
+        }
+        #btn-girar:hover:not(:disabled) { transform: scale(1.05); }
+        #btn-girar:disabled { opacity: .5; cursor: not-allowed; }
+        #result-box {
+            display: none;
+            margin-top: 1.25rem;
+            padding: 1.25rem;
+            border-radius: 1rem;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+        }
+        #result-box.ganhou { border-color: #198754; background: #d1e7dd; }
+        #result-box.perdeu { border-color: #dc3545; background: #f8d7da; }
+        #lead-form { display: none; margin-top: 1rem; text-align: left; }
+        .limit-msg { color: #dc3545; font-weight: 700; margin-top: 1rem; }
+        .encerrada-badge {
+            background: #dc3545; color: #fff;
+            padding: .4rem 1.2rem; border-radius: 2rem;
+            font-weight: 700; display: inline-block; margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+<div class="wheel-container">
+
+    {% if encerrada %}
+    <div class="encerrada-badge">🔒 Campanha Encerrada</div>
+    {% endif %}
+
+    <h1 class="titulo">{% if config and config.titulo_pagina %}{{ config.titulo_pagina }}{% else %}🎡 {{ campanha.nome }}{% endif %}</h1>
+    {% if config and config.descricao_pagina %}
+    <p class="text-muted mb-2" style="font-size:.95rem;">{{ config.descricao_pagina }}</p>
+    {% endif %}
+
+    {% if not encerrada and premios %}
+    <!-- ROLETA -->
+    <div class="wheel-wrapper">
+        <div class="wheel-pointer"></div>
+        <canvas id="wheel-canvas" width="300" height="300"></canvas>
+    </div>
+
+    <br>
+    <button id="btn-girar" onclick="girar()">{{ config.texto_botao_girar|default:"GIRAR!" }}</button>
+
+    <div id="result-box">
+        <div id="result-emoji" style="font-size:2.5rem;"></div>
+        <div id="result-nome" style="font-size:1.2rem; font-weight:700; margin:.5rem 0;"></div>
+        <div id="result-codigo"></div>
+    </div>
+
+    <!-- Lead form (shown after winning) -->
+    <div id="lead-form">
+        <hr>
+        <p class="fw-bold">Preencha seus dados para resgatar o prêmio:</p>
+        <form id="form-lead" onsubmit="salvarLead(event)">
+            {% if config and config.capturar_nome %}
+            <div class="mb-2"><input type="text" id="l_nome" class="form-control" placeholder="Seu nome *" required></div>
+            {% endif %}
+            {% if config and config.capturar_cpf %}
+            <div class="mb-2"><input type="text" id="l_cpf" class="form-control" placeholder="CPF *" required maxlength="14"></div>
+            {% endif %}
+            {% if config and config.capturar_telefone %}
+            <div class="mb-2"><input type="tel" id="l_telefone" class="form-control" placeholder="Telefone / WhatsApp *" required></div>
+            {% endif %}
+            {% if config and config.capturar_endereco %}
+            <div class="mb-2"><input type="text" id="l_endereco" class="form-control" placeholder="Endereço *" required></div>
+            {% endif %}
+            <button type="submit" class="btn btn-success w-100 mt-1 fw-bold">🎁 Resgatar Prêmio</button>
+        </form>
+    </div>
+
+    <div id="limit-msg" class="limit-msg" style="display:none;"></div>
+
+    {% elif not premios %}
+    <p class="text-muted mt-3">Esta roleta ainda não possui prêmios cadastrados.</p>
+    {% endif %}
+
+    <div class="mt-3 text-muted" style="font-size:.8rem;">
+        <small>Powered by <strong>MediaExpand</strong></small>
+    </div>
+</div>
+
+<script>
+const PREMIOS = {{ premios_json|safe }};
+const SPIN_URL = "{% url 'campanha_spin' campanha.token %}";
+const LEAD_URL_BASE = "/c/{{ campanha.token }}/lead/";
+const PRECISA_LEAD_GERAL = {{ config.captura_algum_dado|yesno:"true,false" }};
+const STORAGE_KEY = "roleta_{{ campanha.token }}_jogadas";
+
+let girando = false;
+let currentAngle = 0;
+let jogadaId = null;
+
+// ── Canvas: desenhar roleta ───────────────────────────────────────────────
+const canvas = document.getElementById('wheel-canvas');
+if (canvas && PREMIOS.length) {
+    drawWheel(0);
+}
+
+function drawWheel(rotationRadians) {
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2, cy = canvas.height / 2, r = cx - 4;
+    const arc = (2 * Math.PI) / PREMIOS.length;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    PREMIOS.forEach((p, i) => {
+        const start = rotationRadians + arc * i - Math.PI / 2;
+        const end   = start + arc;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, start, end);
+        ctx.fillStyle = p.cor;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Label
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(start + arc / 2);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.shadowColor = 'rgba(0,0,0,.5)';
+        ctx.shadowBlur = 3;
+        const label = (p.emoji + ' ' + p.nome).substring(0, 18);
+        ctx.fillText(label, r - 8, 4);
+        ctx.restore();
+    });
+
+    // Center cap
+    ctx.beginPath();
+    ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.strokeStyle = '#bbb';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+// ── Girar ─────────────────────────────────────────────────────────────────
+async function girar() {
+    if (girando) return;
+    girando = true;
+    document.getElementById('btn-girar').disabled = true;
+    document.getElementById('result-box').style.display = 'none';
+    document.getElementById('lead-form').style.display = 'none';
+    document.getElementById('limit-msg').style.display = 'none';
+
+    let resp;
+    try {
+        resp = await fetch(SPIN_URL, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
+    } catch(e) {
+        showError('Erro de conexão. Tente novamente.');
+        girando = false;
+        document.getElementById('btn-girar').disabled = false;
+        return;
+    }
+
+    const data = await resp.json();
+
+    if (!data.success) {
+        const msgs = {
+            encerrada: '🔒 Campanha encerrada.',
+            limite_diario: '⏰ Você já atingiu o limite de jogadas de hoje. Volte amanhã!',
+            limite_total: '🚫 Você já atingiu o limite total de jogadas desta campanha.',
+            sem_premios: '❌ Sem prêmios disponíveis.',
+            todos_esgotados: '😢 Todos os prêmios já foram distribuídos.',
+        };
+        const el = document.getElementById('limit-msg');
+        el.textContent = msgs[data.motivo] || 'Não foi possível girar. Tente mais tarde.';
+        el.style.display = 'block';
+        girando = false;
+        document.getElementById('btn-girar').disabled = false;
+        return;
+    }
+
+    jogadaId = data.jogada_id;
+
+    // Animar até o segmento vencedor
+    const segIndex = data.segment_index;
+    const arco = (2 * Math.PI) / PREMIOS.length;
+    // O ponteiro aponta para o topo (−π/2). Queremos que o centro do segmento fique no topo.
+    const targetAngle = - (arco * segIndex + arco / 2);
+    const extraSpins = (Math.PI * 2) * (5 + Math.floor(Math.random() * 3)); // 5–7 voltas extras
+    const destination = currentAngle + extraSpins + (targetAngle - ((currentAngle) % (2 * Math.PI)));
+
+    const duration = 4000 + Math.random() * 1500;
+    const start = performance.now();
+    const startAngle = currentAngle;
+
+    function animate(now) {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = easeOut(progress);
+        const angle = startAngle + (destination - startAngle) * eased;
+        currentAngle = angle;
+        drawWheel(angle);
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        } else {
+            girando = false;
+            showResult(data);
+        }
+    }
+    requestAnimationFrame(animate);
+}
+
+function easeOut(t) {
+    return 1 - Math.pow(1 - t, 4);
+}
+
+// ── Mostrar resultado ──────────────────────────────────────────────────────
+function showResult(data) {
+    const box = document.getElementById('result-box');
+    box.style.display = 'block';
+    document.getElementById('result-emoji').textContent = data.emoji || '🎉';
+    document.getElementById('result-nome').textContent = data.nome_premio;
+
+    const codigoEl = document.getElementById('result-codigo');
+
+    if (data.eh_perdedor) {
+        box.className = 'perdeu' + ' ' + (box.className.replace('ganhou','').replace('perdeu','').trim());
+        codigoEl.innerHTML = '<span class="text-danger">' + (data.texto_sem_premio || 'Não foi desta vez!') + '</span>';
+        document.getElementById('btn-girar').disabled = false;
+    } else {
+        box.className = 'ganhou' + ' ' + (box.className.replace('ganhou','').replace('perdeu','').trim());
+        if (data.codigo_resgate) {
+            codigoEl.innerHTML = '🎟️ <strong>Código:</strong> <span style="font-size:1.2rem;letter-spacing:.1em;font-weight:700;">' + data.codigo_resgate + '</span>';
+        } else {
+            codigoEl.innerHTML = '';
+        }
+
+        if (data.precisa_lead) {
+            document.getElementById('lead-form').style.display = 'block';
+        } else {
+            // Sem lead necessário — bloquear mais jogadas nesta sessão
+            document.getElementById('btn-girar').disabled = true;
+        }
+    }
+}
+
+// ── Salvar lead ────────────────────────────────────────────────────────────
+async function salvarLead(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Salvando…';
+
+    const fd = new FormData();
+    const f = id => document.getElementById(id);
+    if (f('l_nome'))     fd.append('nome',     f('l_nome').value);
+    if (f('l_cpf'))      fd.append('cpf',      f('l_cpf').value);
+    if (f('l_telefone')) fd.append('telefone', f('l_telefone').value);
+    if (f('l_endereco')) fd.append('endereco', f('l_endereco').value);
+
+    try {
+        const r = await fetch(LEAD_URL_BASE + jogadaId + '/', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (d.success) {
+            document.getElementById('lead-form').style.display = 'none';
+            document.getElementById('result-codigo').innerHTML +=
+                '<br><span class="text-success fw-bold">✅ Dados salvos! Em breve entraremos em contato.</span>';
+            document.getElementById('btn-girar').disabled = true;
+        }
+    } catch(err) {
+        btn.disabled = false; btn.textContent = '🎁 Resgatar Prêmio';
+        alert('Erro ao salvar. Tente novamente.');
+    }
+}
+
+// ── Cookie helper ─────────────────────────────────────────────────────────
+function getCookie(name) {
+    const v = document.cookie.split('; ').find(r => r.startsWith(name + '='));
+    return v ? v.split('=')[1] : '';
+}
+
+function showError(msg) {
+    const el = document.getElementById('limit-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+}
+</script>
+</body>
+</html>

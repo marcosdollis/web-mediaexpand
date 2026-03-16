@@ -1411,6 +1411,7 @@ class Campanha(models.Model):
 
     TIPO_CHOICES = [
         ('CUPOM', 'Resgate de Cupom de Desconto'),
+        ('ROLETA', 'Roleta de Prêmios'),
         # Adicionar outros tipos aqui conforme necessário:
         # ('SORTEIO', 'Sorteio'),
         # ('PESQUISA', 'Pesquisa de Satisfação'),
@@ -1578,3 +1579,139 @@ class CampanhaLead(models.Model):
 
     def __str__(self):
         return f"Lead #{self.pk} – {self.campanha.nome}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  ROLETA DE PRÊMIOS
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class CampanhaRoletaConfig(models.Model):
+    """Configurações gerais da Roleta de Prêmios."""
+
+    campanha = models.OneToOneField(
+        Campanha, on_delete=models.CASCADE, related_name='config_roleta'
+    )
+    # ── Controle de jogadas ────────────────────────────────────────────────
+    max_jogadas_por_ip_por_dia = models.PositiveIntegerField(
+        default=1,
+        verbose_name='Máx. jogadas por IP por dia',
+        help_text='0 = ilimitado por dia',
+    )
+    max_jogadas_total_por_ip = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Máx. jogadas total por IP',
+        help_text='Deixe em branco para sem limite absoluto.',
+    )
+    # ── Captura de lead pós-prêmio ────────────────────────────────────────
+    capturar_nome     = models.BooleanField(default=True,  verbose_name='Capturar Nome')
+    capturar_cpf      = models.BooleanField(default=False, verbose_name='Capturar CPF')
+    capturar_telefone = models.BooleanField(default=True,  verbose_name='Capturar Telefone')
+    capturar_endereco = models.BooleanField(default=False, verbose_name='Capturar Endereço')
+    # ── Aparência ──────────────────────────────────────────────────────────
+    titulo_pagina    = models.CharField(max_length=200, blank=True, verbose_name='Título da Página')
+    descricao_pagina = models.TextField(blank=True, verbose_name='Instruções para o participante')
+    cor_primaria     = models.CharField(max_length=7, default='#e63946', verbose_name='Cor Principal')
+    texto_botao_girar = models.CharField(
+        max_length=50, default='GIRAR!',
+        verbose_name='Texto do botão de girar',
+    )
+    texto_sem_premio = models.CharField(
+        max_length=150, default='Não foi desta vez! Tente novamente.',
+        verbose_name='Mensagem de consolação',
+        help_text='Exibida quando o participante cai num segmento perdedor.',
+    )
+
+    class Meta:
+        verbose_name = 'Config. Roleta'
+
+    def __str__(self):
+        return f'Config roleta – {self.campanha.nome}'
+
+    @property
+    def captura_algum_dado(self):
+        return any([self.capturar_nome, self.capturar_cpf,
+                    self.capturar_telefone, self.capturar_endereco])
+
+
+class CampanhaRoletaPremio(models.Model):
+    """Um prêmio (segmento) da roleta."""
+
+    campanha = models.ForeignKey(
+        Campanha, on_delete=models.CASCADE, related_name='premios_roleta'
+    )
+    nome = models.CharField(max_length=200, verbose_name='Nome do Prêmio')
+    descricao = models.CharField(max_length=400, blank=True, verbose_name='Descrição')
+    codigo_resgate = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Código de Resgate',
+        help_text='Código ou instrução entregue ao ganhador (opcional).',
+    )
+    peso = models.PositiveIntegerField(
+        default=10,
+        verbose_name='Peso de Probabilidade',
+        help_text='Quanto maior o peso, mais chance de sair.',
+    )
+    quantidade_maxima = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Qtd. Máxima de Ganhadores',
+        help_text='Deixe em branco para ilimitado.',
+    )
+    cor = models.CharField(max_length=7, default='#f4a261', verbose_name='Cor do Segmento')
+    emoji = models.CharField(max_length=10, blank=True, default='🎁', verbose_name='Emoji')
+    eh_perdedor = models.BooleanField(
+        default=False,
+        verbose_name='É Segmento Perdedor?',
+        help_text='Se marcado, o participante não ganha prêmio ao cair aqui.',
+    )
+    ativo = models.BooleanField(default=True)
+    ordem = models.PositiveIntegerField(default=0, verbose_name='Ordem na roleta')
+
+    class Meta:
+        verbose_name = 'Prêmio da Roleta'
+        verbose_name_plural = 'Prêmios da Roleta'
+        ordering = ['ordem', 'id']
+
+    def __str__(self):
+        return f'{self.nome} (peso {self.peso})'
+
+    @property
+    def total_ganhos(self):
+        return self.jogadas.filter(ganhou=True).count()
+
+    @property
+    def esgotado(self):
+        if not self.quantidade_maxima:
+            return False
+        return self.total_ganhos >= self.quantidade_maxima
+
+
+class CampanhaJogada(models.Model):
+    """Registro de cada jogada na roleta."""
+
+    campanha = models.ForeignKey(
+        Campanha, on_delete=models.CASCADE, related_name='jogadas'
+    )
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    premio = models.ForeignKey(
+        CampanhaRoletaPremio,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='jogadas',
+    )
+    ganhou = models.BooleanField(default=False)
+    # Lead preenchido após ganhar (opcional)
+    nome     = models.CharField(max_length=200, blank=True)
+    cpf      = models.CharField(max_length=14,  blank=True)
+    telefone = models.CharField(max_length=20,  blank=True)
+    endereco = models.CharField(max_length=400, blank=True)
+    lead_salvo = models.BooleanField(default=False)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Jogada'
+        verbose_name_plural = 'Jogadas'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'Jogada #{self.pk} – {self.campanha.nome} – {"Ganhou" if self.ganhou else "Não ganhou"}'

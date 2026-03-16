@@ -115,6 +115,7 @@ urlpatterns = [
     path('campanhas/<int:pk>/delete/', views.campanha_delete_view, name='campanha_delete'),
     path('campanhas/<int:pk>/toggle-status/', views.campanha_toggle_status_view, name='campanha_toggle_status'),
     path('campanhas/<int:pk>/leads/', views.campanha_leads_view, name='campanha_leads'),
+    path('campanhas/<int:pk>/jogadas/', views.campanha_jogadas_view, name='campanha_jogadas'),
 
     # LAB — Teste de variantes de codificação FireTV (página provisória)
     path('lab/video-encode/', views.lab_video_encode_view, name='lab_video_encode'),
