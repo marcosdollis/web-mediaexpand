@@ -2413,6 +2413,9 @@ def agendamento_update_view(request, dispositivo_pk, pk):
     if user.is_franchisee() and dispositivo.municipio.franqueado != user:
         messages.error(request, 'Você não tem permissão para editar este agendamento.')
         return redirect('dispositivo_detail', pk=dispositivo_pk)
+    if user.is_franchisee() and agendamento.playlist and agendamento.playlist.franqueado != user:
+        messages.error(request, 'Você não pode editar um agendamento de playlist adicionada pelo administrador.')
+        return redirect('dispositivo_detail', pk=dispositivo_pk)
     
     if request.method == 'POST':
         form = AgendamentoExibicaoForm(request.POST, instance=agendamento, user=user)
@@ -2446,6 +2449,9 @@ def agendamento_delete_view(request, dispositivo_pk, pk):
     # Verificar permissões
     if user.is_franchisee() and dispositivo.municipio.franqueado != user:
         messages.error(request, 'Você não tem permissão para deletar este agendamento.')
+        return redirect('dispositivo_detail', pk=dispositivo_pk)
+    if user.is_franchisee() and agendamento.playlist and agendamento.playlist.franqueado != user:
+        messages.error(request, 'Você não pode desvincular uma playlist adicionada pelo administrador.')
         return redirect('dispositivo_detail', pk=dispositivo_pk)
     
     if request.method == 'POST':

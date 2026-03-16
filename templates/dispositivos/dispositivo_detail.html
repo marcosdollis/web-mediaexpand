@@ -137,12 +137,14 @@
                                     <a href="{% url 'playlist_detail' ag.playlist.pk %}" class="btn btn-sm btn-outline-primary" title="Ver Playlist">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    {% if not request.user.is_franchisee or ag.playlist.franqueado == request.user %}
                                     <a href="{% url 'agendamento_update' dispositivo.pk ag.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     <a href="{% url 'agendamento_delete' dispositivo.pk ag.pk %}" class="btn btn-sm btn-outline-danger" title="Desvincular">
                                         <i class="fas fa-unlink"></i>
                                     </a>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
