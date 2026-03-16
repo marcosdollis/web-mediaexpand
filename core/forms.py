@@ -347,8 +347,12 @@ class AgendamentoExibicaoForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        self.fields['playlist'].queryset = Playlist.objects.filter(ativa=True)
+        if user is not None and hasattr(user, 'is_franchisee') and user.is_franchisee():
+            self.fields['playlist'].queryset = Playlist.objects.filter(ativa=True, franqueado=user)
+        else:
+            self.fields['playlist'].queryset = Playlist.objects.filter(ativa=True)
         self.fields['playlist'].required = True
         self.fields['playlist'].help_text = 'Playlist a ser exibida neste dispositivo'
         self.fields['percentual'].help_text = (

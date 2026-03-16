@@ -2379,7 +2379,7 @@ def agendamento_create_view(request, dispositivo_pk):
         return redirect('dispositivo_detail', pk=dispositivo_pk)
     
     if request.method == 'POST':
-        form = AgendamentoExibicaoForm(request.POST)
+        form = AgendamentoExibicaoForm(request.POST, user=user)
         if form.is_valid():
             agendamento = form.save(commit=False)
             agendamento.dispositivo = dispositivo
@@ -2387,7 +2387,7 @@ def agendamento_create_view(request, dispositivo_pk):
             messages.success(request, 'Agendamento criado com sucesso!')
             return redirect('dispositivo_detail', pk=dispositivo_pk)
     else:
-        form = AgendamentoExibicaoForm()
+        form = AgendamentoExibicaoForm(user=user)
     
     context = {
         'form': form,
@@ -2415,13 +2415,13 @@ def agendamento_update_view(request, dispositivo_pk, pk):
         return redirect('dispositivo_detail', pk=dispositivo_pk)
     
     if request.method == 'POST':
-        form = AgendamentoExibicaoForm(request.POST, instance=agendamento)
+        form = AgendamentoExibicaoForm(request.POST, instance=agendamento, user=user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Playlist atualizada com sucesso!')
             return redirect('dispositivo_detail', pk=dispositivo_pk)
     else:
-        form = AgendamentoExibicaoForm(instance=agendamento)
+        form = AgendamentoExibicaoForm(instance=agendamento, user=user)
     
     context = {
         'form': form,
