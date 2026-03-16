@@ -5627,6 +5627,19 @@ def campanha_landing_view(request, token):
     config = getattr(campanha, 'config_cupom', None)
 
     if request.method == 'POST' and not encerrada and campanha.tipo == 'CUPOM' and config:
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip() or None
+
+        # ── Deduplicação por IP (modos com lead) ──────────────────────────────
+        if config.modo_codigo in ('CODIGO_UNICO', 'CODIGO_POR_CLIENTE') and ip:
+            lead_existente = campanha.leads.filter(ip=ip).first()
+            if lead_existente:
+                return render(request, 'campanhas/campanha_resgate_sucesso.html', {
+                    'campanha': campanha,
+                    'config': config,
+                    'codigo': lead_existente.codigo_cupom,
+                    'ja_resgatado': True,
+                })
+
         nome     = request.POST.get('nome', '').strip()
         cpf      = request.POST.get('cpf', '').strip()
         telefone = request.POST.get('telefone', '').strip()
@@ -5641,8 +5654,6 @@ def campanha_landing_view(request, token):
         else:  # SEM_LEAD
             codigo = config.codigo_unico
 
-        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip()
-
         # Salvar lead (sempre salva quando há captura ou código individual)
         if config.modo_codigo != 'SEM_LEAD' or config.captura_algum_dado:
             CampanhaLead.objects.create(
@@ -5652,13 +5663,14 @@ def campanha_landing_view(request, token):
                 telefone=telefone,
                 endereco=endereco,
                 codigo_cupom=codigo,
-                ip=ip or None,
+                ip=ip,
             )
 
         return render(request, 'campanhas/campanha_resgate_sucesso.html', {
             'campanha': campanha,
             'config': config,
             'codigo': codigo,
+            'ja_resgatado': False,
         })
 
     # GET: mostrar o formulário (ou código direto no modo SEM_LEAD)

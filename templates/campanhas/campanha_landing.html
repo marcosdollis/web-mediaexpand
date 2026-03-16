@@ -169,5 +169,30 @@ if (telInput) {
     });
 }
 </script>
+
+<script>
+// ── localStorage: bloquear resgates duplicados no mesmo dispositivo ──
+const LS_KEY = 'campanha_resgatada_{{ campanha.token }}';
+const saved = (() => { try { return JSON.parse(localStorage.getItem(LS_KEY)); } catch(e){ return null; } })();
+
+if (saved && saved.codigo) {
+    document.addEventListener('DOMContentLoaded', function() {
+        const card = document.querySelector('.card-main');
+        card.innerHTML = `
+            <div class="text-center">
+                <div style="width:72px;height:72px;background:var(--cor);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:2rem;color:#fff;">
+                    <i class="fas fa-history"></i>
+                </div>
+                <h2 class="h4 fw-bold">Você já resgatou este cupom</h2>
+                <p class="text-muted mb-4">Aqui está o seu código já registrado neste dispositivo:</p>
+                <div class="p-4 rounded-3 border-2 border" style="border-color:var(--cor)!important;background:rgba(0,0,0,.03);">
+                    <p class="text-muted mb-1 small">Seu código</p>
+                    <h2 class="fw-bold mb-0" style="letter-spacing:.15em;font-size:2rem;">${saved.codigo}</h2>
+                </div>
+                <p class="text-muted small mt-3"><i class="fas fa-info-circle me-1"></i>Cada pessoa só pode resgatar uma vez por dispositivo.</p>
+            </div>`;
+    });
+}
+</script>
 </body>
 </html>

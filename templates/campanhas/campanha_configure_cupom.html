@@ -182,7 +182,8 @@ function selectModo(v) {
 }
 function updateModoUI() {
     const v = document.querySelector('input[name="modo_codigo"]:checked')?.value;
-    document.getElementById('section-codigo-unico').style.display = (v === 'CODIGO_UNICO') ? '' : 'none';
+    // SEM_LEAD: ainda precisa de um código cadastrado para exibir diretamente
+    document.getElementById('section-codigo-unico').style.display = (v === 'CODIGO_UNICO' || v === 'SEM_LEAD') ? '' : 'none';
     document.getElementById('section-prefixo').style.display      = (v === 'CODIGO_POR_CLIENTE') ? '' : 'none';
     document.getElementById('section-leads').style.display        = (v === 'SEM_LEAD') ? 'none' : '';
     document.querySelectorAll('.modo-option').forEach(el => el.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10'));

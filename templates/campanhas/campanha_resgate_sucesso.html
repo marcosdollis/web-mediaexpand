@@ -50,8 +50,16 @@
         <div class="success-icon">
             <i class="fas fa-check"></i>
         </div>
-        <h2 class="h4 text-center fw-bold mb-1">Cupom Resgatado!</h2>
+        <h2 class="h4 text-center fw-bold mb-1">
+            {% if ja_resgatado %}Cupom Já Resgatado{% else %}Cupom Resgatado!{% endif %}
+        </h2>
         <p class="text-center text-muted mb-4">{{ campanha.nome }}</p>
+
+        {% if ja_resgatado %}
+        <div class="alert alert-warning py-2 text-center small mb-3">
+            <i class="fas fa-exclamation-triangle me-1"></i>Este cupom já foi resgatado com este IP. Exibindo o código registrado.
+        </div>
+        {% endif %}
 
         <div class="cupom-box mb-4">
             <p class="text-muted mb-2 small text-uppercase fw-semibold">Seu código de desconto</p>
@@ -70,6 +78,15 @@
     <p class="text-center text-white-50 mt-3 small">Powered by MediaExpand</p>
 </div>
 <script>
+// Salvar no localStorage para bloquear resgates duplicados no mesmo dispositivo
+const LS_KEY = 'campanha_resgatada_{{ campanha.token }}';
+try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+        codigo: '{{ codigo|escapejs }}',
+        ts: Date.now()
+    }));
+} catch(e){}
+
 function copyCupom() {
     const code = document.getElementById('codigoText').textContent.trim();
     navigator.clipboard.writeText(code).then(() => {
