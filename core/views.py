@@ -3710,7 +3710,6 @@ def serve_media_streaming(request, path):
 #  VIEWS: Conteúdo Corporativo & Configuração de API
 # ══════════════════════════════════════════════════════════
 
-@login_required
 def _conteudos_visiveis(user):
     """Retorna queryset de conteúdos corporativos visíveis para o usuário.
     - Owner: tudo.

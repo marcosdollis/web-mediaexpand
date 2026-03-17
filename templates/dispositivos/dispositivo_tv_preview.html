@@ -217,6 +217,7 @@ const VIDEOS = {{ videos_json|safe }};
 
 let idx = 0;
 let progressTimer = null;
+let webviewTimer = null;
 
 const vid    = document.getElementById('vid');
 const frm    = document.getElementById('frm');
@@ -267,6 +268,9 @@ function playAt(i) {
         empty.style.display = 'flex';
         return;
     }
+    // Cancel any pending webview auto-advance
+    if (webviewTimer) { clearTimeout(webviewTimer); webviewTimer = null; }
+    stopProgress();
     idx = ((i % VIDEOS.length) + VIDEOS.length) % VIDEOS.length;
     const v = VIDEOS[idx];
     counter.textContent = `${idx + 1} / ${VIDEOS.length}`;
@@ -303,7 +307,8 @@ function playAt(i) {
         // fallback: se onload não disparar em 5s, esconde o spinner mesmo assim
         const fallbackTimer = setTimeout(() => showLoading(false), 5000);
         frm.addEventListener('load', () => clearTimeout(fallbackTimer), { once: true });
-        setTimeout(nextVideo, (v.duracao_segundos || 10) * 1000);
+        const dur = (v.duracao_segundos || 10) * 1000;
+        webviewTimer = setTimeout(() => { webviewTimer = null; stopProgress(); nextVideo(); }, dur);
     } else {
         // Vídeo
         frm.style.display = 'none';
