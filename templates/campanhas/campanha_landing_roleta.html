@@ -117,7 +117,7 @@
             <div class="mb-2"><input type="text" id="l_cpf" class="form-control" placeholder="CPF *" required maxlength="14"></div>
             {% endif %}
             {% if config and config.capturar_telefone %}
-            <div class="mb-2"><input type="tel" id="l_telefone" class="form-control" placeholder="Telefone / WhatsApp *" required></div>
+            <div class="mb-2"><input type="tel" id="l_telefone" class="form-control" placeholder="(11) 91234-5678 *" required maxlength="15"></div>
             {% endif %}
             {% if config and config.capturar_endereco %}
             <div class="mb-2"><input type="text" id="l_endereco" class="form-control" placeholder="Endereço *" required></div>
@@ -327,6 +327,20 @@ async function salvarLead(e) {
 }
 
 // ── Cookie helper ─────────────────────────────────────────────────────────
+// ── Máscara de telefone ──────────────────────────────────────────────────
+(function(){
+    const tel = document.getElementById('l_telefone');
+    if (!tel) return;
+    tel.addEventListener('input', function(){
+        let v = this.value.replace(/\D/g, '').substring(0, 11);
+        if (v.length <= 10)
+            v = v.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+        else
+            v = v.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+        this.value = v.replace(/-$/, '');
+    });
+})();
+
 function getCookie(name) {
     const v = document.cookie.split('; ').find(r => r.startsWith(name + '='));
     return v ? v.split('=')[1] : '';

@@ -5915,6 +5915,17 @@ def campanha_roleta_lead_view(request, token, jogada_pk):
     jogada.lead_salvo = True
     jogada.save(update_fields=['nome', 'cpf', 'telefone', 'endereco', 'lead_salvo'])
 
+    # Também registrar como CampanhaLead para aparecer na aba "Leads"
+    CampanhaLead.objects.create(
+        campanha=campanha,
+        nome=jogada.nome,
+        cpf=jogada.cpf,
+        telefone=jogada.telefone,
+        endereco=jogada.endereco,
+        codigo_cupom=jogada.premio.codigo_resgate if jogada.premio else '',
+        ip=jogada.ip,
+    )
+
     return JsonResponse({'success': True, 'ja_salvo': False})
 
 
@@ -5933,22 +5944,25 @@ def campanha_jogadas_view(request, pk):
 
     # Exportação CSV
     if request.GET.get('export') == 'csv':
-        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
-        response['Content-Disposition'] = f'attachment; filename="jogadas_{campanha.pk}.csv"'
-        writer = csv.writer(response)
-        writer.writerow(['#', 'Data', 'IP', 'Prêmio', 'Ganhou', 'Nome', 'CPF', 'Telefone', 'Endereço'])
+        import io
+        output = io.StringIO()
+        output.write('\ufeff')  # BOM para Excel abrir sem problemas de encoding
+        writer = csv.writer(output)
+        writer.writerow(['#', 'Data', 'IP', 'Premio', 'Ganhou', 'Nome', 'CPF', 'Telefone', 'Endereco'])
         for j in jogadas:
             writer.writerow([
                 j.pk,
                 j.criado_em.strftime('%d/%m/%Y %H:%M'),
                 j.ip or '',
                 j.premio.nome if j.premio else '',
-                'Sim' if j.ganhou else 'Não',
-                j.nome,
-                j.cpf,
-                j.telefone,
-                j.endereco,
+                'Sim' if j.ganhou else 'Nao',
+                j.nome or '',
+                j.cpf or '',
+                j.telefone or '',
+                j.endereco or '',
             ])
+        response = HttpResponse(output.getvalue(), content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="jogadas_{campanha.pk}.csv"'
         return response
 
     return render(request, 'campanhas/campanha_jogadas.html', {
