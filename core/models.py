@@ -1412,6 +1412,7 @@ class Campanha(models.Model):
     TIPO_CHOICES = [
         ('CUPOM', 'Resgate de Cupom de Desconto'),
         ('ROLETA', 'Roleta de Prêmios'),
+        ('CARTA', 'Virar a Carta'),
         # Adicionar outros tipos aqui conforme necessário:
         # ('SORTEIO', 'Sorteio'),
         # ('PESQUISA', 'Pesquisa de Satisfação'),
@@ -1715,3 +1716,65 @@ class CampanhaJogada(models.Model):
 
     def __str__(self):
         return f'Jogada #{self.pk} – {self.campanha.nome} – {"Ganhou" if self.ganhou else "Não ganhou"}'
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  VIRAR A CARTA
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class CampanhaCartaConfig(models.Model):
+    """Configurações da campanha Virar a Carta."""
+
+    campanha = models.OneToOneField(
+        Campanha, on_delete=models.CASCADE, related_name='config_carta'
+    )
+    # ── Controle de jogadas ───────────────────────────────────────────────
+    max_jogadas_por_ip_por_dia = models.PositiveIntegerField(
+        default=1, verbose_name='Máx. jogadas por IP por dia',
+        help_text='0 = ilimitado por dia',
+    )
+    max_jogadas_total_por_ip = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name='Máx. jogadas total por IP',
+        help_text='Deixe em branco para sem limite absoluto.',
+    )
+    # ── Captura de lead pós-prêmio ──────────────────────────────────────
+    capturar_nome     = models.BooleanField(default=True,  verbose_name='Capturar Nome')
+    capturar_cpf      = models.BooleanField(default=False, verbose_name='Capturar CPF')
+    capturar_telefone = models.BooleanField(default=True,  verbose_name='Capturar Telefone')
+    capturar_endereco = models.BooleanField(default=False, verbose_name='Capturar Endereço')
+    # ── Aparência ──────────────────────────────────────────────────────
+    titulo_pagina    = models.CharField(max_length=200, blank=True, verbose_name='Título da Página')
+    descricao_pagina = models.TextField(blank=True, verbose_name='Instruções')
+    cor_primaria     = models.CharField(max_length=7, default='#1a1a2e', verbose_name='Cor de Fundo da Página')
+    cor_verso_carta  = models.CharField(max_length=7, default='#16213e', verbose_name='Cor do Verso da Carta')
+    cor_frente_carta = models.CharField(max_length=7, default='#e63946', verbose_name='Cor da Frente da Carta')
+    texto_verso_carta = models.CharField(
+        max_length=100, default='Vire a carta!',
+        verbose_name='Texto no verso da carta',
+    )
+    texto_botao_virar = models.CharField(
+        max_length=50, default='Virar a Carta!',
+        verbose_name='Texto do botão',
+    )
+    texto_sem_premio = models.CharField(
+        max_length=150, default='Não foi desta vez! Tente novamente.',
+        verbose_name='Mensagem de consolação',
+    )
+    logo = models.ImageField(
+        upload_to='campanhas/logos/',
+        null=True, blank=True,
+        verbose_name='Logo da empresa (verso da carta)',
+        help_text='Opcional. Se não informado, exibe padrão de cartas.',
+    )
+
+    class Meta:
+        verbose_name = 'Config. Carta'
+
+    def __str__(self):
+        return f'Config carta – {self.campanha.nome}'
+
+    @property
+    def captura_algum_dado(self):
+        return any([self.capturar_nome, self.capturar_cpf,
+                    self.capturar_telefone, self.capturar_endereco])

@@ -15,6 +15,7 @@ from .models import (
     HorarioFuncionamento, LogExibicaoWebView,
     Campanha, CampanhaCupomConfig, CampanhaLead,
     CampanhaRoletaConfig, CampanhaRoletaPremio, CampanhaJogada,
+    CampanhaCartaConfig,
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -5490,6 +5491,8 @@ def campanha_create_view(request):
             CampanhaCupomConfig.objects.create(campanha=campanha)
         elif tipo == 'ROLETA':
             CampanhaRoletaConfig.objects.create(campanha=campanha)
+        elif tipo == 'CARTA':
+            CampanhaCartaConfig.objects.create(campanha=campanha)
 
         messages.success(request, f'Campanha "{nome}" criada. Configure os detalhes abaixo.')
         return redirect('campanha_configure', pk=campanha.pk)
@@ -5622,6 +5625,92 @@ def campanha_configure_view(request, pk):
             'status_choices': Campanha.STATUS_CHOICES,
         })
 
+    if campanha.tipo == 'CARTA':
+        config, _ = CampanhaCartaConfig.objects.get_or_create(campanha=campanha)
+        premios = campanha.premios_roleta.all()
+
+        if request.method == 'POST':
+            action = request.POST.get('action', 'save_config')
+
+            if action == 'add_premio':
+                CampanhaRoletaPremio.objects.create(
+                    campanha=campanha,
+                    nome=request.POST.get('p_nome', 'Novo Prêmio').strip() or 'Novo Prêmio',
+                    descricao=request.POST.get('p_descricao', '').strip(),
+                    codigo_resgate=request.POST.get('p_codigo_resgate', '').strip(),
+                    peso=int(request.POST.get('p_peso', 10) or 10),
+                    quantidade_maxima=int(request.POST.get('p_quantidade_maxima')) if request.POST.get('p_quantidade_maxima') else None,
+                    cor=request.POST.get('p_cor', '#e63946').strip() or '#e63946',
+                    emoji=request.POST.get('p_emoji', '🎁').strip(),
+                    eh_perdedor='p_eh_perdedor' in request.POST,
+                    ativo=True,
+                    ordem=int(request.POST.get('p_ordem', 0) or 0),
+                )
+                messages.success(request, 'Carta adicionada.')
+                return redirect('campanha_configure', pk=campanha.pk)
+
+            elif action == 'edit_premio':
+                pid = request.POST.get('p_id')
+                try:
+                    premio = campanha.premios_roleta.get(pk=pid)
+                    premio.nome = request.POST.get('p_nome', premio.nome).strip() or premio.nome
+                    premio.descricao = request.POST.get('p_descricao', '').strip()
+                    premio.codigo_resgate = request.POST.get('p_codigo_resgate', '').strip()
+                    premio.peso = int(request.POST.get('p_peso', premio.peso) or premio.peso)
+                    qmax = request.POST.get('p_quantidade_maxima')
+                    premio.quantidade_maxima = int(qmax) if qmax else None
+                    premio.cor = request.POST.get('p_cor', premio.cor).strip() or premio.cor
+                    premio.emoji = request.POST.get('p_emoji', '🎁').strip()
+                    premio.eh_perdedor = 'p_eh_perdedor' in request.POST
+                    premio.ativo = 'p_ativo' in request.POST
+                    premio.ordem = int(request.POST.get('p_ordem', premio.ordem) or 0)
+                    premio.save()
+                    messages.success(request, 'Carta atualizada.')
+                except CampanhaRoletaPremio.DoesNotExist:
+                    messages.error(request, 'Carta não encontrada.')
+                return redirect('campanha_configure', pk=campanha.pk)
+
+            elif action == 'delete_premio':
+                pid = request.POST.get('p_id')
+                campanha.premios_roleta.filter(pk=pid).delete()
+                messages.success(request, 'Carta removida.')
+                return redirect('campanha_configure', pk=campanha.pk)
+
+            else:  # save_config
+                config.max_jogadas_por_ip_por_dia = int(request.POST.get('max_jogadas_por_ip_por_dia', 1) or 1)
+                mjt = request.POST.get('max_jogadas_total_por_ip')
+                config.max_jogadas_total_por_ip = int(mjt) if mjt else None
+                config.capturar_nome     = 'capturar_nome'     in request.POST
+                config.capturar_cpf      = 'capturar_cpf'      in request.POST
+                config.capturar_telefone = 'capturar_telefone' in request.POST
+                config.capturar_endereco = 'capturar_endereco' in request.POST
+                config.titulo_pagina    = request.POST.get('titulo_pagina', '').strip()
+                config.descricao_pagina = request.POST.get('descricao_pagina', '').strip()
+                config.cor_primaria     = request.POST.get('cor_primaria', '#1a1a2e').strip()
+                config.cor_verso_carta  = request.POST.get('cor_verso_carta', '#16213e').strip()
+                config.cor_frente_carta = request.POST.get('cor_frente_carta', '#e63946').strip()
+                config.texto_verso_carta = request.POST.get('texto_verso_carta', 'Vire a carta!').strip() or 'Vire a carta!'
+                config.texto_botao_virar = request.POST.get('texto_botao_virar', 'Virar a Carta!').strip() or 'Virar a Carta!'
+                config.texto_sem_premio = request.POST.get('texto_sem_premio', '').strip() or config.texto_sem_premio
+                if 'logo' in request.FILES:
+                    config.logo = request.FILES['logo']
+                config.save()
+
+                campanha.nome    = request.POST.get('nome', campanha.nome).strip() or campanha.nome
+                campanha.data_fim = request.POST.get('data_fim') or None
+                campanha.status  = request.POST.get('status', campanha.status)
+                campanha.save()
+
+                messages.success(request, 'Virar a Carta configurada com sucesso!')
+                return redirect('campanha_detail', pk=campanha.pk)
+
+        return render(request, 'campanhas/campanha_configure_carta.html', {
+            'campanha': campanha,
+            'config': config,
+            'premios': premios,
+            'status_choices': Campanha.STATUS_CHOICES,
+        })
+
     messages.warning(request, 'Tipo de campanha ainda não suportado.')
     return redirect('campanha_list')
 
@@ -5637,12 +5726,14 @@ def campanha_detail_view(request, pk):
     leads_count = campanha.leads.count()
     config = getattr(campanha, 'config_cupom', None)
     config_roleta = getattr(campanha, 'config_roleta', None)
-    jogadas_count = campanha.jogadas.count() if campanha.tipo == 'ROLETA' else 0
-    ganhadores_count = campanha.jogadas.filter(ganhou=True).count() if campanha.tipo == 'ROLETA' else 0
+    config_carta = getattr(campanha, 'config_carta', None)
+    jogadas_count = campanha.jogadas.count() if campanha.tipo in ('ROLETA', 'CARTA') else 0
+    ganhadores_count = campanha.jogadas.filter(ganhou=True).count() if campanha.tipo in ('ROLETA', 'CARTA') else 0
     return render(request, 'campanhas/campanha_detail.html', {
         'campanha': campanha,
         'config': config,
         'config_roleta': config_roleta,
+        'config_carta': config_carta,
         'leads_count': leads_count,
         'jogadas_count': jogadas_count,
         'ganhadores_count': ganhadores_count,
@@ -5725,6 +5816,9 @@ def campanha_landing_view(request, token):
     # Dispatch por tipo
     if campanha.tipo == 'ROLETA':
         return _campanha_roleta_landing(request, campanha, encerrada)
+
+    if campanha.tipo == 'CARTA':
+        return _campanha_carta_landing(request, campanha, encerrada)
 
     if request.method == 'POST' and not encerrada and campanha.tipo == 'CUPOM' and config:
         ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip() or None
@@ -5971,3 +6065,136 @@ def campanha_jogadas_view(request, pk):
         'total': jogadas.count(),
         'ganhadores': jogadas.filter(ganhou=True).count(),
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  VIRAR A CARTA — views públicas e autenticadas
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _campanha_carta_landing(request, campanha, encerrada):
+    """Renderiza a landing page do jogo Virar a Carta (flip é via AJAX)."""
+    import json
+    config = getattr(campanha, 'config_carta', None)
+    premios = list(campanha.premios_roleta.filter(ativo=True).order_by('ordem', 'id'))
+    premios_json = json.dumps([
+        {'id': p.pk, 'nome': p.nome, 'emoji': p.emoji, 'cor': p.cor, 'eh_perdedor': p.eh_perdedor}
+        for p in premios
+    ])
+    logo_url = None
+    if config and config.logo:
+        try:
+            logo_url = config.logo.url
+        except Exception:
+            pass
+    return render(request, 'campanhas/campanha_landing_carta.html', {
+        'campanha': campanha,
+        'config': config,
+        'premios': premios,
+        'premios_json': premios_json,
+        'encerrada': encerrada,
+        'logo_url': logo_url,
+    })
+
+
+@csrf_exempt
+def campanha_carta_flip_view(request, token):
+    """AJAX POST — realiza uma jogada no Virar a Carta. Retorna JSON."""
+    import random
+    from django.utils import timezone
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'motivo': 'metodo_invalido'}, status=405)
+
+    campanha = get_object_or_404(Campanha, token=token, tipo='CARTA')
+
+    if not campanha.is_ativa:
+        return JsonResponse({'success': False, 'motivo': 'encerrada'})
+
+    config = getattr(campanha, 'config_carta', None)
+    if not config:
+        return JsonResponse({'success': False, 'motivo': 'sem_configuracao'})
+
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip() or None
+
+    # ── Verificar limite diário ───────────────────────────────────────────
+    if ip and config.max_jogadas_por_ip_por_dia > 0:
+        hoje = timezone.localdate()
+        jogadas_hoje = campanha.jogadas.filter(ip=ip, criado_em__date=hoje).count()
+        if jogadas_hoje >= config.max_jogadas_por_ip_por_dia:
+            return JsonResponse({'success': False, 'motivo': 'limite_diario'})
+
+    # ── Verificar limite total ────────────────────────────────────────────
+    if ip and config.max_jogadas_total_por_ip:
+        total = campanha.jogadas.filter(ip=ip).count()
+        if total >= config.max_jogadas_total_por_ip:
+            return JsonResponse({'success': False, 'motivo': 'limite_total'})
+
+    # ── Sortear prêmio ────────────────────────────────────────────────────
+    premios_ativos = list(campanha.premios_roleta.filter(ativo=True).order_by('ordem', 'id'))
+    if not premios_ativos:
+        return JsonResponse({'success': False, 'motivo': 'sem_premios'})
+
+    disponiveis = [p for p in premios_ativos if not p.esgotado]
+    if not disponiveis:
+        return JsonResponse({'success': False, 'motivo': 'todos_esgotados'})
+
+    pesos = [p.peso for p in disponiveis]
+    winner = random.choices(disponiveis, weights=pesos, k=1)[0]
+
+    # ── Criar jogada ──────────────────────────────────────────────────────
+    jogada = CampanhaJogada.objects.create(
+        campanha=campanha,
+        ip=ip,
+        premio=winner,
+        ganhou=not winner.eh_perdedor,
+    )
+
+    precisa_lead = (not winner.eh_perdedor) and config.captura_algum_dado
+
+    return JsonResponse({
+        'success': True,
+        'jogada_id': jogada.pk,
+        'ganhou': jogada.ganhou,
+        'eh_perdedor': winner.eh_perdedor,
+        'nome_premio': winner.nome,
+        'emoji': winner.emoji,
+        'cor': winner.cor,
+        'codigo_resgate': winner.codigo_resgate if not winner.eh_perdedor else '',
+        'precisa_lead': precisa_lead,
+        'texto_sem_premio': config.texto_sem_premio,
+    })
+
+
+@csrf_exempt
+def campanha_carta_lead_view(request, token, jogada_pk):
+    """AJAX/POST público — salva os dados de lead após virar a carta e ganhar."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False}, status=405)
+
+    campanha = get_object_or_404(Campanha, token=token, tipo='CARTA')
+    jogada = get_object_or_404(CampanhaJogada, pk=jogada_pk, campanha=campanha)
+
+    if jogada.lead_salvo:
+        return JsonResponse({'success': True, 'ja_salvo': True})
+
+    config = getattr(campanha, 'config_carta', None)
+
+    jogada.nome     = request.POST.get('nome', '').strip() if (config and config.capturar_nome)     else ''
+    jogada.cpf      = request.POST.get('cpf',  '').strip() if (config and config.capturar_cpf)      else ''
+    jogada.telefone = request.POST.get('telefone', '').strip() if (config and config.capturar_telefone) else ''
+    jogada.endereco = request.POST.get('endereco', '').strip() if (config and config.capturar_endereco) else ''
+    jogada.lead_salvo = True
+    jogada.save(update_fields=['nome', 'cpf', 'telefone', 'endereco', 'lead_salvo'])
+
+    # Registrar como CampanhaLead para aparecer na aba "Leads"
+    CampanhaLead.objects.create(
+        campanha=campanha,
+        nome=jogada.nome,
+        cpf=jogada.cpf,
+        telefone=jogada.telefone,
+        endereco=jogada.endereco,
+        codigo_cupom=jogada.premio.codigo_resgate if jogada.premio else '',
+        ip=jogada.ip,
+    )
+
+    return JsonResponse({'success': True, 'ja_salvo': False})

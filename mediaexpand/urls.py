@@ -137,7 +137,7 @@ Todos os endpoints REST padrão para gerenciamento de:
    permission_classes=(permissions.AllowAny,),
 )
 
-from core.views import qrcode_redirect_view, serve_media_streaming, campanha_landing_view, campanha_spin_view, campanha_roleta_lead_view
+from core.views import qrcode_redirect_view, serve_media_streaming, campanha_landing_view, campanha_spin_view, campanha_roleta_lead_view, campanha_carta_flip_view, campanha_carta_lead_view
 
 urlpatterns = [
     path('', include('core.urls_web')),  # Web URLs (templates)
@@ -153,6 +153,8 @@ urlpatterns = [
     path('c/<uuid:token>/', campanha_landing_view, name='campanha_landing'),
     path('c/<uuid:token>/spin/', campanha_spin_view, name='campanha_spin'),
     path('c/<uuid:token>/lead/<int:jogada_pk>/', campanha_roleta_lead_view, name='campanha_roleta_lead'),
+    path('c/<uuid:token>/flip/', campanha_carta_flip_view, name='campanha_carta_flip'),
+    path('c/<uuid:token>/carta-lead/<int:jogada_pk>/', campanha_carta_lead_view, name='campanha_carta_lead'),
     
     # Swagger/OpenAPI Documentation
     re_path(r'^api/swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),

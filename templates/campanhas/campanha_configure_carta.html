@@ -1,0 +1,359 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block title %}Configurar Virar a Carta - {{ campanha.nome }}{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'campanha_list' %}">Campanhas</a></li>
+                <li class="breadcrumb-item active">Configurar Carta</li>
+            </ol>
+        </nav>
+        <h1 class="h3 mb-0"><i class="fas fa-clone me-2 text-danger"></i>Configurar Virar a Carta</h1>
+        <p class="text-muted">Passo 2 de 2 — {{ campanha.nome }}</p>
+    </div>
+
+    {% if messages %}{% for msg in messages %}
+    <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}success{% endif %} alert-dismissible fade show">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}{% endif %}
+
+    <div class="row g-4">
+        <!-- ═══════════════════════════════════════════════════════════ PAINEL ESQUERDO -->
+        <div class="col-xl-6">
+            <form method="post" enctype="multipart/form-data" id="form-config">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save_config">
+
+                <div class="card shadow mb-4">
+                    <div class="card-header fw-semibold"><i class="fas fa-cog me-2"></i>Informações Gerais</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">Nome da Campanha</label>
+                                <input type="text" name="nome" class="form-control" value="{{ campanha.nome }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Status</label>
+                                <select name="status" class="form-select">
+                                    {% for v, l in status_choices %}
+                                    <option value="{{ v }}" {% if campanha.status == v %}selected{% endif %}>{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Data/Hora de Encerramento <small class="text-muted fw-normal">(opcional)</small></label>
+                                <input type="datetime-local" name="data_fim" class="form-control"
+                                       value="{% if campanha.data_fim %}{{ campanha.data_fim|date:'Y-m-d' }}T{{ campanha.data_fim|time:'H:i' }}{% endif %}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow mb-4">
+                    <div class="card-header fw-semibold"><i class="fas fa-gamepad me-2"></i>Controle de Jogadas</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Máx. jogadas por IP por dia</label>
+                                <input type="number" name="max_jogadas_por_ip_por_dia" class="form-control" min="0"
+                                       value="{{ config.max_jogadas_por_ip_por_dia }}">
+                                <div class="form-text">0 = ilimitado por dia</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Máx. jogadas total por IP</label>
+                                <input type="number" name="max_jogadas_total_por_ip" class="form-control" min="1"
+                                       value="{{ config.max_jogadas_total_por_ip|default_if_none:'' }}">
+                                <div class="form-text">Em branco = sem limite absoluto</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow mb-4">
+                    <div class="card-header fw-semibold"><i class="fas fa-user me-2"></i>Captura de Dados do Ganhador</div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">Dados solicitados ao participante <strong>após</strong> ganhar um prêmio (deixe tudo desmarcado para não pedir nada).</p>
+                        <div class="row g-2">
+                            <div class="col-6 col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="capturar_nome" id="capturar_nome"
+                                           {% if config.capturar_nome %}checked{% endif %}>
+                                    <label class="form-check-label" for="capturar_nome">Nome</label>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="capturar_cpf" id="capturar_cpf"
+                                           {% if config.capturar_cpf %}checked{% endif %}>
+                                    <label class="form-check-label" for="capturar_cpf">CPF</label>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="capturar_telefone" id="capturar_telefone"
+                                           {% if config.capturar_telefone %}checked{% endif %}>
+                                    <label class="form-check-label" for="capturar_telefone">Telefone</label>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="capturar_endereco" id="capturar_endereco"
+                                           {% if config.capturar_endereco %}checked{% endif %}>
+                                    <label class="form-check-label" for="capturar_endereco">Endereço</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-2">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Título da Página</label>
+                                <input type="text" name="titulo_pagina" class="form-control" value="{{ config.titulo_pagina }}" placeholder="Ex: Vire a Carta e Ganhe!">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Instruções</label>
+                                <textarea name="descricao_pagina" class="form-control" rows="2" placeholder="Ex: Clique em uma carta e descubra seu prêmio!">{{ config.descricao_pagina }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow mb-4">
+                    <div class="card-header fw-semibold"><i class="fas fa-palette me-2"></i>Aparência das Cartas</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Cor de Fundo da Página</label>
+                                <input type="color" name="cor_primaria" class="form-control form-control-color w-100"
+                                       value="{{ config.cor_primaria }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Cor do Verso (face oculta)</label>
+                                <input type="color" name="cor_verso_carta" class="form-control form-control-color w-100"
+                                       value="{{ config.cor_verso_carta }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Cor da Frente (revelada)</label>
+                                <input type="color" name="cor_frente_carta" class="form-control form-control-color w-100"
+                                       value="{{ config.cor_frente_carta }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Texto no Verso da Carta</label>
+                                <input type="text" name="texto_verso_carta" class="form-control"
+                                       value="{{ config.texto_verso_carta }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Texto do Botão</label>
+                                <input type="text" name="texto_botao_virar" class="form-control"
+                                       value="{{ config.texto_botao_virar }}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Mensagem de consolação</label>
+                                <input type="text" name="texto_sem_premio" class="form-control"
+                                       value="{{ config.texto_sem_premio }}">
+                                <div class="form-text">Exibida quando o participante não ganha nada (carta perdedora).</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Logo da Empresa <small class="text-muted fw-normal">(exibida no verso da carta — opcional)</small></label>
+                                {% if config.logo %}
+                                <div class="mb-2">
+                                    <img src="{{ config.logo.url }}" alt="Logo atual" class="rounded" style="max-height:80px;">
+                                    <span class="ms-2 text-muted small">Logo atual</span>
+                                </div>
+                                {% endif %}
+                                <input type="file" name="logo" class="form-control" accept="image/*">
+                                <div class="form-text">PNG/JPG recomendado. Deixe vazio para manter a logo atual.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Salvar Configurações</button>
+                    <a href="{% url 'campanha_detail' campanha.pk %}" class="btn btn-outline-secondary">Ver Detalhes</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════ PAINEL DIREITO -->
+        <div class="col-xl-6">
+            <div class="card shadow">
+                <div class="card-header d-flex justify-content-between align-items-center fw-semibold">
+                    <span><i class="fas fa-trophy me-2 text-warning"></i>Prêmios das Cartas</span>
+                    <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modalAddPremio">
+                        <i class="fas fa-plus me-1"></i>Adicionar Prêmio
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    {% if premios %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light text-center" style="font-size:.8rem;">
+                                <tr>
+                                    <th>Cor</th>
+                                    <th class="text-start">Nome</th>
+                                    <th>Peso</th>
+                                    <th>Qtd.Máx</th>
+                                    <th>Perdedor</th>
+                                    <th>Ativo</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in premios %}
+                                <tr class="{% if not p.ativo %}table-secondary text-muted{% endif %}">
+                                    <td class="text-center" style="width:2.5rem;">
+                                        <span style="display:inline-block;width:1.5rem;height:1.5rem;border-radius:50%;background:{{ p.cor }};border:1px solid #ccc;"></span>
+                                    </td>
+                                    <td>
+                                        <span class="me-1">{{ p.emoji }}</span>
+                                        <strong>{{ p.nome }}</strong>
+                                        {% if p.codigo_resgate %}<br><small class="text-muted">Código: {{ p.codigo_resgate }}</small>{% endif %}
+                                    </td>
+                                    <td class="text-center">{{ p.peso }}</td>
+                                    <td class="text-center">{{ p.quantidade_maxima|default:"∞" }}</td>
+                                    <td class="text-center">{% if p.eh_perdedor %}<span class="badge bg-danger">Sim</span>{% else %}<span class="badge bg-success">Não</span>{% endif %}</td>
+                                    <td class="text-center">{% if p.ativo %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-secondary">Não</span>{% endif %}</td>
+                                    <td class="text-end pe-2">
+                                        <button class="btn btn-sm btn-outline-primary me-1 btn-edit-premio"
+                                            data-id="{{ p.pk }}" data-nome="{{ p.nome }}" data-descricao="{{ p.descricao }}"
+                                            data-codigo="{{ p.codigo_resgate }}" data-peso="{{ p.peso }}"
+                                            data-qtd="{{ p.quantidade_maxima|default:'' }}" data-cor="{{ p.cor }}"
+                                            data-emoji="{{ p.emoji }}" data-ordem="{{ p.ordem }}"
+                                            data-perdedor="{{ p.eh_perdedor|yesno:'true,false' }}"
+                                            data-ativo="{{ p.ativo|yesno:'true,false' }}"
+                                            data-bs-toggle="modal" data-bs-target="#modalEditPremio">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger btn-del-premio"
+                                            data-id="{{ p.pk }}" data-nome="{{ p.nome }}"
+                                            data-bs-toggle="modal" data-bs-target="#modalDelPremio">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-clone fa-3x mb-3 opacity-25"></i>
+                        <p>Nenhum prêmio cadastrado.<br>Clique em <strong>Adicionar Prêmio</strong> para começar.</p>
+                    </div>
+                    {% endif %}
+                </div>
+                {% if premios %}
+                <div class="card-footer text-muted small">
+                    Total de cartas ativas: {{ premios|length }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Preview das cartas -->
+            {% if premios %}
+            <div class="card shadow mt-4">
+                <div class="card-header fw-semibold"><i class="fas fa-eye me-2"></i>Preview das Cartas</div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2 justify-content-center">
+                        {% for p in premios %}{% if p.ativo %}
+                        <div style="width:80px;height:110px;border-radius:8px;background:{{ p.cor }};display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-size:.75rem;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.2);padding:4px;">
+                            <div style="font-size:1.5rem;">{{ p.emoji }}</div>
+                            <div style="font-weight:600;word-break:break-word;line-height:1.2;margin-top:4px;">{{ p.nome|truncatechars:16 }}</div>
+                        </div>
+                        {% endif %}{% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════ MODAL ADD PRÊMIO -->
+<div class="modal fade" id="modalAddPremio" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_premio">
+                <div class="modal-header"><h5 class="modal-title"><i class="fas fa-plus me-2"></i>Adicionar Carta/Prêmio</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">{% include "campanhas/_premio_form_fields.html" %}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-plus me-1"></i>Adicionar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════ MODAL EDIT PRÊMIO -->
+<div class="modal fade" id="modalEditPremio" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="edit_premio">
+                <input type="hidden" name="p_id" id="edit_p_id">
+                <div class="modal-header"><h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Carta/Prêmio</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body" id="edit-modal-body">{% include "campanhas/_premio_form_fields.html" with prefix="e" %}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════ MODAL DEL PRÊMIO -->
+<div class="modal fade" id="modalDelPremio" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_premio">
+                <input type="hidden" name="p_id" id="del_p_id">
+                <div class="modal-header"><h5 class="modal-title text-danger"><i class="fas fa-trash me-2"></i>Remover Carta/Prêmio</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">Deseja remover a carta <strong id="del_p_nome"></strong>?</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger"><i class="fas fa-trash me-1"></i>Remover</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.btn-edit-premio').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const d = btn.dataset;
+        document.getElementById('edit_p_id').value = d.id;
+        const b = document.getElementById('modalEditPremio');
+        b.querySelector('[name=p_nome]').value           = d.nome;
+        b.querySelector('[name=p_descricao]').value      = d.descricao;
+        b.querySelector('[name=p_codigo_resgate]').value = d.codigo;
+        b.querySelector('[name=p_peso]').value           = d.peso;
+        b.querySelector('[name=p_quantidade_maxima]').value = d.qtd;
+        b.querySelector('[name=p_cor]').value            = d.cor;
+        b.querySelector('[name=p_emoji]').value          = d.emoji;
+        b.querySelector('[name=p_ordem]').value          = d.ordem;
+        b.querySelector('[name=p_eh_perdedor]').checked  = d.perdedor === 'true';
+        b.querySelector('[name=p_ativo]').checked        = d.ativo === 'true';
+    });
+});
+
+document.querySelectorAll('.btn-del-premio').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.getElementById('del_p_id').value        = btn.dataset.id;
+        document.getElementById('del_p_nome').textContent = btn.dataset.nome;
+    });
+});
+</script>
+{% endblock %}

@@ -39,6 +39,10 @@
                 <a href="{% url 'campanha_jogadas' campanha.pk %}" class="btn btn-outline-warning btn-sm">
                     <i class="fas fa-dharmachakra me-1"></i>Ver Jogadas ({{ jogadas_count }})
                 </a>
+                {% elif campanha.tipo == 'CARTA' %}
+                <a href="{% url 'campanha_jogadas' campanha.pk %}" class="btn btn-outline-warning btn-sm">
+                    <i class="fas fa-clone me-1"></i>Ver Jogadas ({{ jogadas_count }})
+                </a>
                 {% endif %}
             </div>
         </div>
@@ -154,6 +158,48 @@
                             {% if config_roleta.capturar_endereco %}<span class="badge bg-light text-dark me-1">Endereço</span>{% endif %}
                             {% if not config_roleta.captura_algum_dado %}<span class="text-muted">Nenhuma</span>{% endif %}
                         </td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Encerramento</th>
+                        <td>{% if campanha.data_fim %}{{ campanha.data_fim|date:"d/m/Y H:i" }}{% else %}<span class="text-muted">Sem prazo</span>{% endif %}</td>
+                    </tr>
+                </table>
+                {% elif config_carta %}
+                <!-- CARTA CONFIG -->
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <th class="text-muted fw-normal" style="width:45%">Total de Cartas</th>
+                        <td><strong>{{ campanha.premios_roleta.count }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Jogadas Realizadas</th>
+                        <td><strong>{{ jogadas_count }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Ganhadores</th>
+                        <td><strong class="text-success">{{ ganhadores_count }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Máx. Jogadas/IP/Dia</th>
+                        <td>{{ config_carta.max_jogadas_por_ip_por_dia }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Máx. Total por IP</th>
+                        <td>{{ config_carta.max_jogadas_total_por_ip|default:"Ilimitado" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Captura de Dados</th>
+                        <td>
+                            {% if config_carta.capturar_nome %}<span class="badge bg-light text-dark me-1">Nome</span>{% endif %}
+                            {% if config_carta.capturar_cpf %}<span class="badge bg-light text-dark me-1">CPF</span>{% endif %}
+                            {% if config_carta.capturar_telefone %}<span class="badge bg-light text-dark me-1">Telefone</span>{% endif %}
+                            {% if config_carta.capturar_endereco %}<span class="badge bg-light text-dark me-1">Endereço</span>{% endif %}
+                            {% if not config_carta.captura_algum_dado %}<span class="text-muted">Nenhuma</span>{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Logo</th>
+                        <td>{% if config_carta.logo %}<img src="{{ config_carta.logo.url }}" style="max-height:40px;border-radius:4px;">{% else %}<span class="text-muted">Padrão</span>{% endif %}</td>
                     </tr>
                     <tr>
                         <th class="text-muted fw-normal">Encerramento</th>
