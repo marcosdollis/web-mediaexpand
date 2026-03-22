@@ -43,6 +43,10 @@
                 <a href="{% url 'campanha_jogadas' campanha.pk %}" class="btn btn-outline-warning btn-sm">
                     <i class="fas fa-clone me-1"></i>Ver Jogadas ({{ jogadas_count }})
                 </a>
+                {% elif campanha.tipo == 'ALERTA' %}
+                <a href="{% url 'campanha_alerta_leads' campanha.pk %}" class="btn btn-outline-warning btn-sm">
+                    <i class="fas fa-bell me-1"></i>Ver Leads ({{ alerta_leads_count }})
+                </a>
                 {% endif %}
             </div>
         </div>
@@ -206,6 +210,44 @@
                         <td>{% if campanha.data_fim %}{{ campanha.data_fim|date:"d/m/Y H:i" }}{% else %}<span class="text-muted">Sem prazo</span>{% endif %}</td>
                     </tr>
                 </table>
+                {% elif config_alerta %}
+                <!-- ALERTA CONFIG -->
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <th class="text-muted fw-normal" style="width:45%">Leads Capturados</th>
+                        <td><strong>{{ alerta_leads_count }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Campos Dinâmicos</th>
+                        <td><strong>{{ campanha.campos_alerta.count }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Captura de Contato</th>
+                        <td>
+                            {% if config_alerta.capturar_nome %}<span class="badge bg-light text-dark me-1">Nome</span>{% endif %}
+                            {% if config_alerta.capturar_telefone %}<span class="badge bg-light text-dark me-1">Telefone</span>{% endif %}
+                            {% if config_alerta.capturar_email %}<span class="badge bg-light text-dark me-1">E-mail</span>{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">WhatsApp</th>
+                        <td>{% if config_alerta.whatsapp_contato %}<code>{{ config_alerta.whatsapp_contato }}</code>{% else %}<span class="text-muted">Não configurado</span>{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Encerramento</th>
+                        <td>{% if campanha.data_fim %}{{ campanha.data_fim|date:"d/m/Y H:i" }}{% else %}<span class="text-muted">Sem prazo</span>{% endif %}</td>
+                    </tr>
+                </table>
+                {% if alerta_leads_count > 0 %}
+                <div class="d-flex gap-2">
+                    <a href="{% url 'campanha_alerta_leads' campanha.pk %}" class="btn btn-sm btn-outline-warning">
+                        <i class="fas fa-users me-1"></i>Ver Leads
+                    </a>
+                    <a href="{% url 'campanha_alerta_leads' campanha.pk %}?export=csv" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-file-csv me-1"></i>Exportar CSV
+                    </a>
+                </div>
+                {% endif %}
                 {% else %}
                 <p class="text-muted">Campanha não configurada. <a href="{% url 'campanha_configure' campanha.pk %}">Configurar agora</a></p>
                 {% endif %}

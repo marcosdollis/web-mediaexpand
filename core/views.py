@@ -16,6 +16,7 @@ from .models import (
     Campanha, CampanhaCupomConfig, CampanhaLead,
     CampanhaRoletaConfig, CampanhaRoletaPremio, CampanhaJogada,
     CampanhaCartaConfig,
+    CampanhaAlertaConfig, CampanhaAlertaCampo, CampanhaAlertaLead,
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -5493,6 +5494,8 @@ def campanha_create_view(request):
             CampanhaRoletaConfig.objects.create(campanha=campanha)
         elif tipo == 'CARTA':
             CampanhaCartaConfig.objects.create(campanha=campanha)
+        elif tipo == 'ALERTA':
+            CampanhaAlertaConfig.objects.create(campanha=campanha)
 
         messages.success(request, f'Campanha "{nome}" criada. Configure os detalhes abaixo.')
         return redirect('campanha_configure', pk=campanha.pk)
@@ -5711,6 +5714,113 @@ def campanha_configure_view(request, pk):
             'status_choices': Campanha.STATUS_CHOICES,
         })
 
+    if campanha.tipo == 'ALERTA':
+        config, _ = CampanhaAlertaConfig.objects.get_or_create(campanha=campanha)
+        campos = campanha.campos_alerta.filter(ativo=True).order_by('ordem', 'id')
+
+        CAMPO_TIPO_CHOICES = CampanhaAlertaCampo.TIPO_CHOICES
+
+        SUGESTOES = [
+            {'rotulo': 'Tipo de imóvel', 'tipo': 'SELECT', 'obrigatorio': True,
+             'opcoes': 'Apartamento\nCasa\nSala Comercial\nTerreno\nGalpão / Industrial\nSitio / Chácara\nOutro'},
+            {'rotulo': 'Finalidade', 'tipo': 'SELECT', 'obrigatorio': True,
+             'opcoes': 'Compra\nLocação'},
+            {'rotulo': 'Número de dormitórios', 'tipo': 'SELECT', 'obrigatorio': False,
+             'opcoes': '1\n2\n3\n4 ou mais'},
+            {'rotulo': 'Orçamento máximo (R$)', 'tipo': 'MOEDA', 'obrigatorio': False, 'opcoes': ''},
+            {'rotulo': 'Bairros ou regiões de interesse', 'tipo': 'TEXTO', 'obrigatorio': False, 'opcoes': ''},
+            {'rotulo': 'Prazo para fechar negócio', 'tipo': 'SELECT', 'obrigatorio': False,
+             'opcoes': 'Imediato\nAté 3 meses\nAté 6 meses\nAté 1 ano\nSem prazo definido'},
+            {'rotulo': 'Observações ou características importantes', 'tipo': 'TEXTO',
+             'obrigatorio': False, 'opcoes': ''},
+        ]
+
+        if request.method == 'POST':
+            action = request.POST.get('action', 'save_config')
+
+            if action == 'add_campo':
+                CampanhaAlertaCampo.objects.create(
+                    campanha=campanha,
+                    tipo=request.POST.get('c_tipo', 'TEXTO'),
+                    rotulo=request.POST.get('c_rotulo', '').strip() or 'Novo Campo',
+                    placeholder=request.POST.get('c_placeholder', '').strip(),
+                    opcoes=request.POST.get('c_opcoes', '').strip(),
+                    obrigatorio='c_obrigatorio' in request.POST,
+                    ordem=int(request.POST.get('c_ordem', 0) or 0),
+                )
+                messages.success(request, 'Campo adicionado.')
+                return redirect('campanha_configure', pk=campanha.pk)
+
+            elif action == 'edit_campo':
+                cid = request.POST.get('c_id')
+                try:
+                    campo = campanha.campos_alerta.get(pk=cid)
+                    campo.tipo = request.POST.get('c_tipo', campo.tipo)
+                    campo.rotulo = request.POST.get('c_rotulo', campo.rotulo).strip() or campo.rotulo
+                    campo.placeholder = request.POST.get('c_placeholder', '').strip()
+                    campo.opcoes = request.POST.get('c_opcoes', '').strip()
+                    campo.obrigatorio = 'c_obrigatorio' in request.POST
+                    campo.ativo = 'c_ativo' in request.POST
+                    campo.ordem = int(request.POST.get('c_ordem', campo.ordem) or 0)
+                    campo.save()
+                    messages.success(request, 'Campo atualizado.')
+                except CampanhaAlertaCampo.DoesNotExist:
+                    messages.error(request, 'Campo não encontrado.')
+                return redirect('campanha_configure', pk=campanha.pk)
+
+            elif action == 'delete_campo':
+                campanha.campos_alerta.filter(pk=request.POST.get('c_id')).delete()
+                messages.success(request, 'Campo removido.')
+                return redirect('campanha_configure', pk=campanha.pk)
+
+            elif action == 'add_sugestoes':
+                # Adiciona todos os campos sugeridos de uma vez
+                ordem_atual = campanha.campos_alerta.count() * 10
+                for sg in SUGESTOES:
+                    CampanhaAlertaCampo.objects.create(
+                        campanha=campanha,
+                        tipo=sg['tipo'],
+                        rotulo=sg['rotulo'],
+                        opcoes=sg.get('opcoes', ''),
+                        obrigatorio=sg.get('obrigatorio', False),
+                        ordem=ordem_atual,
+                    )
+                    ordem_atual += 10
+                messages.success(request, 'Campos sugeridos de imobiliária adicionados.')
+                return redirect('campanha_configure', pk=campanha.pk)
+
+            else:  # save_config
+                config.titulo_pagina      = request.POST.get('titulo_pagina', '').strip()
+                config.subtitulo_pagina   = request.POST.get('subtitulo_pagina', '').strip()
+                config.descricao_pagina   = request.POST.get('descricao_pagina', '').strip()
+                config.mensagem_sucesso   = request.POST.get('mensagem_sucesso', config.mensagem_sucesso).strip() or config.mensagem_sucesso
+                config.whatsapp_contato   = request.POST.get('whatsapp_contato', '').strip()
+                config.cor_primaria       = request.POST.get('cor_primaria', '#1a1a2e').strip()
+                config.cor_destaque       = request.POST.get('cor_destaque', '#e63946').strip()
+                config.capturar_nome      = 'capturar_nome' in request.POST
+                config.capturar_telefone  = 'capturar_telefone' in request.POST
+                config.capturar_email     = 'capturar_email' in request.POST
+                if 'logo' in request.FILES:
+                    config.logo = request.FILES['logo']
+                config.save()
+
+                campanha.nome    = request.POST.get('nome', campanha.nome).strip() or campanha.nome
+                campanha.data_fim = request.POST.get('data_fim') or None
+                campanha.status  = request.POST.get('status', campanha.status)
+                campanha.save()
+
+                messages.success(request, 'Alerta Inteligente configurado com sucesso!')
+                return redirect('campanha_detail', pk=campanha.pk)
+
+        return render(request, 'campanhas/campanha_configure_alerta.html', {
+            'campanha': campanha,
+            'config': config,
+            'campos': campos,
+            'campo_tipo_choices': CAMPO_TIPO_CHOICES,
+            'sugestoes': SUGESTOES,
+            'status_choices': Campanha.STATUS_CHOICES,
+        })
+
     messages.warning(request, 'Tipo de campanha ainda não suportado.')
     return redirect('campanha_list')
 
@@ -5727,16 +5837,20 @@ def campanha_detail_view(request, pk):
     config = getattr(campanha, 'config_cupom', None)
     config_roleta = getattr(campanha, 'config_roleta', None)
     config_carta = getattr(campanha, 'config_carta', None)
+    config_alerta = getattr(campanha, 'config_alerta', None)
     jogadas_count = campanha.jogadas.count() if campanha.tipo in ('ROLETA', 'CARTA') else 0
     ganhadores_count = campanha.jogadas.filter(ganhou=True).count() if campanha.tipo in ('ROLETA', 'CARTA') else 0
+    alerta_leads_count = campanha.leads_alerta.count() if campanha.tipo == 'ALERTA' else 0
     return render(request, 'campanhas/campanha_detail.html', {
         'campanha': campanha,
         'config': config,
         'config_roleta': config_roleta,
         'config_carta': config_carta,
+        'config_alerta': config_alerta,
         'leads_count': leads_count,
         'jogadas_count': jogadas_count,
         'ganhadores_count': ganhadores_count,
+        'alerta_leads_count': alerta_leads_count,
     })
 
 
@@ -5774,6 +5888,10 @@ def campanha_leads_view(request, pk):
     if not user.is_owner() and campanha.franqueado != user:
         messages.error(request, 'Sem permissão.')
         return redirect('campanha_list')
+
+    # Campanhas do tipo ALERTA têm seus próprios leads
+    if campanha.tipo == 'ALERTA':
+        return redirect('campanha_alerta_leads', pk=pk)
 
     leads = campanha.leads.order_by('-criado_em')
 
@@ -5819,6 +5937,9 @@ def campanha_landing_view(request, token):
 
     if campanha.tipo == 'CARTA':
         return _campanha_carta_landing(request, campanha, encerrada)
+
+    if campanha.tipo == 'ALERTA':
+        return _campanha_alerta_landing(request, campanha, encerrada)
 
     if request.method == 'POST' and not encerrada and campanha.tipo == 'CUPOM' and config:
         ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip() or None
@@ -6093,6 +6214,110 @@ def _campanha_carta_landing(request, campanha, encerrada):
         'premios_json': premios_json,
         'encerrada': encerrada,
         'logo_url': logo_url,
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  ALERTA INTELIGENTE — landing pública e leads
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _campanha_alerta_landing(request, campanha, encerrada):
+    """Renderiza e processa o formulário público do Alerta Inteligente."""
+    config = getattr(campanha, 'config_alerta', None)
+    campos = list(campanha.campos_alerta.filter(ativo=True).order_by('ordem', 'id'))
+
+    if request.method == 'POST' and not encerrada and config:
+        ip = request.META.get('HTTP_X_FORWARDED_FOR',
+                              request.META.get('REMOTE_ADDR', '')).split(',')[0].strip() or None
+
+        nome     = request.POST.get('nome', '').strip()
+        telefone = request.POST.get('telefone', '').strip()
+        email    = request.POST.get('email', '').strip()
+
+        # Coletar respostas dinâmicas
+        respostas = {}
+        for campo in campos:
+            chave = f'campo_{campo.pk}'
+            if campo.tipo == 'MULTISELECT':
+                respostas[str(campo.pk)] = request.POST.getlist(chave)
+            else:
+                respostas[str(campo.pk)] = request.POST.get(chave, '').strip()
+
+        CampanhaAlertaLead.objects.create(
+            campanha=campanha,
+            nome=nome,
+            telefone=telefone,
+            email=email,
+            respostas=respostas,
+            ip=ip,
+        )
+
+        # Montar URL de WhatsApp com resumo (se configurado)
+        wa_url = None
+        if config.whatsapp_contato:
+            numero = ''.join(filter(str.isdigit, config.whatsapp_contato))
+            import urllib.parse
+            msg_parts = [f'Olá! Me cadastrei no alerta "{campanha.nome}".']
+            if nome:
+                msg_parts.append(f'Nome: {nome}')
+            for campo in campos:
+                valor = respostas.get(str(campo.pk), '')
+                if isinstance(valor, list):
+                    valor = ', '.join(valor)
+                if valor:
+                    msg_parts.append(f'{campo.rotulo}: {valor}')
+            wa_url = f'https://wa.me/{numero}?text={urllib.parse.quote(chr(10).join(msg_parts))}'
+
+        return render(request, 'campanhas/campanha_alerta_sucesso.html', {
+            'campanha': campanha,
+            'config': config,
+            'wa_url': wa_url,
+        })
+
+    return render(request, 'campanhas/campanha_landing_alerta.html', {
+        'campanha': campanha,
+        'config': config,
+        'campos': campos,
+        'encerrada': encerrada,
+    })
+
+
+@login_required
+def campanha_alerta_leads_view(request, pk):
+    """Listagem e export CSV dos leads do Alerta Inteligente."""
+    campanha = get_object_or_404(Campanha, pk=pk, tipo='ALERTA')
+    user = request.user
+    if not user.is_owner() and campanha.franqueado != user:
+        messages.error(request, 'Sem permissão.')
+        return redirect('campanha_list')
+
+    campos = list(campanha.campos_alerta.filter(ativo=True).order_by('ordem', 'id'))
+    leads  = campanha.leads_alerta.order_by('-criado_em')
+
+    if request.GET.get('export') == 'csv':
+        import csv
+        from django.http import HttpResponse
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        fname = f'alerta_leads_{campanha.pk}.csv'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        writer = csv.writer(response)
+        cabecalho = ['#', 'Nome', 'Telefone', 'E-mail'] + [c.rotulo for c in campos] + ['Data']
+        writer.writerow(cabecalho)
+        for i, lead in enumerate(leads, 1):
+            linha = [i, lead.nome, lead.telefone, lead.email]
+            for campo in campos:
+                v = lead.respostas.get(str(campo.pk), '')
+                if isinstance(v, list):
+                    v = ', '.join(v)
+                linha.append(v)
+            linha.append(lead.criado_em.strftime('%d/%m/%Y %H:%M'))
+            writer.writerow(linha)
+        return response
+
+    return render(request, 'campanhas/campanha_alerta_leads.html', {
+        'campanha': campanha,
+        'campos': campos,
+        'leads': leads,
     })
 
 

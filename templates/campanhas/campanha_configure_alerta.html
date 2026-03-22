@@ -1,0 +1,400 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block title %}Configurar Alerta Inteligente — {{ campanha.nome }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'campanha_list' %}">Campanhas</a></li>
+                <li class="breadcrumb-item active">Configurar Alerta Inteligente</li>
+            </ol>
+        </nav>
+        <h1 class="h3 mb-0"><i class="fas fa-bell me-2 text-warning"></i>Alerta Inteligente</h1>
+        <p class="text-muted">Passo 2 de 2 — {{ campanha.nome }}</p>
+    </div>
+
+    {% if messages %}{% for msg in messages %}
+    <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}success{% endif %} alert-dismissible fade show">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}{% endif %}
+
+    <div class="row g-4">
+
+        <!-- ══════════════ COLUNA ESQUERDA — Config geral + campos dinâmicos -->
+        <div class="col-xl-7">
+
+            <!-- Config geral -->
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save_config">
+
+                <div class="card shadow mb-4">
+                    <div class="card-header fw-semibold"><i class="fas fa-cog me-2"></i>Informações Gerais da Campanha</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">Nome da Campanha</label>
+                                <input type="text" name="nome" class="form-control" value="{{ campanha.nome }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Status</label>
+                                <select name="status" class="form-select">
+                                    {% for v, l in status_choices %}
+                                    <option value="{{ v }}" {% if campanha.status == v %}selected{% endif %}>{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Data/Hora de Encerramento <small class="text-muted fw-normal">(opcional)</small></label>
+                                <input type="datetime-local" name="data_fim" class="form-control"
+                                       value="{% if campanha.data_fim %}{{ campanha.data_fim|date:'Y-m-d' }}T{{ campanha.data_fim|time:'H:i' }}{% endif %}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow mb-4">
+                    <div class="card-header fw-semibold"><i class="fas fa-paint-brush me-2"></i>Aparência da Página Pública</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Título da Página <small class="text-muted fw-normal">(deixe em branco para usar o nome da campanha)</small></label>
+                                <input type="text" name="titulo_pagina" class="form-control" value="{{ config.titulo_pagina }}" placeholder="{{ campanha.nome }}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Subtítulo / Chamada de conversão</label>
+                                <input type="text" name="subtitulo_pagina" class="form-control" value="{{ config.subtitulo_pagina }}"
+                                       placeholder="Ex: Cadastre seu interesse e avisamos quando surgir a oportunidade ideal!">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Descrição / Instruções <small class="text-muted fw-normal">(opcional)</small></label>
+                                <textarea name="descricao_pagina" class="form-control" rows="3"
+                                          placeholder="Ex: Preencha o formulário abaixo e nossa equipe entrará em contato assim que identificarmos opções dentro do seu perfil.">{{ config.descricao_pagina }}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Mensagem de sucesso após envio</label>
+                                <input type="text" name="mensagem_sucesso" class="form-control" value="{{ config.mensagem_sucesso }}" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">WhatsApp para contato <small class="text-muted fw-normal">(ex: 5551999990000 — exibido após o envio)</small></label>
+                                <input type="text" name="whatsapp_contato" class="form-control" value="{{ config.whatsapp_contato }}" placeholder="5551999990000">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Cor Principal</label>
+                                <div class="input-group">
+                                    <input type="color" name="cor_primaria" class="form-control form-control-color" value="{{ config.cor_primaria }}">
+                                    <input type="text" class="form-control" value="{{ config.cor_primaria }}" readonly id="cor_primaria_text">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Cor de Destaque</label>
+                                <div class="input-group">
+                                    <input type="color" name="cor_destaque" class="form-control form-control-color" value="{{ config.cor_destaque }}">
+                                    <input type="text" class="form-control" value="{{ config.cor_destaque }}" readonly id="cor_destaque_text">
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Logo da Empresa <small class="text-muted fw-normal">(opcional)</small></label>
+                                {% if config.logo %}<div class="mb-2"><img src="{{ config.logo.url }}" height="48" class="rounded"></div>{% endif %}
+                                <input type="file" name="logo" class="form-control" accept="image/*">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow mb-4">
+                    <div class="card-header fw-semibold"><i class="fas fa-address-card me-2"></i>Dados de Contato (fixos)</div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">Estes campos serão solicitados sempre antes das perguntas dinâmicas.</p>
+                        <div class="row g-2">
+                            <div class="col-auto">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="capturar_nome" id="cap_nome"
+                                           {% if config.capturar_nome %}checked{% endif %}>
+                                    <label class="form-check-label" for="cap_nome">Nome completo</label>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="capturar_telefone" id="cap_tel"
+                                           {% if config.capturar_telefone %}checked{% endif %}>
+                                    <label class="form-check-label" for="cap_tel">Telefone / WhatsApp</label>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="capturar_email" id="cap_email"
+                                           {% if config.capturar_email %}checked{% endif %}>
+                                    <label class="form-check-label" for="cap_email">E-mail</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mb-4">
+                    <button type="submit" class="btn btn-warning fw-semibold"><i class="fas fa-save me-2"></i>Salvar Configurações</button>
+                    <a href="{% url 'campanha_detail' campanha.pk %}" class="btn btn-outline-secondary">Ver Detalhes</a>
+                </div>
+            </form>
+
+            <!-- ── Campos dinâmicos -->
+            <div class="card shadow mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold"><i class="fas fa-list-ul me-2"></i>Campos Dinâmicos do Formulário</span>
+                    <div class="d-flex gap-2">
+                        {% if not campos %}
+                        <form method="post" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="add_sugestoes">
+                            <button type="submit" class="btn btn-sm btn-outline-warning" title="Adicionar campos pré-configurados para imobiliária">
+                                <i class="fas fa-magic me-1"></i>Sugestões para Imobiliária
+                            </button>
+                        </form>
+                        {% endif %}
+                        <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#modal-add-campo">
+                            <i class="fas fa-plus me-1"></i>Novo Campo
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if campos %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="50">#</th>
+                                    <th>Rótulo</th>
+                                    <th>Tipo</th>
+                                    <th width="90">Obrig.</th>
+                                    <th width="80">Ativo</th>
+                                    <th width="100">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for campo in campos %}
+                                <tr>
+                                    <td class="text-muted small">{{ campo.ordem }}</td>
+                                    <td>{{ campo.rotulo }}</td>
+                                    <td><span class="badge bg-secondary">{{ campo.get_tipo_display }}</span></td>
+                                    <td>{% if campo.obrigatorio %}<span class="badge bg-danger">Sim</span>{% else %}<span class="badge bg-light text-dark">Não</span>{% endif %}</td>
+                                    <td>{% if campo.ativo %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted">Não</span>{% endif %}</td>
+                                    <td>
+                                        <button class="btn btn-xs btn-outline-primary py-0 px-1 btn-edit-campo"
+                                                data-id="{{ campo.pk }}"
+                                                data-tipo="{{ campo.tipo }}"
+                                                data-rotulo="{{ campo.rotulo|escapejs }}"
+                                                data-placeholder="{{ campo.placeholder|escapejs }}"
+                                                data-opcoes="{{ campo.opcoes|escapejs }}"
+                                                data-obrigatorio="{{ campo.obrigatorio|yesno:'true,false' }}"
+                                                data-ativo="{{ campo.ativo|yesno:'true,false' }}"
+                                                data-ordem="{{ campo.ordem }}">
+                                            <i class="fas fa-pencil-alt fa-xs"></i>
+                                        </button>
+                                        <form method="post" class="d-inline" onsubmit="return confirm('Remover campo?')">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="delete_campo">
+                                            <input type="hidden" name="c_id" value="{{ campo.pk }}">
+                                            <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">
+                                                <i class="fas fa-trash fa-xs"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-list-ul fa-2x mb-2 d-block opacity-25"></i>
+                        Nenhum campo configurado ainda.<br>
+                        <small>Clique em <strong>"Sugestões para Imobiliária"</strong> para começar com campos pré-definidos.</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════ COLUNA DIREITA — Link + preview -->
+        <div class="col-xl-5">
+            <div class="card shadow mb-4 border-warning">
+                <div class="card-header fw-semibold text-warning"><i class="fas fa-link me-2"></i>Link Exclusivo da Campanha</div>
+                <div class="card-body">
+                    <p class="small text-muted">Compartilhe este link onde quiser: QR Code na TV, WhatsApp, Stories, e-mail, panfleto…</p>
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control font-monospace small"
+                               value="{{ request.scheme }}://{{ request.get_host }}{% url 'campanha_landing' campanha.token %}"
+                               id="link-campanha" readonly>
+                        <button class="btn btn-warning" onclick="copyLink()"><i class="fas fa-copy"></i></button>
+                    </div>
+                    <div class="text-center">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={{ request.scheme }}://{{ request.get_host }}{% url 'campanha_landing' campanha.token %}"
+                             class="rounded border" width="160" alt="QR Code">
+                        <div class="small text-muted mt-1">QR Code da campanha</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow mb-4">
+                <div class="card-header fw-semibold"><i class="fas fa-eye me-2"></i>Pré-visualização dos Campos</div>
+                <div class="card-body bg-light rounded">
+                    {% if campos %}
+                        <form class="pointer-events-none" style="pointer-events:none;opacity:.85;">
+                            {% for campo in campos %}
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small">
+                                    {{ campo.rotulo }}
+                                    {% if campo.obrigatorio %}<span class="text-danger">*</span>{% endif %}
+                                </label>
+                                {% if campo.tipo == 'SELECT' %}
+                                    <select class="form-select form-select-sm" disabled>
+                                        <option>{{ campo.placeholder|default:"Selecione..." }}</option>
+                                        {% for op in campo.get_opcoes_list %}<option>{{ op }}</option>{% endfor %}
+                                    </select>
+                                {% elif campo.tipo == 'MULTISELECT' %}
+                                    {% for op in campo.get_opcoes_list %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" disabled>
+                                        <label class="form-check-label small">{{ op }}</label>
+                                    </div>
+                                    {% endfor %}
+                                {% elif campo.tipo == 'BOOLEAN' %}
+                                    <div class="d-flex gap-3">
+                                        <div class="form-check"><input class="form-check-input" type="radio" disabled><label class="form-check-label small">Sim</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="radio" disabled><label class="form-check-label small">Não</label></div>
+                                    </div>
+                                {% elif campo.tipo == 'MOEDA' %}
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">R$</span>
+                                        <input type="text" class="form-control" placeholder="{{ campo.placeholder|default:'0,00' }}" disabled>
+                                    </div>
+                                {% else %}
+                                    <input type="{% if campo.tipo == 'NUMERO' %}number{% else %}text{% endif %}"
+                                           class="form-control form-control-sm"
+                                           placeholder="{{ campo.placeholder }}" disabled>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </form>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-eye-slash fa-2x opacity-25 d-block mb-2"></i>
+                            Adicione campos para ver a pré-visualização
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-header fw-semibold"><i class="fas fa-chart-bar me-2"></i>Estatísticas</div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <span class="text-muted">Leads capturados</span>
+                        <strong>{{ campanha.leads_alerta.count }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center py-2">
+                        <span class="text-muted">Campos configurados</span>
+                        <strong>{{ campos|length }}</strong>
+                    </div>
+                    {% if campanha.leads_alerta.count > 0 %}
+                    <div class="mt-3">
+                        <a href="{% url 'campanha_alerta_leads' campanha.pk %}" class="btn btn-sm btn-outline-success w-100">
+                            <i class="fas fa-users me-2"></i>Ver Leads
+                        </a>
+                        <a href="{% url 'campanha_alerta_leads' campanha.pk %}?export=csv" class="btn btn-sm btn-outline-secondary w-100 mt-2">
+                            <i class="fas fa-file-csv me-2"></i>Exportar CSV
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: Adicionar Campo -->
+<div class="modal fade" id="modal-add-campo" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_campo">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>Novo Campo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    {% include "campanhas/_campo_form_fields.html" with prefix="c_" %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning fw-semibold"><i class="fas fa-save me-2"></i>Adicionar Campo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: Editar Campo -->
+<div class="modal fade" id="modal-edit-campo" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="edit_campo">
+                <input type="hidden" name="c_id" id="edit-c-id">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-pencil-alt me-2"></i>Editar Campo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    {% include "campanhas/_campo_form_fields.html" with prefix="c_" edit_mode=True %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning fw-semibold"><i class="fas fa-save me-2"></i>Salvar Alteração</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyLink() {
+    const el = document.getElementById('link-campanha');
+    el.select();
+    document.execCommand('copy');
+    alert('Link copiado!');
+}
+
+// Preencher modal de edição
+document.querySelectorAll('.btn-edit-campo').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.getElementById('edit-c-id').value = btn.dataset.id;
+        document.querySelector('#modal-edit-campo [name="c_tipo"]').value    = btn.dataset.tipo;
+        document.querySelector('#modal-edit-campo [name="c_rotulo"]').value  = btn.dataset.rotulo;
+        document.querySelector('#modal-edit-campo [name="c_placeholder"]').value = btn.dataset.placeholder;
+        document.querySelector('#modal-edit-campo [name="c_opcoes"]').value  = btn.dataset.opcoes;
+        document.querySelector('#modal-edit-campo [name="c_ordem"]').value   = btn.dataset.ordem;
+        const obrigEl = document.querySelector('#modal-edit-campo [name="c_obrigatorio"]');
+        if (obrigEl) obrigEl.checked = btn.dataset.obrigatorio === 'true';
+        const ativoEl = document.querySelector('#modal-edit-campo [name="c_ativo"]');
+        if (ativoEl) ativoEl.checked = btn.dataset.ativo === 'true';
+        const modal = new bootstrap.Modal(document.getElementById('modal-edit-campo'));
+        modal.show();
+    });
+});
+
+// Sync color pickers
+document.querySelector('[name="cor_primaria"]').addEventListener('input', function(){
+    document.getElementById('cor_primaria_text').value = this.value;
+});
+document.querySelector('[name="cor_destaque"]').addEventListener('input', function(){
+    document.getElementById('cor_destaque_text').value = this.value;
+});
+</script>
+{% endblock %}

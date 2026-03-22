@@ -1,0 +1,59 @@
+{# Partial: campos do formulário de criação/edição de CampanhaAlertaCampo #}
+{# Usado nos modais de add e edit. prefix = "c_"                           #}
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label fw-semibold">Rótulo / Pergunta <span class="text-danger">*</span></label>
+        <input type="text" name="{{ prefix }}rotulo" class="form-control"
+               placeholder="Ex: Qual tipo de imóvel você procura?" required>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label fw-semibold">Tipo de Campo</label>
+        <select name="{{ prefix }}tipo" class="form-select" id="{{ prefix }}tipo-select">
+            {% for v, l in campo_tipo_choices %}
+            <option value="{{ v }}">{{ l }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label fw-semibold">Ordem de Exibição</label>
+        <input type="number" name="{{ prefix }}ordem" class="form-control" value="0" min="0" step="10">
+    </div>
+    <div class="col-12">
+        <label class="form-label fw-semibold">Placeholder / Dica <small class="text-muted fw-normal">(opcional)</small></label>
+        <input type="text" name="{{ prefix }}placeholder" class="form-control"
+               placeholder="Ex: Digite o bairro ou cidade de preferência">
+    </div>
+    <div class="col-12" id="{{ prefix }}opcoes-wrap">
+        <label class="form-label fw-semibold">Opções <small class="text-muted fw-normal">(uma por linha — para SELECT e MULTISELECT)</small></label>
+        <textarea name="{{ prefix }}opcoes" class="form-control font-monospace" rows="5"
+                  placeholder="Apartamento&#10;Casa&#10;Sala Comercial&#10;Terreno"></textarea>
+    </div>
+    <div class="col-auto">
+        <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" name="{{ prefix }}obrigatorio" id="{{ prefix }}obr">
+            <label class="form-check-label" for="{{ prefix }}obr">Campo obrigatório</label>
+        </div>
+    </div>
+    {% if edit_mode %}
+    <div class="col-auto">
+        <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" name="{{ prefix }}ativo" id="{{ prefix }}ativo" checked>
+            <label class="form-check-label" for="{{ prefix }}ativo">Campo ativo</label>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+(function(){
+    const sel = document.getElementById('{{ prefix }}tipo-select');
+    const wrap = document.getElementById('{{ prefix }}opcoes-wrap');
+    function toggle() {
+        const show = ['SELECT','MULTISELECT'].includes(sel.value);
+        wrap.style.display = show ? '' : 'none';
+    }
+    sel.addEventListener('change', toggle);
+    toggle();
+})();
+</script>
