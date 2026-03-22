@@ -1413,7 +1413,7 @@ class Campanha(models.Model):
         ('CUPOM', 'Resgate de Cupom de Desconto'),
         ('ROLETA', 'Roleta de Prêmios'),
         ('CARTA', 'Virar a Carta'),
-        ('ALERTA', 'Alerta de Preços'),
+        ('ALERTA', 'Alerta Inteligente'),
         # Adicionar outros tipos aqui conforme necessário:
         # ('SORTEIO', 'Sorteio'),
         # ('PESQUISA', 'Pesquisa de Satisfação'),
@@ -1782,12 +1782,12 @@ class CampanhaCartaConfig(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  ALERTA DE PREÇOS
+#  ALERTA INTELIGENTE
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 class CampanhaAlertaConfig(models.Model):
-    """É a configuração-header da campanha Alerta de Preços.
+    """É a configuração-header da campanha Alerta Inteligente.
 
     Permite que o franqueado (ex: imobiliária) personalize
     título, instruções e aparência da página pública.
@@ -1842,7 +1842,7 @@ class CampanhaAlertaConfig(models.Model):
     capturar_email    = models.BooleanField(default=False, verbose_name='Capturar E-mail')
 
     class Meta:
-        verbose_name = 'Config. Alerta de Preços'
+        verbose_name = 'Config. Alerta Inteligente'
 
     def __str__(self):
         return f'Config alerta – {self.campanha.nome}'
@@ -1896,7 +1896,7 @@ class CampanhaAlertaCampo(models.Model):
 
 
 class CampanhaAlertaLead(models.Model):
-    """Lead capturado por uma campanha do tipo Alerta de Preços.
+    """Lead capturado por uma campanha do tipo Alerta Inteligente.
     Os dados dinâmicos ficam no JSONField `respostas`.
     """
 

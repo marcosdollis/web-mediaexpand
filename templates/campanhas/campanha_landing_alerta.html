@@ -135,7 +135,7 @@
     {% endif %}
     <div class="hero-badge">
         <span class="dot"></span>
-        <span>Alerta de Preços</span>
+        <span>Alerta Inteligente</span>
     </div>
     <h1>
         {% if config and config.titulo_pagina %}{{ config.titulo_pagina }}{% else %}{{ campanha.nome }}{% endif %}
@@ -188,7 +188,7 @@
         {% if campos %}
         <!-- ── Perguntas dinâmicas -->
         <div class="card">
-            <div class="card-title"><i class="fas fa-home me-2"></i>Sobre o Imóvel que Procura</div>
+            <div class="card-title"><i class="fas fa-search me-2"></i>O que Você Procura</div>
 
             {% for campo in campos %}
             <div class="form-group">

@@ -227,7 +227,7 @@ class ConfiguracaoAPIAdmin(admin.ModelAdmin):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  ALERTA DE PREÇOS — admin
+#  ALERTA INTELIGENTE — admin
 # ─────────────────────────────────────────────────────────────────────────────
 
 @admin.register(Campanha)

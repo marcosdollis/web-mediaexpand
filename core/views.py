@@ -5809,7 +5809,7 @@ def campanha_configure_view(request, pk):
                 campanha.status  = request.POST.get('status', campanha.status)
                 campanha.save()
 
-                messages.success(request, 'Alerta de Preços configurado com sucesso!')
+                messages.success(request, 'Alerta Inteligente configurado com sucesso!')
                 return redirect('campanha_detail', pk=campanha.pk)
 
         return render(request, 'campanhas/campanha_configure_alerta.html', {
@@ -5888,6 +5888,10 @@ def campanha_leads_view(request, pk):
     if not user.is_owner() and campanha.franqueado != user:
         messages.error(request, 'Sem permissão.')
         return redirect('campanha_list')
+
+    # Campanhas do tipo ALERTA têm seus próprios leads
+    if campanha.tipo == 'ALERTA':
+        return redirect('campanha_alerta_leads', pk=pk)
 
     leads = campanha.leads.order_by('-criado_em')
 
@@ -6214,11 +6218,11 @@ def _campanha_carta_landing(request, campanha, encerrada):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  ALERTA DE PREÇOS — landing pública e leads
+#  ALERTA INTELIGENTE — landing pública e leads
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _campanha_alerta_landing(request, campanha, encerrada):
-    """Renderiza e processa o formulário público do Alerta de Preços."""
+    """Renderiza e processa o formulário público do Alerta Inteligente."""
     config = getattr(campanha, 'config_alerta', None)
     campos = list(campanha.campos_alerta.filter(ativo=True).order_by('ordem', 'id'))
 
@@ -6280,7 +6284,7 @@ def _campanha_alerta_landing(request, campanha, encerrada):
 
 @login_required
 def campanha_alerta_leads_view(request, pk):
-    """Listagem e export CSV dos leads do Alerta de Preços."""
+    """Listagem e export CSV dos leads do Alerta Inteligente."""
     campanha = get_object_or_404(Campanha, pk=pk, tipo='ALERTA')
     user = request.user
     if not user.is_owner() and campanha.franqueado != user:
