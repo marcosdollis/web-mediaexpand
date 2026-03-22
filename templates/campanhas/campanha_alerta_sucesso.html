@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerta cadastrado! — {{ campanha.nome }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cor-bg:   {{ config.cor_primaria|default:"#1a1a2e" }};
+            --cor-dest: {{ config.cor_destaque|default:"#e63946" }};
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--cor-bg);
+            color: #f8f9fa;
+            min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 2rem 1.5rem;
+            text-align: center;
+        }
+        .icon-wrap {
+            width: 84px; height: 84px; border-radius: 50%;
+            background: color-mix(in srgb, var(--cor-dest) 20%, transparent);
+            border: 2px solid var(--cor-dest);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; color: var(--cor-dest);
+            margin: 0 auto 1.5rem;
+            animation: pop .5s cubic-bezier(.175,.885,.32,1.4);
+        }
+        @keyframes pop { from {transform:scale(.4);opacity:0} to {transform:scale(1);opacity:1} }
+        h1 { font-size: 1.75rem; font-weight: 800; margin-bottom: .6rem; }
+        .msg { color: rgba(255,255,255,.65); line-height: 1.7; margin-bottom: 2rem; max-width: 460px; }
+        .btn {
+            display: inline-flex; align-items: center; gap: .6rem;
+            padding: .8rem 2rem; border-radius: 12px;
+            font-size: .95rem; font-weight: 700; text-decoration: none;
+            transition: opacity .2s;
+        }
+        .btn:hover { opacity: .85; }
+        .btn-wa { background: #25d366; color: #fff; }
+        .label { font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: rgba(255,255,255,.35); margin-top: 2rem; }
+        .footer { font-size: .7rem; color: rgba(255,255,255,.25); margin-top: 3rem; }
+    </style>
+</head>
+<body>
+
+    {% if config and config.logo %}
+    <img src="{{ config.logo.url }}" style="max-height:52px;margin-bottom:1.5rem;" alt="Logo">
+    {% endif %}
+
+    <div class="icon-wrap">
+        <i class="fas fa-bell"></i>
+    </div>
+
+    <h1>Alerta cadastrado!</h1>
+    <p class="msg">{{ config.mensagem_sucesso|default:"Seu alerta foi registrado. Entraremos em contato em breve!" }}</p>
+
+    {% if wa_url %}
+    <a href="{{ wa_url }}" target="_blank" rel="noopener" class="btn btn-wa">
+        <i class="fab fa-whatsapp"></i>
+        Chamar no WhatsApp
+    </a>
+    {% endif %}
+
+    <div class="label">Campanha</div>
+    <div style="font-size:.9rem;font-weight:600;margin-top:.3rem;">{{ campanha.nome }}</div>
+
+    <div class="footer">Powered by MediaExpand</div>
+
+</body>
+</html>

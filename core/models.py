@@ -1413,6 +1413,7 @@ class Campanha(models.Model):
         ('CUPOM', 'Resgate de Cupom de Desconto'),
         ('ROLETA', 'Roleta de Prêmios'),
         ('CARTA', 'Virar a Carta'),
+        ('ALERTA', 'Alerta de Preços'),
         # Adicionar outros tipos aqui conforme necessário:
         # ('SORTEIO', 'Sorteio'),
         # ('PESQUISA', 'Pesquisa de Satisfação'),
@@ -1778,3 +1779,155 @@ class CampanhaCartaConfig(models.Model):
     def captura_algum_dado(self):
         return any([self.capturar_nome, self.capturar_cpf,
                     self.capturar_telefone, self.capturar_endereco])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  ALERTA DE PREÇOS
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class CampanhaAlertaConfig(models.Model):
+    """É a configuração-header da campanha Alerta de Preços.
+
+    Permite que o franqueado (ex: imobiliária) personalize
+    título, instruções e aparência da página pública.
+    Os campos dinâmicos ficam em CampanhaAlertaCampo.
+    """
+
+    campanha = models.OneToOneField(
+        Campanha, on_delete=models.CASCADE, related_name='config_alerta'
+    )
+    titulo_pagina = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Título da Página Pública',
+        help_text='Deixe em branco para usar o nome da campanha.',
+    )
+    subtitulo_pagina = models.CharField(
+        max_length=300, blank=True,
+        verbose_name='Subtítulo / Texto de Conversão',
+        help_text='Frase que motiva o visitante a preencher o formulário.',
+    )
+    descricao_pagina = models.TextField(
+        blank=True,
+        verbose_name='Descrição / Instruções',
+        help_text='Texto exibido abaixo do título antes do formulário.',
+    )
+    mensagem_sucesso = models.CharField(
+        max_length=400,
+        default='Seu alerta foi cadastrado! Entraremos em contato assim que encontrarmos o que você procura.',
+        verbose_name='Mensagem de Sucesso',
+    )
+    # Contato da empresa
+    whatsapp_contato = models.CharField(
+        max_length=20, blank=True,
+        verbose_name='WhatsApp para Contato',
+        help_text='Número no formato 5511999990000. Exibido após o envio.',
+    )
+    # Aparência
+    cor_primaria = models.CharField(
+        max_length=7, default='#1a1a2e',
+        verbose_name='Cor Principal (hex)',
+    )
+    cor_destaque = models.CharField(
+        max_length=7, default='#e63946',
+        verbose_name='Cor de Destaque (hex)',
+    )
+    logo = models.ImageField(
+        upload_to='campanhas/logos/', null=True, blank=True,
+        verbose_name='Logo da empresa',
+    )
+    # Campos sempre fixos de contato
+    capturar_nome     = models.BooleanField(default=True,  verbose_name='Capturar Nome')
+    capturar_telefone = models.BooleanField(default=True,  verbose_name='Capturar Telefone')
+    capturar_email    = models.BooleanField(default=False, verbose_name='Capturar E-mail')
+
+    class Meta:
+        verbose_name = 'Config. Alerta de Preços'
+
+    def __str__(self):
+        return f'Config alerta – {self.campanha.nome}'
+
+
+class CampanhaAlertaCampo(models.Model):
+    """Campo dinâmico criado pelo franqueado para coletar informações
+    específicas do impu00f3vel ou interesse do potencial cliente.
+    """
+
+    TIPO_CHOICES = [
+        ('TEXTO',       'Texto livre'),
+        ('NUMERO',      'Número inteiro'),
+        ('MOEDA',       'Valor monetário (R$)'),
+        ('SELECT',      'Seleção única (lista)'),
+        ('MULTISELECT', 'Seleção múltipla'),
+        ('BOOLEAN',     'Pergunta Sim/Não'),
+    ]
+
+    campanha = models.ForeignKey(
+        Campanha, on_delete=models.CASCADE, related_name='campos_alerta',
+    )
+    tipo = models.CharField(max_length=15, choices=TIPO_CHOICES, default='TEXTO')
+    rotulo = models.CharField(
+        max_length=200, verbose_name='Rótulo do Campo',
+        help_text='Pergunta exibida ao visitante. Ex: “Qual tipo de imóvel você procura?”',
+    )
+    placeholder = models.CharField(
+        max_length=200, blank=True, verbose_name='Placeholder / Dica',
+        help_text='Texto de dica dentro do campo (opcional).',
+    )
+    opcoes = models.TextField(
+        blank=True, verbose_name='Opções (uma por linha)',
+        help_text='Para tipo SELECT ou MULTISELECT: coloque uma opção por linha.',
+    )
+    obrigatorio = models.BooleanField(default=False, verbose_name='Obrigatório?')
+    ativo = models.BooleanField(default=True)
+    ordem = models.PositiveIntegerField(default=0, verbose_name='Ordem de Exibição')
+
+    class Meta:
+        verbose_name = 'Campo do Alerta'
+        verbose_name_plural = 'Campos do Alerta'
+        ordering = ['ordem', 'id']
+
+    def __str__(self):
+        return f'[{self.get_tipo_display()}] {self.rotulo}'
+
+    def get_opcoes_list(self):
+        """Retorna as opções como lista limpa."""
+        return [o.strip() for o in self.opcoes.splitlines() if o.strip()]
+
+
+class CampanhaAlertaLead(models.Model):
+    """Lead capturado por uma campanha do tipo Alerta de Preços.
+    Os dados dinâmicos ficam no JSONField `respostas`.
+    """
+
+    campanha = models.ForeignKey(
+        Campanha, on_delete=models.CASCADE, related_name='leads_alerta',
+    )
+    # Dados de contato fixos
+    nome     = models.CharField(max_length=200, blank=True)
+    telefone = models.CharField(max_length=20, blank=True)
+    email    = models.EmailField(blank=True)
+    # Respostas dinâmicas: {"campo_id": "valor", ...}
+    respostas = models.JSONField(default=dict, blank=True)
+    # Metadados
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Lead de Alerta'
+        verbose_name_plural = 'Leads de Alerta'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'Lead Alerta #{self.pk} – {self.nome or self.telefone} – {self.campanha.nome}'
+
+    def get_respostas_display(self, campos_qs=None):
+        """Retorna lista de (rótulo, valor) para exibição."""
+        resultado = []
+        campos = campos_qs or self.campanha.campos_alerta.filter(ativo=True)
+        for campo in campos:
+            valor = self.respostas.get(str(campo.pk), '')
+            if isinstance(valor, list):
+                valor = ', '.join(valor)
+            resultado.append((campo.rotulo, valor))
+        return resultado

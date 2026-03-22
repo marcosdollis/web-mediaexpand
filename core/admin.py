@@ -4,7 +4,8 @@ from django.utils.html import format_html
 from .models import (
     User, Municipio, Cliente, Video, 
     Playlist, PlaylistItem, DispositivoTV, AgendamentoExibicao, LogExibicao, AppVersion,
-    QRCodeClick, ConteudoCorporativo, ConfiguracaoAPI, Segmento, HorarioFuncionamento
+    QRCodeClick, ConteudoCorporativo, ConfiguracaoAPI, Segmento, HorarioFuncionamento,
+    Campanha, CampanhaAlertaConfig, CampanhaAlertaCampo, CampanhaAlertaLead,
 )
 
 
@@ -223,3 +224,34 @@ class ConfiguracaoAPIAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  ALERTA DE PREÇOS — admin
+# ─────────────────────────────────────────────────────────────────────────────
+
+@admin.register(Campanha)
+class CampanhaAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'tipo', 'franqueado', 'status', 'criado_em')
+    list_filter = ('tipo', 'status')
+    search_fields = ('nome', 'franqueado__username')
+    readonly_fields = ('token', 'criado_em', 'atualizado_em')
+
+
+@admin.register(CampanhaAlertaConfig)
+class CampanhaAlertaConfigAdmin(admin.ModelAdmin):
+    list_display = ('campanha', 'titulo_pagina', 'capturar_nome', 'capturar_telefone', 'capturar_email')
+
+
+@admin.register(CampanhaAlertaCampo)
+class CampanhaAlertaCampoAdmin(admin.ModelAdmin):
+    list_display = ('campanha', 'ordem', 'tipo', 'rotulo', 'obrigatorio', 'ativo')
+    list_filter = ('tipo', 'obrigatorio', 'ativo')
+
+
+@admin.register(CampanhaAlertaLead)
+class CampanhaAlertaLeadAdmin(admin.ModelAdmin):
+    list_display = ('pk', 'campanha', 'nome', 'telefone', 'email', 'criado_em')
+    list_filter = ('campanha',)
+    readonly_fields = ('campanha', 'nome', 'telefone', 'email', 'respostas', 'ip', 'criado_em')
+    search_fields = ('nome', 'telefone', 'email')
