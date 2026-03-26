@@ -4,11 +4,13 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework import permissions
-from drf_yasg.views import get_schema_view
-from drf_yasg import openapi
 
-# Configuração do Swagger/OpenAPI
-schema_view = get_schema_view(
+# Swagger/OpenAPI — only in development
+if settings.DEBUG:
+    from drf_yasg.views import get_schema_view
+    from drf_yasg import openapi
+
+    schema_view = get_schema_view(
    openapi.Info(
       title="MediaExpand API",
       default_version='v1',
@@ -155,12 +157,15 @@ urlpatterns = [
     path('c/<uuid:token>/lead/<int:jogada_pk>/', campanha_roleta_lead_view, name='campanha_roleta_lead'),
     path('c/<uuid:token>/flip/', campanha_carta_flip_view, name='campanha_carta_flip'),
     path('c/<uuid:token>/carta-lead/<int:jogada_pk>/', campanha_carta_lead_view, name='campanha_carta_lead'),
-    
-    # Swagger/OpenAPI Documentation
-    re_path(r'^api/swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
-    path('api/swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path('api/redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]
+
+# Swagger/OpenAPI Documentation — only in development
+if settings.DEBUG:
+    urlpatterns += [
+        re_path(r'^api/swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
+        path('api/swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+        path('api/redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    ]
 
 # Customização do Admin
 admin.site.site_header = "MediaExpand - Administração"

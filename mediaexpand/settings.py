@@ -24,11 +24,14 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
-    'drf_yasg',
     
     # Local apps
     'core',
 ]
+
+# Swagger UI — only in development
+if DEBUG:
+    INSTALLED_APPS.append('drf_yasg')
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
