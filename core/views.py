@@ -523,6 +523,7 @@ class TVLogExibicaoView(APIView):
         dispositivo_id = request.data.get('dispositivo_id')
         video_id = request.data.get('video_id')
         tempo_exibicao_segundos = request.data.get('tempo_exibicao_segundos', 0)
+        playlist_id = request.data.get('playlist_id')  # opcional — enviado pelo app
 
         if not dispositivo_id or not video_id:
             return Response(
@@ -534,11 +535,20 @@ class TVLogExibicaoView(APIView):
             dispositivo = DispositivoTV.objects.get(id=dispositivo_id)
             video = Video.objects.get(id=video_id)
 
-            if not dispositivo.playlist_atual:
-                return Response(
-                    {'error': 'Dispositivo não possui playlist configurada'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            # Resolve a playlist do log:
+            # 1. playlist_id enviado pelo app (mais preciso)
+            # 2. playlist ativa no horário atual via agendamento
+            # 3. playlist_atual como último fallback
+            playlist = None
+            if playlist_id:
+                try:
+                    playlist = Playlist.objects.get(id=playlist_id)
+                except Exception:
+                    pass
+            if playlist is None:
+                playlist = dispositivo.get_playlist_atual_por_horario()
+            if playlist is None:
+                playlist = dispositivo.playlist_atual
 
             data_hora_fim = timezone.now()
             data_hora_inicio = data_hora_fim - timezone.timedelta(seconds=int(tempo_exibicao_segundos))
@@ -555,7 +565,7 @@ class TVLogExibicaoView(APIView):
             LogExibicao.objects.create(
                 dispositivo=dispositivo,
                 video=video,
-                playlist=dispositivo.playlist_atual,
+                playlist=playlist,
                 data_hora_inicio=data_hora_inicio,
                 data_hora_fim=data_hora_fim,
                 completamente_exibido=completamente_exibido
