@@ -312,7 +312,11 @@ async function salvarLead(e) {
     if (f('l_endereco')) fd.append('endereco', f('l_endereco').value);
 
     try {
-        const r = await fetch(LEAD_URL_BASE + jogadaId + '/', { method: 'POST', body: fd });
+        const r = await fetch(LEAD_URL_BASE + jogadaId + '/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            body: fd
+        });
         const d = await r.json();
         if (d.success) {
             document.getElementById('lead-form').style.display = 'none';
