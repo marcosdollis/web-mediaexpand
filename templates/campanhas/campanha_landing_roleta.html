@@ -114,7 +114,7 @@
             <div class="mb-2"><input type="text" id="l_nome" class="form-control" placeholder="Seu nome *" required></div>
             {% endif %}
             {% if config and config.capturar_cpf %}
-            <div class="mb-2"><input type="text" id="l_cpf" class="form-control" placeholder="CPF *" required maxlength="14"></div>
+            <div class="mb-2"><input type="text" id="l_cpf" class="form-control" placeholder="000.000.000-00 *" required maxlength="14" inputmode="numeric"></div>
             {% endif %}
             {% if config and config.capturar_telefone %}
             <div class="mb-2"><input type="tel" id="l_telefone" class="form-control" placeholder="(11) 91234-5678 *" required maxlength="15"></div>
@@ -319,6 +319,9 @@ async function salvarLead(e) {
             document.getElementById('result-codigo').innerHTML +=
                 '<br><span class="text-success fw-bold">✅ Dados salvos! Em breve entraremos em contato.</span>';
             document.getElementById('btn-girar').disabled = true;
+        } else {
+            btn.disabled = false; btn.textContent = '🎁 Resgatar Prêmio';
+            alert(d.error || 'Erro ao salvar. Tente novamente.');
         }
     } catch(err) {
         btn.disabled = false; btn.textContent = '🎁 Resgatar Prêmio';
@@ -327,7 +330,20 @@ async function salvarLead(e) {
 }
 
 // ── Cookie helper ─────────────────────────────────────────────────────────
-// ── Máscara de telefone ──────────────────────────────────────────────────
+// ── Máscara de CPF ────────────────────────────────────────────────────────
+(function(){
+    const cpf = document.getElementById('l_cpf');
+    if (!cpf) return;
+    cpf.addEventListener('input', function(){
+        let v = this.value.replace(/\D/g, '').substring(0, 11);
+        v = v.replace(/(\d{3})(\d)/, '$1.$2');
+        v = v.replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3');
+        v = v.replace(/\.(\d{3})(\d)/, '.$1-$2');
+        this.value = v;
+    });
+})();
+
+// ── Máscara de telefone ─────────────────────────────────────────────────────────
 (function(){
     const tel = document.getElementById('l_telefone');
     if (!tel) return;

@@ -276,7 +276,7 @@
             {% endif %}
             {% if config and config.capturar_cpf %}
             <label>CPF</label>
-            <input type="text" name="cpf" placeholder="000.000.000-00" maxlength="14">
+            <input type="text" name="cpf" id="carta_cpf" placeholder="000.000.000-00" maxlength="14" inputmode="numeric">
             {% endif %}
             {% if config and config.capturar_telefone %}
             <label>Telefone / WhatsApp</label>
@@ -327,7 +327,17 @@
                 this.value = v;
             });
         }
-
+        // ── CPF mask ─────────────────────────────
+        const cpfInput = document.getElementById('carta_cpf');
+        if (cpfInput) {
+            cpfInput.addEventListener('input', function () {
+                let v = this.value.replace(/\D/g, '').slice(0, 11);
+                v = v.replace(/(\d{3})(\d)/, '$1.$2');
+                v = v.replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3');
+                v = v.replace(/\.(\d{3})(\d)/, '.$1-$2');
+                this.value = v;
+            });
+        }
         // ── Flip button click ─────────────────────────────────────
         btnFlip.addEventListener('click', async () => {
             btnFlip.disabled = true;
@@ -425,6 +435,7 @@
                     } else {
                         btnLead.disabled = false;
                         btnLead.innerHTML = '<i class="fas fa-check me-2"></i>Confirmar e Resgatar';
+                        alert(data.error || 'Erro ao salvar. Tente novamente.');
                     }
                 } catch (e) {
                     btnLead.disabled = false;
