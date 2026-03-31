@@ -247,7 +247,7 @@ class DispositivoTVForm(forms.ModelForm):
 
     class Meta:
         model = DispositivoTV
-        fields = ['nome', 'localizacao', 'municipio', 'publico_estimado_mes', 'ativo']
+        fields = ['nome', 'localizacao', 'municipio', 'publico_estimado_mes', 'ativo', 'franqueado']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome do dispositivo'}),
             'localizacao': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Localização (ex: Praça Central)'}),
@@ -258,7 +258,15 @@ class DispositivoTVForm(forms.ModelForm):
                 'min': '0'
             }),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'franqueado': forms.Select(attrs={'class': 'form-select'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import User
+        self.fields['franqueado'].required = False
+        self.fields['franqueado'].empty_label = '— Nenhum (sem franqueado responsável) —'
+        self.fields['franqueado'].queryset = User.objects.filter(role='FRANCHISEE').order_by('first_name', 'username')
 
 
 class HorarioFuncionamentoForm(forms.ModelForm):

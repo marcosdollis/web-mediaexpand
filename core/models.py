@@ -690,6 +690,15 @@ class DispositivoTV(models.Model):
     ativo = models.BooleanField(default=True, db_index=True)
     ultima_sincronizacao = models.DateTimeField(null=True, blank=True)
     versao_app = models.CharField(max_length=20, blank=True, null=True)
+    franqueado = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        limit_choices_to={'role': 'FRANCHISEE'},
+        related_name='dispositivos_franqueado',
+        help_text='Franqueado responsável por este dispositivo. Permite transferir a gestão da TV ao franqueado sem alterar o município.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

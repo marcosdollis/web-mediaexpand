@@ -2152,7 +2152,9 @@ def dispositivo_list_view(request):
 
     # Controle de permissões
     if user.is_franchisee():
-        dispositivos = dispositivos.filter(municipio__franqueado=user)
+        dispositivos = dispositivos.filter(
+            Q(municipio__franqueado=user) | Q(franqueado=user)
+        )
     elif not user.is_owner():
         messages.error(request, 'Você não tem permissão para ver dispositivos.')
         return redirect('dashboard')
@@ -2196,7 +2198,9 @@ def dispositivo_list_view(request):
     if user.is_owner():
         filter_municipios = Municipio.objects.only('id', 'nome', 'estado')
     else:
-        filter_municipios = Municipio.objects.filter(franqueado=user).only('id', 'nome', 'estado')
+        # Municípios das TVs que o franqueado gerencia (pelo município ou atribuição direta)
+        municipio_ids = dispositivos.values_list('municipio_id', flat=True)
+        filter_municipios = Municipio.objects.filter(id__in=municipio_ids).only('id', 'nome', 'estado')
     
     context.update({
         'dispositivos': page_obj,
@@ -2219,6 +2223,8 @@ def dispositivo_create_view(request):
 
     if request.method == 'POST':
         form = DispositivoTVForm(request.POST)
+        if user.is_franchisee() and 'franqueado' in form.fields:
+            del form.fields['franqueado']
         if form.is_valid():
             dispositivo = form.save(commit=False)
             # Gerar identificador único se não existir
@@ -2230,8 +2236,10 @@ def dispositivo_create_view(request):
             return redirect('dispositivo_list')
     else:
         form = DispositivoTVForm()
+        if user.is_franchisee() and 'franqueado' in form.fields:
+            del form.fields['franqueado']
 
-    return render(request, 'dispositivos/dispositivo_form.html', {'form': form})
+    return render(request, 'dispositivos/dispositivo_form.html', {'form': form, 'is_owner': user.is_owner()})
 
 
 @login_required
@@ -2241,7 +2249,7 @@ def dispositivo_detail_view(request, pk):
     user = request.user
     
     # Verificar permissões
-    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user and dispositivo.franqueado != user:
         messages.error(request, 'Você não tem permissão para ver este dispositivo.')
         return redirect('dispositivo_list')
     
@@ -2275,6 +2283,7 @@ def dispositivo_detail_view(request, pk):
         'no_horario': no_horario,
         'horarios_funcionamento': horarios_funcionamento,
         'logs_recentes': logs_recentes,
+        'is_owner': user.is_owner(),
     }
     
     return render(request, 'dispositivos/dispositivo_detail.html', context)
@@ -2286,7 +2295,7 @@ def dispositivo_tv_preview_view(request, pk):
     dispositivo = get_object_or_404(DispositivoTV, pk=pk)
     user = request.user
 
-    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user and dispositivo.franqueado != user:
         messages.error(request, 'Sem permissão para visualizar este dispositivo.')
         return redirect('dispositivo_list')
 
@@ -2330,22 +2339,28 @@ def dispositivo_update_view(request, pk):
     user = request.user
     
     # Verificar permissões
-    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user and dispositivo.franqueado != user:
         messages.error(request, 'Você não tem permissão para editar este dispositivo.')
         return redirect('dispositivo_list')
     
     if request.method == 'POST':
         form = DispositivoTVForm(request.POST, instance=dispositivo)
+        # Franqueado não pode alterar o campo franqueado — apenas o dono pode
+        if user.is_franchisee() and 'franqueado' in form.fields:
+            del form.fields['franqueado']
         if form.is_valid():
             dispositivo = form.save()
             messages.success(request, 'Dispositivo atualizado com sucesso!')
             return redirect('dispositivo_detail', pk=dispositivo.pk)
     else:
         form = DispositivoTVForm(instance=dispositivo)
+        if user.is_franchisee() and 'franqueado' in form.fields:
+            del form.fields['franqueado']
     
     context = {
         'form': form,
         'dispositivo': dispositivo,
+        'is_owner': user.is_owner(),
     }
     
     return render(request, 'dispositivos/dispositivo_form.html', context)
@@ -2358,7 +2373,7 @@ def dispositivo_delete_view(request, pk):
     user = request.user
     
     # Verificar permissões
-    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user and dispositivo.franqueado != user:
         messages.error(request, 'Você não tem permissão para deletar este dispositivo.')
         return redirect('dispositivo_list')
     
@@ -2386,7 +2401,7 @@ def agendamento_create_view(request, dispositivo_pk):
     user = request.user
     
     # Verificar permissões
-    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user and dispositivo.franqueado != user:
         messages.error(request, 'Você não tem permissão para criar agendamentos para este dispositivo.')
         return redirect('dispositivo_detail', pk=dispositivo_pk)
     
@@ -2422,7 +2437,7 @@ def agendamento_update_view(request, dispositivo_pk, pk):
     user = request.user
     
     # Verificar permissões
-    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user and dispositivo.franqueado != user:
         messages.error(request, 'Você não tem permissão para editar este agendamento.')
         return redirect('dispositivo_detail', pk=dispositivo_pk)
     if user.is_franchisee() and agendamento.playlist and agendamento.playlist.franqueado != user:
@@ -2459,7 +2474,7 @@ def agendamento_delete_view(request, dispositivo_pk, pk):
     user = request.user
     
     # Verificar permissões
-    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user and dispositivo.franqueado != user:
         messages.error(request, 'Você não tem permissão para deletar este agendamento.')
         return redirect('dispositivo_detail', pk=dispositivo_pk)
     if user.is_franchisee() and agendamento.playlist and agendamento.playlist.franqueado != user:
@@ -2488,7 +2503,7 @@ def horario_create_view(request, dispositivo_pk):
     dispositivo = get_object_or_404(DispositivoTV, pk=dispositivo_pk)
     user = request.user
 
-    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user and dispositivo.franqueado != user:
         messages.error(request, 'Você não tem permissão para este dispositivo.')
         return redirect('dispositivo_detail', pk=dispositivo_pk)
 
@@ -2517,7 +2532,7 @@ def horario_update_view(request, dispositivo_pk, pk):
     horario = get_object_or_404(HorarioFuncionamento, pk=pk, dispositivo=dispositivo)
     user = request.user
 
-    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user and dispositivo.franqueado != user:
         messages.error(request, 'Você não tem permissão para este dispositivo.')
         return redirect('dispositivo_detail', pk=dispositivo_pk)
 
@@ -2545,7 +2560,7 @@ def horario_delete_view(request, dispositivo_pk, pk):
     horario = get_object_or_404(HorarioFuncionamento, pk=pk, dispositivo=dispositivo)
     user = request.user
 
-    if user.is_franchisee() and dispositivo.municipio.franqueado != user:
+    if user.is_franchisee() and dispositivo.municipio.franqueado != user and dispositivo.franqueado != user:
         messages.error(request, 'Você não tem permissão para este dispositivo.')
         return redirect('dispositivo_detail', pk=dispositivo_pk)
 

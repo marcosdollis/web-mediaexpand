@@ -124,6 +124,24 @@
                             </small>
                         </div>
 
+                        {% if is_owner %}
+                        <!-- Franqueado Responsável (apenas dono) -->
+                        <div class="mb-3">
+                            <label for="{{ form.franqueado.id_for_label }}" class="form-label">
+                                <i class="bi bi-person-badge me-1"></i>Franqueado Responsável
+                            </label>
+                            {{ form.franqueado }}
+                            {% if form.franqueado.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.franqueado.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                Atribua este dispositivo a um franqueado para que ele possa gerenciá-lo. O dono sempre visualiza todas as TVs.
+                            </small>
+                        </div>
+                        {% endif %}
+
                         {% if form.errors and not form.field_errors %}
                         <div class="alert alert-danger">
                             {% for error in form.non_field_errors %}
