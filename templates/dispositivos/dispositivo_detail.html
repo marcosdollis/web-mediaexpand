@@ -34,6 +34,11 @@
                                 <span class="badge bg-secondary">
                                     <i class="fas fa-building me-1"></i>{{ dispositivo.municipio.nome }}/{{ dispositivo.municipio.estado }}
                                 </span>
+                                {% if is_owner and dispositivo.franqueado %}
+                                <span class="badge bg-purple" style="background-color:#6f42c1">
+                                    <i class="fas fa-user-tie me-1"></i>Franqueado: {{ dispositivo.franqueado.get_full_name|default:dispositivo.franqueado.username }}
+                                </span>
+                                {% endif %}
                                 {% if dispositivo.publico_estimado_mes > 0 %}
                                 <span class="badge bg-primary">
                                     <i class="fas fa-users me-1"></i>{{ dispositivo.publico_estimado_mes|floatformat:0 }} pessoas/mês
