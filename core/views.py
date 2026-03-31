@@ -6490,8 +6490,4 @@ def campanha_carta_lead_view(request, token, jogada_pk):
 @login_required
 def treinamento_franqueado_view(request):
     """Guia de vendas e treinamento para franqueados"""
-    import os
-    guide_path = os.path.join(settings.BASE_DIR, 'vitrine_digital_guia_franqueado.html')
-    with open(guide_path, 'r', encoding='utf-8') as f:
-        guide_content = f.read()
-    return render(request, 'treinamento/guia_franqueado.html', {'guide_content': guide_content})
+    return render(request, 'treinamento/guia_franqueado.html', {})

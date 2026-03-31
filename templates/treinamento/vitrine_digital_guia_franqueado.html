@@ -1,0 +1,650 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --vd-dark:#0a0e1a;
+  --vd-blue:#0f4fff;
+  --vd-cyan:#00d4ff;
+  --vd-white:#f4f6ff;
+  --vd-muted:#8892b0;
+  --vd-card:#111827;
+  --vd-border:rgba(0,212,255,0.15);
+  --vd-glow:rgba(15,79,255,0.2);
+}
+body{background:transparent;font-family:'DM Sans',sans-serif;color:var(--vd-white)}
+
+.page{background:var(--vd-dark);border-radius:16px;overflow:clip;padding:0}
+
+/* Hero */
+.hero{
+  background:linear-gradient(135deg,#0a0e1a 0%,#0d1535 50%,#0a1628 100%);
+  padding:48px 40px 56px;
+  position:relative;
+  overflow:hidden;
+  border-bottom:1px solid var(--vd-border);
+}
+.hero::before{
+  content:'';position:absolute;top:-80px;right:-80px;
+  width:400px;height:400px;
+  background:radial-gradient(circle,rgba(0,212,255,0.08) 0%,transparent 70%);
+  pointer-events:none;
+}
+.hero::after{
+  content:'';position:absolute;bottom:-60px;left:20%;
+  width:300px;height:300px;
+  background:radial-gradient(circle,rgba(15,79,255,0.1) 0%,transparent 70%);
+  pointer-events:none;
+}
+.badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(0,212,255,0.1);
+  border:1px solid rgba(0,212,255,0.3);
+  border-radius:20px;padding:4px 14px;
+  font-size:12px;color:var(--vd-cyan);letter-spacing:1.5px;text-transform:uppercase;
+  margin-bottom:20px;font-weight:500;
+}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--vd-cyan);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.hero-title{
+  font-family:'Syne',sans-serif;
+  font-size:clamp(32px,5vw,52px);
+  font-weight:800;
+  line-height:1.05;
+  color:#fff;
+  margin-bottom:14px;
+  letter-spacing:-1px;
+}
+.hero-title span{
+  background:linear-gradient(90deg,var(--vd-cyan),var(--vd-blue));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero-sub{font-size:16px;color:var(--vd-muted);line-height:1.6;max-width:520px;margin-bottom:32px}
+.hero-stats{display:flex;gap:32px;flex-wrap:wrap}
+.hstat{border-left:2px solid var(--vd-cyan);padding-left:14px}
+.hstat-n{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:#fff}
+.hstat-l{font-size:11px;color:var(--vd-muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+
+/* Section */
+section{padding:40px}
+.sec-label{
+  font-size:11px;text-transform:uppercase;letter-spacing:2px;
+  color:var(--vd-cyan);font-weight:500;margin-bottom:8px;
+}
+.sec-title{
+  font-family:'Syne',sans-serif;font-size:26px;font-weight:700;
+  color:#fff;margin-bottom:24px;line-height:1.2;
+}
+.divider{border:none;border-top:1px solid var(--vd-border);margin:0}
+
+/* Distribuição de conteúdo */
+.dist-wrap{
+  background:#111827;border:1px solid var(--vd-border);
+  border-radius:12px;padding:24px;margin-bottom:16px;
+}
+.dist-bar-wrap{margin:16px 0 8px}
+.dist-bar{height:12px;border-radius:6px;background:#1e2740;overflow:hidden;display:flex}
+.dist-seg-local{height:100%;width:80%;background:linear-gradient(90deg,var(--vd-cyan),#0084ff);border-radius:6px 0 0 6px}
+.dist-seg-ad{height:100%;width:20%;background:rgba(255,255,255,0.15);border-radius:0 6px 6px 0}
+.dist-legend{display:flex;gap:24px;font-size:13px;color:var(--vd-muted)}
+.dist-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.dist-info{font-size:13px;color:var(--vd-muted);line-height:1.6;margin-top:12px}
+.dist-highlight{color:var(--vd-cyan);font-weight:500}
+
+/* Planos */
+.plans-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.plan-card{
+  background:#111827;
+  border:1px solid var(--vd-border);
+  border-radius:12px;padding:24px 20px;
+  position:relative;transition:border-color .2s;
+}
+.plan-card.featured{border-color:var(--vd-cyan);background:linear-gradient(160deg,#0d1f3c,#111827)}
+.plan-badge{
+  position:absolute;top:-1px;left:50%;transform:translateX(-50%);
+  background:var(--vd-cyan);color:#000;
+  font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  padding:3px 12px;border-radius:0 0 8px 8px;
+}
+.plan-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff;margin-bottom:4px;margin-top:8px}
+.plan-price{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:#fff;margin:8px 0}
+.plan-price sup{font-size:14px;font-weight:500;vertical-align:super}
+.plan-price .mo{font-size:13px;font-weight:400;color:var(--vd-muted)}
+.plan-tag{
+  display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;
+  margin-bottom:12px;
+}
+.tag-excl{background:rgba(0,212,255,0.1);color:var(--vd-cyan);border:1px solid rgba(0,212,255,0.2)}
+.tag-clean{background:rgba(255,255,255,0.06);color:var(--vd-muted);border:1px solid rgba(255,255,255,0.1)}
+.tag-ads{background:rgba(255,165,0,0.1);color:#ffb347;border:1px solid rgba(255,165,0,0.2)}
+.plan-desc{font-size:13px;color:var(--vd-muted);line-height:1.55}
+
+/* Features */
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.feat{
+  background:#111827;border:1px solid var(--vd-border);
+  border-radius:10px;padding:16px;
+  display:flex;align-items:flex-start;gap:12px;
+}
+.feat-icon{
+  width:32px;height:32px;border-radius:8px;flex-shrink:0;
+  background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.15);
+  display:flex;align-items:center;justify-content:center;font-size:15px;
+}
+.feat-name{font-size:13px;font-weight:500;color:#e0e8ff;margin-bottom:3px}
+.feat-desc{font-size:12px;color:var(--vd-muted);line-height:1.5}
+
+/* Diferenciais */
+.diff-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:500px){.diff-grid{grid-template-columns:1fr}}
+.diff-col{background:#111827;border:1px solid var(--vd-border);border-radius:12px;overflow:hidden}
+.diff-head{
+  padding:14px 20px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;gap:8px;
+}
+.diff-head.old{background:rgba(255,255,255,0.04);color:var(--vd-muted);border-bottom:1px solid var(--vd-border)}
+.diff-head.new{background:rgba(0,212,255,0.06);color:var(--vd-cyan);border-bottom:1px solid rgba(0,212,255,0.15)}
+.diff-list{padding:16px 20px;list-style:none;display:flex;flex-direction:column;gap:10px}
+.diff-item{font-size:13px;line-height:1.5;display:flex;gap:8px;align-items:flex-start}
+.diff-item .di-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.diff-item.neg{color:var(--vd-muted)}
+.diff-item.pos{color:#c8e6ff}
+.diff-item.pos .di-icon{color:var(--vd-cyan)}
+
+/* Abordagem */
+.steps{display:flex;flex-direction:column;gap:0}
+.step{
+  display:flex;gap:20px;align-items:flex-start;
+  padding:20px 0;border-bottom:1px solid var(--vd-border);
+}
+.step:last-child{border-bottom:none}
+.step-num{
+  width:36px;height:36px;border-radius:50%;flex-shrink:0;
+  background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--vd-cyan);
+}
+.step-title{font-size:15px;font-weight:500;color:#e0e8ff;margin-bottom:4px}
+.step-body{font-size:13px;color:var(--vd-muted);line-height:1.6}
+.step-body strong{color:#c8e6ff;font-weight:500}
+
+/* Segmentos */
+.seg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.seg{
+  background:#111827;border:1px solid var(--vd-border);border-radius:10px;
+  padding:16px 12px;text-align:center;
+}
+.seg-icon{font-size:22px;margin-bottom:8px}
+.seg-name{font-size:12px;color:#c8e6ff;font-weight:500;line-height:1.3}
+.seg-hint{font-size:11px;color:var(--vd-muted);margin-top:3px}
+
+/* Objeções */
+.obj-list{display:flex;flex-direction:column;gap:12px}
+.obj{
+  background:#111827;border:1px solid var(--vd-border);border-radius:10px;padding:16px 20px;
+  cursor:pointer;
+}
+.obj-q{font-size:14px;color:#c8e6ff;font-weight:500;margin-bottom:0;display:flex;justify-content:space-between;align-items:center}
+.obj-a{font-size:13px;color:var(--vd-muted);line-height:1.6;margin-top:10px;display:none}
+.obj.open .obj-a{display:block}
+.obj.open{border-color:rgba(0,212,255,0.3)}
+.obj-chevron{color:var(--vd-muted);transition:transform .2s;font-size:12px}
+.obj.open .obj-chevron{transform:rotate(180deg);color:var(--vd-cyan)}
+
+/* Argumento final */
+.closing{
+  background:linear-gradient(135deg,#0d1f3c,#0a1628);
+  border:1px solid rgba(0,212,255,0.2);border-radius:12px;
+  padding:32px;text-align:center;
+}
+.closing-title{
+  font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#fff;margin-bottom:12px
+}
+.closing-sub{font-size:14px;color:var(--vd-muted);line-height:1.7;max-width:480px;margin:0 auto 24px}
+.tag-list{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.tag{
+  background:rgba(0,212,255,0.07);border:1px solid rgba(0,212,255,0.2);
+  border-radius:20px;padding:5px 14px;font-size:12px;color:var(--vd-cyan);
+}
+
+/* ── Layout com sidebar ────────────────────────── */
+.page-layout{display:flex;min-height:100vh;align-items:flex-start}
+.sidebar{
+  width:210px;flex-shrink:0;
+  background:#0c1020;
+  border-right:1px solid var(--vd-border);
+  padding:20px 0;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  display:flex;flex-direction:column;
+}
+.sidebar-brand{
+  padding:0 20px 18px;
+  border-bottom:1px solid var(--vd-border);
+  margin-bottom:10px;
+}
+.sidebar-brand-name{
+  font-family:'Syne',sans-serif;font-size:13px;font-weight:700;
+  color:var(--vd-cyan);letter-spacing:.08em;text-transform:uppercase;
+}
+.sidebar-brand-sub{font-size:11px;color:var(--vd-muted);margin-top:2px}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 20px;
+  font-size:12px;font-weight:500;color:var(--vd-muted);
+  text-decoration:none;
+  border-left:2px solid transparent;
+  transition:all .18s;
+}
+.nav-item:hover{color:var(--vd-white);background:rgba(0,212,255,0.05);border-left-color:rgba(0,212,255,0.3)}
+.nav-item.active{color:var(--vd-cyan);background:rgba(0,212,255,0.08);border-left-color:var(--vd-cyan)}
+.nav-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.nav-sep{height:1px;background:var(--vd-border);margin:8px 20px}
+.main-content{flex:1;min-width:0}
+
+/* ── Training section ─────────────────────────── */
+.train-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:24px}
+.train-card{
+  background:#111827;border:1px solid var(--vd-border);border-radius:12px;padding:20px;
+}
+.train-card-num{
+  font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;
+  color:var(--vd-cyan);text-transform:uppercase;margin-bottom:8px;
+}
+.train-card-title{font-size:14px;font-weight:600;color:#e0e8ff;margin-bottom:6px}
+.train-card-body{font-size:12px;color:var(--vd-muted);line-height:1.6}
+.train-tip{
+  background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.15);
+  border-radius:10px;padding:14px 18px;margin-bottom:10px;
+  font-size:13px;color:#c8e6ff;line-height:1.6;
+}
+.train-tip strong{color:var(--vd-cyan)}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.kpi{
+  background:#111827;border:1px solid var(--vd-border);border-radius:10px;
+  padding:16px;text-align:center;
+}
+.kpi-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#fff}
+.kpi-lbl{font-size:11px;color:var(--vd-muted);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+
+@media(max-width:700px){
+  .page-layout{flex-direction:column}
+  .sidebar{
+    width:100%;height:auto;position:relative;
+    flex-direction:row;flex-wrap:nowrap;overflow-x:auto;
+    padding:8px 4px;border-right:none;border-bottom:1px solid var(--vd-border);
+  }
+  .sidebar-brand,.nav-sep{display:none}
+  .nav-item{padding:8px 12px;font-size:11px;border-left:none;white-space:nowrap;border-bottom:2px solid transparent;flex-shrink:0}
+  .nav-item:hover,.nav-item.active{border-bottom-color:var(--vd-cyan);border-left-color:transparent;background:transparent}
+}
+</style>
+
+<div class="page">
+<div class="page-layout">
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-name">MediaExpand</div>
+    <div class="sidebar-brand-sub">Guia do Franqueado</div>
+  </div>
+  <a class="nav-item active" href="#modelo"><span class="nav-icon">📡</span>Modelo</a>
+  <a class="nav-item" href="#planos"><span class="nav-icon">💰</span>Planos</a>
+  <a class="nav-item" href="#recursos"><span class="nav-icon">🛠️</span>Recursos</a>
+  <a class="nav-item" href="#comparativo"><span class="nav-icon">⚖️</span>Comparativo</a>
+  <div class="nav-sep"></div>
+  <a class="nav-item" href="#script"><span class="nav-icon">🎯</span>Script de Venda</a>
+  <a class="nav-item" href="#segmentos"><span class="nav-icon">🏪</span>Segmentos</a>
+  <a class="nav-item" href="#treinamento"><span class="nav-icon">🎓</span>Treinamento</a>
+  <div class="nav-sep"></div>
+  <a class="nav-item" href="#objecoes"><span class="nav-icon">🛡️</span>Objeções</a>
+  <a class="nav-item" href="#fechamento"><span class="nav-icon">🤝</span>Fechar Venda</a>
+</nav>
+
+<!-- CONTEÚDO PRINCIPAL -->
+<div class="main-content">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="badge"><span class="badge-dot"></span>Guia do Franqueado</div>
+  <h1 class="hero-title">Vitrine Digital<br><span>Guia de Vendas</span></h1>
+  <p class="hero-sub">Tudo que você precisa para apresentar, convencer e fechar. Do primeiro contato ao contrato assinado.</p>
+  <div class="hero-stats">
+    <div class="hstat"><div class="hstat-n">24h</div><div class="hstat-l">Vitrine em movimento</div></div>
+    <div class="hstat"><div class="hstat-n">5 planos</div><div class="hstat-l">Para cada perfil</div></div>
+    <div class="hstat"><div class="hstat-n">100%</div><div class="hstat-l">Gestão remota</div></div>
+  </div>
+</div>
+
+<!-- DISTRIBUIÇÃO DE CONTEÚDO -->
+<section id="modelo">
+  <div class="sec-label">A Lógica do Modelo</div>
+  <h2 class="sec-title">Como o conteúdo é distribuído</h2>
+  <div class="dist-wrap">
+    <div class="dist-bar-wrap">
+      <div class="dist-bar">
+        <div class="dist-seg-local"></div>
+        <div class="dist-seg-ad"></div>
+      </div>
+    </div>
+    <div class="dist-legend">
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <div class="dist-dot" style="background:var(--vd-cyan)"></div>
+        <div><strong style="color:#e0e8ff">80% — Conteúdo Local</strong><br><span>Promoções e produtos do próprio estabelecimento</span></div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <div class="dist-dot" style="background:rgba(255,255,255,0.3)"></div>
+        <div><strong style="color:#e0e8ff">20% — Ads da Rede</strong><br><span>Anunciantes sem concorrência direta no local</span></div>
+      </div>
+    </div>
+    <p class="dist-info">
+      O estabelecimento percebe a tela como <span class="dist-highlight">sua vitrine</span> — porque ela é. 80% do tempo exibe o que ele quer mostrar. Os 20% restantes são anunciantes externos, mas <span class="dist-highlight">sem jamais colocar um concorrente direto</span> na mesma tela. Isso é exclusividade de segmento garantida contratualmente.
+    </p>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- PLANOS -->
+<section id="planos">
+  <div class="sec-label">Precificação</div>
+  <h2 class="sec-title">Escolha o plano ideal para cada cliente</h2>
+  <div class="plans-grid" style="grid-template-columns:repeat(auto-fit,minmax(175px,1fr))">
+    <div class="plan-card">
+      <div class="plan-name">Somente Anunciar</div>
+      <div class="plan-price"><sup>R$</sup>250<span class="mo">/mês</span></div>
+      <span class="plan-tag tag-clean">Presença na rede</span>
+      <p class="plan-desc">Seu anúncio exibido nas telas da rede MediaExpand. Sem precisar de TV própria. Ideal para marcas que querem visibilidade local com investimento mínimo.</p>
+    </div>
+    <div class="plan-card featured" style="padding-top:36px">
+      <div class="plan-badge">Mais escolhido</div>
+      <div class="plan-name">Vitrine + Ads</div>
+      <div class="plan-price"><sup>R$</sup>149<span style="font-size:18px">,90</span><span class="mo">/mês</span></div>
+      <span class="plan-tag tag-ads">Com anúncios externos</span>
+      <p class="plan-desc">TV própria com gestão completa. 80% do espaço é do cliente, 20% para parceiros sem concorrência direta. Melhor custo-benefício — porta de entrada ideal.</p>
+    </div>
+    <div class="plan-card">
+      <div class="plan-name">Vitrine Digital</div>
+      <div class="plan-price"><sup>R$</sup>299<span style="font-size:18px">,90</span><span class="mo">/mês</span></div>
+      <span class="plan-tag tag-clean">Sem anúncios externos</span>
+      <p class="plan-desc">TV própria 100% dedicada ao conteúdo do cliente. Sem ads de terceiros. Controle total da narrativa visual do negócio.</p>
+    </div>
+    <div class="plan-card">
+      <div class="plan-name">Exclusividade Total</div>
+      <div class="plan-price"><sup>R$</sup>499<span style="font-size:18px">,90</span><span class="mo">/mês</span></div>
+      <span class="plan-tag tag-excl">Exclusivo na rede</span>
+      <p class="plan-desc">Nenhum concorrente do mesmo segmento aparece em nenhuma tela da rede na área. Monopólio visual garantido contratualmente.</p>
+    </div>
+    <div class="plan-card" style="border-color:rgba(255,165,0,0.25)">
+      <div class="plan-name">Campanha Avulsa</div>
+      <div class="plan-price"><sup>R$</sup>99<span style="font-size:18px">,90</span><span class="mo">/campanha</span></div>
+      <span class="plan-tag tag-ads">Por campanha ativa</span>
+      <p class="plan-desc">Campanhas pontuais — Roleta de Desconto, Cupom, Carta de Oferta ou Alerta Inteligente. Sem mensalidade, paga somente pela campanha ativa.</p>
+    </div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- O QUE VEM NO PACOTE -->
+<section id="recursos">
+  <div class="sec-label">O que está incluído</div>
+  <h2 class="sec-title">Plataforma completa, sem complicação</h2>
+  <div class="features-grid">
+    <div class="feat">
+      <div class="feat-icon">📡</div>
+      <div><div class="feat-name">Gerenciamento 100% remoto</div><div class="feat-desc">Upload, moderação e aprovação de vídeos sem precisar ir ao local. Tudo pelo painel web.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🕐</div>
+      <div><div class="feat-name">Gestão de horários da TV</div><div class="feat-desc">Define quando a tela liga e desliga automaticamente. Sem depender de ninguém no local.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📅</div>
+      <div><div class="feat-name">Agendamento de promoções</div><div class="feat-desc">Scheduling de playlist: ativa e inativa campanhas promocionais em datas e horários exatos.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📰</div>
+      <div><div class="feat-name">Conteúdo dinâmico</div><div class="feat-desc">Previsão do tempo, cotação de moedas e notícias em tempo real — enriquece a tela e prende atenção.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🎨</div>
+      <div><div class="feat-name">Creator com templates prontos</div><div class="feat-desc">Plataforma estilo Canva para criar peças diretamente no painel, sem precisar de designer.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">⚡</div>
+      <div><div class="feat-name">Fast upload com padronização</div><div class="feat-desc">Pipeline automático de qualidade: converte para Full HD compatível, sem erro de exibição.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📊</div>
+      <div><div class="feat-name">QR Code dinâmico rastreável</div><div class="feat-desc">QR promocional mensurável por campanha. Sabe exatamente quantas pessoas escanearam.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📺</div>
+      <div><div class="feat-name">Tarja dinâmica estilo CNN</div><div class="feat-desc">Rodapé em movimento que melhora a retenção visual. Chama atenção mesmo quem passa rápido.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📈</div>
+      <div><div class="feat-name">Dashboard de métricas</div><div class="feat-desc">Estimativa de visibilidade, aparições de marca e log completo de exibição. Prova de valor real.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📱</div>
+      <div><div class="feat-name">App próprio Android + Windows</div><div class="feat-desc">Instala, sincroniza e toca automaticamente. Atualização automática quando nova versão disponível.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🔔</div>
+      <div><div class="feat-name">Alerta de desconexão</div><div class="feat-desc">Você é notificado se a tela ficar offline. Resolve antes do cliente perceber — pró-atividade que fideliza.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📋</div>
+      <div><div class="feat-name">Log de exibição no painel</div><div class="feat-desc">Histórico completo do que foi exibido, quando e por quanto tempo. Transparência total para o cliente.</div></div>
+    </div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- MÍDIA INDOOR VS VITRINE DIGITAL -->
+<section id="comparativo">
+  <div class="sec-label">Posicionamento</div>
+  <h2 class="sec-title">Por que Vitrine Digital supera a mídia indoor tradicional</h2>
+  <div class="diff-grid">
+    <div class="diff-col">
+      <div class="diff-head old">Mídia Indoor Tradicional</div>
+      <ul class="diff-list">
+        <li class="diff-item neg"><span class="di-icon">✕</span>Atenção cativa mas passiva — espera quem já está lá</li>
+        <li class="diff-item neg"><span class="di-icon">✕</span>Horários limitados de exposição</li>
+        <li class="diff-item neg"><span class="di-icon">✕</span>Depende da boa vontade do estabelecimento</li>
+        <li class="diff-item neg"><span class="di-icon">✕</span>Conteúdo fixo, sem dinamismo</li>
+        <li class="diff-item neg"><span class="di-icon">✕</span>Sem rastreamento de resultado</li>
+        <li class="diff-item neg"><span class="di-icon">✕</span>Gestão manual e trabalhosa</li>
+      </ul>
+    </div>
+    <div class="diff-col">
+      <div class="diff-head new">Vitrine Digital</div>
+      <ul class="diff-list">
+        <li class="diff-item pos"><span class="di-icon">✓</span>Atenção ativa — chama quem ainda não viu</li>
+        <li class="diff-item pos"><span class="di-icon">✓</span>Vitrine em movimento 24 horas por dia</li>
+        <li class="diff-item pos"><span class="di-icon">✓</span>O estabelecimento quer manter — é a vitrine dele</li>
+        <li class="diff-item pos"><span class="di-icon">✓</span>Desperta desejo imediato — foco em conversão</li>
+        <li class="diff-item pos"><span class="di-icon">✓</span>QR rastreável + dashboard de métricas</li>
+        <li class="diff-item pos"><span class="di-icon">✓</span>Gestão 100% remota pelo painel</li>
+      </ul>
+    </div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- SCRIPT DE ABORDAGEM -->
+<section id="script">
+  <div class="sec-label">Script de Vendas</div>
+  <h2 class="sec-title">Como conduzir a conversa</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div><div class="step-title">Abra com o problema, não com o produto</div><div class="step-body">Pergunte: <strong>"Como você divulga as promoções da sua loja hoje?"</strong> Ouça. Na maioria das vezes: Instagram com pouco alcance, panfleto ou nada. Isso é a porta.</div></div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div><div class="step-title">Mostre o que é na prática</div><div class="step-body">Diga: <strong>"Imagina uma tela na sua entrada mostrando seus produtos em movimento, 24h, com QR code pra quem quiser mais informação."</strong> Prefira mostrar um vídeo do app em funcionamento.</div></div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div><div class="step-title">Explique a lógica do conteúdo</div><div class="step-body">Reforce: <strong>"80% é seu — suas fotos, seus preços, seu produto. Os outros 20% são marcas parceiras, mas nunca um concorrente direto seu. Isso é garantido no contrato."</strong></div></div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div><div class="step-title">Plante o gatilho de escassez</div><div class="step-body">Diga: <strong>"Estou instalando aqui no bairro. Quem fechar primeiro garante exclusividade de segmento — nenhum outro negócio do mesmo ramo vai anunciar na sua área."</strong></div></div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div><div class="step-title">Apresente os planos e pergunte pelo menor</div><div class="step-body">Mostre os 5 planos, explique brevemente cada um. Depois pergunte: <strong>"Quer começar pelo plano de entrada ou já prefere a exclusividade total?"</strong> Deixa ele escolher — não empurre.</div></div>
+    </div>
+    <div class="step">
+      <div class="step-num">6</div>
+      <div><div class="step-title">Feche com agenda de instalação</div><div class="step-body">Nunca saia sem uma data marcada. <strong>"Posso instalar quinta-feira de tarde — uns 20 minutos só. Fica bom pra você?"</strong> Data concreta elimina o "vou pensar".</div></div>
+    </div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- SEGMENTOS ALVO -->
+<section id="segmentos">
+  <div class="sec-label">Mercado</div>
+  <h2 class="sec-title">Onde você deve bater primeiro</h2>
+  <div class="seg-grid">
+    <div class="seg"><div class="seg-icon">💈</div><div class="seg-name">Barbearias e salões</div><div class="seg-hint">Alta frequência, tempo de espera</div></div>
+    <div class="seg"><div class="seg-icon">🍕</div><div class="seg-name">Restaurantes e lanchonetes</div><div class="seg-hint">Cardápio dinâmico, promoções</div></div>
+    <div class="seg"><div class="seg-icon">👗</div><div class="seg-name">Lojas de roupa</div><div class="seg-hint">Vitrine em movimento 24h</div></div>
+    <div class="seg"><div class="seg-icon">🔧</div><div class="seg-name">Oficinas mecânicas</div><div class="seg-hint">Serviços e combos</div></div>
+    <div class="seg"><div class="seg-icon">🏋️</div><div class="seg-name">Academias e studios</div><div class="seg-hint">Planos e horários</div></div>
+    <div class="seg"><div class="seg-icon">💊</div><div class="seg-name">Farmácias e óticas</div><div class="seg-hint">Promoções rotativas</div></div>
+    <div class="seg"><div class="seg-icon">🐾</div><div class="seg-name">Petshops</div><div class="seg-hint">Produtos e serviços</div></div>
+    <div class="seg"><div class="seg-icon">🏥</div><div class="seg-name">Clínicas e consultórios</div><div class="seg-hint">Sala de espera</div></div>
+    <div class="seg"><div class="seg-icon">🛒</div><div class="seg-name">Supermercados</div><div class="seg-hint">Ofertas em tempo real</div></div>
+    <div class="seg"><div class="seg-icon">👟</div><div class="seg-name">Calçadistas</div><div class="seg-hint">Catálogo visual completo</div></div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- TREINAMENTO DE FRANQUEADOS -->
+<section id="treinamento">
+  <div class="sec-label">Treinamento</div>
+  <h2 class="sec-title">Como se preparar para vender a solução</h2>
+
+  <div class="train-grid">
+    <div class="train-card">
+      <div class="train-card-num">Módulo 01</div>
+      <div class="train-card-title">Entenda o produto antes de vender</div>
+      <div class="train-card-body">Instale o app Android em uma TV de teste ou num celular. Acesse o painel, crie um vídeo demo, suba e veja na tela. Você só vende com convicção aquilo que você mesmo usou.</div>
+    </div>
+    <div class="train-card">
+      <div class="train-card-num">Módulo 02</div>
+      <div class="train-card-title">Monte seu kit de demonstração</div>
+      <div class="train-card-body">Tenha em mãos: notebook ou tablet com o painel aberto, vídeo curto gravado de uma vitrine em funcionamento, e este guia para mostrar os planos. A demo visual fecha mais rápido que qualquer argumentação.</div>
+    </div>
+    <div class="train-card">
+      <div class="train-card-num">Módulo 03</div>
+      <div class="train-card-title">Conheça os 5 planos de cor</div>
+      <div class="train-card-body">Saiba explicar cada plano em até 2 frases. Identifique o perfil do cliente na conversa e já aponte o plano certo. Não despeje todos os 5 de uma vez — apresente do mais simples ao mais completo.</div>
+    </div>
+    <div class="train-card">
+      <div class="train-card-num">Módulo 04</div>
+      <div class="train-card-title">Primeiro contato: o que dizer</div>
+      <div class="train-card-body">Use o pretexto certo: <em>"Estou instalando vitrines digitais nos negócios aqui do bairro. Você tem 3 minutos pra ver como ficou na loja ali do lado?"</em>. Mostre. Não explique — demonstre.</div>
+    </div>
+    <div class="train-card">
+      <div class="train-card-num">Módulo 05</div>
+      <div class="train-card-title">Do fechamento ao onboarding</div>
+      <div class="train-card-body">Após o sim: agende a instalação (máx. 48h), ajude o cliente a subir os 3 primeiros vídeos, configure a playlist inicial. Um cliente que vê a tela funcionando no dia 1 não cancela no mês 2.</div>
+    </div>
+    <div class="train-card">
+      <div class="train-card-num">Módulo 06</div>
+      <div class="train-card-title">Pós-venda que gera indicação</div>
+      <div class="train-card-body">No 7º dia após instalação, ligue pra perguntar como está. No 30º, mostre o dashboard de exibições. Cliente que enxerga resultado indica. Indicações custam zero e fecham mais fácil.</div>
+    </div>
+  </div>
+
+  <div class="sec-label" style="margin-top:28px;margin-bottom:12px">Dicas rápidas de campo</div>
+  <div class="train-tip"><strong>📱 Mostre no celular primeiro</strong> — Abra o preview da TV no celular e mostre ao dono. Ver em movimento convence mais do que qualquer apresentação em PDF.</div>
+  <div class="train-tip"><strong>⏱️ Respeite o tempo do cliente</strong> — Diga que leva 3 minutos. Se ele se interessar, ele vai pedir mais. Se você pedir 20 minutos de cara, a resposta vai ser não.</div>
+  <div class="train-tip"><strong>🎯 Foque no plano de entrada</strong> — O plano de R$149,90 (Vitrine + Ads) é a porta de entrada ideal. A maioria não começa pelo topo — comece pelo acessível e faça upgrade depois.</div>
+  <div class="train-tip"><strong>📍 Use exclusividade como urgência</strong> — "Só consigo garantir exclusividade de segmento pra um negócio por área." Isso é real e cria senso de escassez legítimo.</div>
+
+  <div class="sec-label" style="margin-top:28px;margin-bottom:12px">Metas sugeridas por fase</div>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-val">5</div><div class="kpi-lbl">demos / semana</div></div>
+    <div class="kpi"><div class="kpi-val">2</div><div class="kpi-lbl">fechamentos / semana</div></div>
+    <div class="kpi"><div class="kpi-val">10</div><div class="kpi-lbl">clientes ativos / mês 1</div></div>
+    <div class="kpi"><div class="kpi-val">30</div><div class="kpi-lbl">clientes ativos / mês 3</div></div>
+    <div class="kpi"><div class="kpi-val">&lt;5%</div><div class="kpi-lbl">churn mensal alvo</div></div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- OBJEÇÕES -->
+<section id="objecoes">
+  <div class="sec-label">Objeções Comuns</div>
+  <h2 class="sec-title">Respostas prontas para cada resistência</h2>
+  <div class="obj-list" id="objs">
+    <div class="obj" onclick="toggle(this)">
+      <div class="obj-q">"Não tenho conteúdo pra colocar na tela" <span class="obj-chevron">▼</span></div>
+      <div class="obj-a">A plataforma já vem com editor de templates estilo Canva. Em 10 minutos você cria uma peça profissional com foto do produto e preço. Além disso, conteúdo dinâmico (clima, notícias, cotações) preenche automaticamente sem precisar de nada da sua parte.</div>
+    </div>
+    <div class="obj" onclick="toggle(this)">
+      <div class="obj-q">"É muito caro pra mim" <span class="obj-chevron">▼</span></div>
+      <div class="obj-a">O plano com ads sai por R$149,90 — menos que um impulsionamento de post no Instagram que dura 7 dias. Aqui a tela trabalha 24 horas, todos os dias, no ponto de venda onde o cliente já está com dinheiro na mão. Se uma venda extra cobrir o mês, já pagou.</div>
+    </div>
+    <div class="obj" onclick="toggle(this)">
+      <div class="obj-q">"Quem vai gerenciar isso?" <span class="obj-chevron">▼</span></div>
+      <div class="obj-a">Você não precisa gerenciar nada. A tela roda sozinha. Se quiser trocar uma promoção, é 2 minutos no celular. Se der problema técnico, você recebe um alerta automático e a nossa equipe resolve remotamente — sem precisar de visita.</div>
+    </div>
+    <div class="obj" onclick="toggle(this)">
+      <div class="obj-q">"Já tenho uma tela passando vídeo aqui" <span class="obj-chevron">▼</span></div>
+      <div class="obj-a">Uma TV com pen drive não tem agendamento de campanhas, não tem QR rastreável, não tem alerta de queda, não tem dashboard de métricas e não tem atualização remota. Você sabe o que está exibindo agora? Com a Vitrine Digital você sabe. E consegue mudar de onde estiver, na hora que quiser.</div>
+    </div>
+    <div class="obj" onclick="toggle(this)">
+      <div class="obj-q">"Preciso pensar melhor" <span class="obj-chevron">▼</span></div>
+      <div class="obj-a">Claro. Enquanto isso, quer que eu deixe uma apresentação com vocês? Só peço pra marcar um retorno em dois dias — estou limitando o número de telas por bairro pra garantir exclusividade de segmento pra cada estabelecimento.</div>
+    </div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- FECHAMENTO -->
+<section id="fechamento">
+  <div class="closing">
+    <h3 class="closing-title">Seu argumento de fechamento</h3>
+    <p class="closing-sub">
+      "Hoje ninguém aqui no bairro tem isso. Quando você instalar, vão parar pra perguntar. A tela chama atenção — e quem pergunta, compra. Você não precisa mudar nada na sua operação. A gente instala, configura e você já começa a usar. Qual dia da semana é melhor pra instalação?"
+    </p>
+    <div class="tag-list">
+      <span class="tag">Gestão remota</span>
+      <span class="tag">Exclusividade de segmento</span>
+      <span class="tag">Sem concorrente direto</span>
+      <span class="tag">Vitrine 24h</span>
+      <span class="tag">QR rastreável</span>
+      <span class="tag">App Android + Windows</span>
+    </div>
+  </div>
+</section>
+
+</div><!-- /main-content -->
+</div><!-- /page-layout -->
+
+<script>
+function toggle(el){
+  el.classList.toggle('open');
+}
+
+// Sidebar active link on scroll
+const sections = document.querySelectorAll('section[id]');
+const navItems = document.querySelectorAll('.nav-item[href^="#"]');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navItems.forEach(a => a.classList.remove('active'));
+      const active = document.querySelector('.nav-item[href="#' + entry.target.id + '"]');
+      if (active) active.classList.add('active');
+    }
+  });
+}, { threshold: 0.25 });
+sections.forEach(s => observer.observe(s));
+</script>
