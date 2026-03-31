@@ -14,7 +14,7 @@
 }
 body{background:transparent;font-family:'DM Sans',sans-serif;color:var(--vd-white)}
 
-.page{background:var(--vd-dark);border-radius:16px;overflow:hidden;padding:0}
+.page{background:var(--vd-dark);border-radius:16px;overflow:clip;padding:0}
 
 /* Hero */
 .hero{
@@ -208,7 +208,7 @@ section{padding:40px}
 }
 
 /* ── Layout com sidebar ────────────────────────── */
-.page-layout{display:flex;min-height:100%}
+.page-layout{display:flex;min-height:100vh;align-items:flex-start}
 .sidebar{
   width:210px;flex-shrink:0;
   background:#0c1020;
