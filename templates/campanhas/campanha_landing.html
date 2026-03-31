@@ -95,19 +95,25 @@
         <form method="post" novalidate>
             {% csrf_token %}
 
+            {% if erro %}
+            <div class="alert alert-danger" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>{{ erro }}
+            </div>
+            {% endif %}
+
             {% if config and config.capturar_nome %}
             <div class="mb-3">
                 <label for="nome" class="form-label required">Nome</label>
                 <input type="text" name="nome" id="nome" class="form-control form-control-lg" required
-                       placeholder="Seu nome completo" autocomplete="name">
+                       placeholder="Seu nome completo" autocomplete="name" value="{{ form_nome|default:'' }}">
             </div>
             {% endif %}
 
             {% if config and config.capturar_cpf %}
             <div class="mb-3">
                 <label for="cpf" class="form-label required">CPF</label>
-                <input type="text" name="cpf" id="cpf" class="form-control form-control-lg" required
-                       placeholder="000.000.000-00" maxlength="14" inputmode="numeric">
+                <input type="text" name="cpf" id="cpf" class="form-control form-control-lg{% if erro %} is-invalid{% endif %}" required
+                       placeholder="000.000.000-00" maxlength="14" inputmode="numeric" value="{{ form_cpf|default:'' }}">
             </div>
             {% endif %}
 

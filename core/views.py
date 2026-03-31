@@ -5970,6 +5970,17 @@ def campanha_landing_view(request, token):
         telefone = request.POST.get('telefone', '').strip()
         endereco = request.POST.get('endereco', '').strip()
 
+        # Validação de CPF
+        if (config and config.capturar_cpf) and cpf:
+            if not _validar_cpf(cpf):
+                return render(request, 'campanhas/campanha_landing.html', {
+                    'campanha': campanha,
+                    'config': config,
+                    'erro': 'CPF inválido. Verifique os dígitos e tente novamente.',
+                    'form_nome': nome, 'form_cpf': cpf,
+                    'form_telefone': telefone, 'form_endereco': endereco,
+                })
+
         # Determinar o código a entregar
         if config.modo_codigo == 'CODIGO_UNICO':
             codigo = config.codigo_unico
@@ -6120,6 +6131,19 @@ def campanha_spin_view(request, token):
 
 
 @csrf_exempt
+def _validar_cpf(cpf: str) -> bool:
+    """Valida CPF brasileiro. Aceita '000.000.000-00' ou '00000000000'."""
+    import re
+    cpf = re.sub(r'\D', '', cpf)
+    if len(cpf) != 11 or cpf == cpf[0] * 11:
+        return False
+    for i in range(9, 11):
+        soma = sum(int(cpf[j]) * (i + 1 - j) for j in range(i))
+        if (soma * 10 % 11) % 10 != int(cpf[i]):
+            return False
+    return True
+
+
 def campanha_roleta_lead_view(request, token, jogada_pk):
     """AJAX/POST público — salva os dados de lead após o ganhador preencher o formulário."""
     if request.method != 'POST':
@@ -6137,6 +6161,12 @@ def campanha_roleta_lead_view(request, token, jogada_pk):
     jogada.cpf      = request.POST.get('cpf',  '').strip() if (config and config.capturar_cpf)      else ''
     jogada.telefone = request.POST.get('telefone', '').strip() if (config and config.capturar_telefone) else ''
     jogada.endereco = request.POST.get('endereco', '').strip() if (config and config.capturar_endereco) else ''
+
+    # Validação de CPF
+    if (config and config.capturar_cpf) and jogada.cpf:
+        if not _validar_cpf(jogada.cpf):
+            return JsonResponse({'success': False, 'error': 'CPF inválido. Verifique os dígitos e tente novamente.'}, status=400)
+
     jogada.lead_salvo = True
     jogada.save(update_fields=['nome', 'cpf', 'telefone', 'endereco', 'lead_salvo'])
 
@@ -6169,6 +6199,7 @@ def campanha_jogadas_view(request, pk):
 
     # Exportação CSV
     if request.GET.get('export') == 'csv':
+        from django.http import HttpResponse
         import io
         output = io.StringIO()
         output.write('\ufeff')  # BOM para Excel abrir sem problemas de encoding
@@ -6418,6 +6449,12 @@ def campanha_carta_lead_view(request, token, jogada_pk):
     jogada.cpf      = request.POST.get('cpf',  '').strip() if (config and config.capturar_cpf)      else ''
     jogada.telefone = request.POST.get('telefone', '').strip() if (config and config.capturar_telefone) else ''
     jogada.endereco = request.POST.get('endereco', '').strip() if (config and config.capturar_endereco) else ''
+
+    # Validação de CPF
+    if (config and config.capturar_cpf) and jogada.cpf:
+        if not _validar_cpf(jogada.cpf):
+            return JsonResponse({'success': False, 'error': 'CPF inválido. Verifique os dígitos e tente novamente.'}, status=400)
+
     jogada.lead_salvo = True
     jogada.save(update_fields=['nome', 'cpf', 'telefone', 'endereco', 'lead_salvo'])
 
