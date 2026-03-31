@@ -207,40 +207,6 @@ section{padding:40px}
   border-radius:20px;padding:5px 14px;font-size:12px;color:var(--vd-cyan);
 }
 
-/* ── Layout com sidebar ────────────────────────── */
-.page-layout{display:flex;min-height:100vh;align-items:flex-start}
-.sidebar{
-  width:210px;flex-shrink:0;
-  background:#0c1020;
-  border-right:1px solid var(--vd-border);
-  padding:20px 0;
-  position:sticky;top:0;height:100vh;overflow-y:auto;
-  display:flex;flex-direction:column;
-}
-.sidebar-brand{
-  padding:0 20px 18px;
-  border-bottom:1px solid var(--vd-border);
-  margin-bottom:10px;
-}
-.sidebar-brand-name{
-  font-family:'Syne',sans-serif;font-size:13px;font-weight:700;
-  color:var(--vd-cyan);letter-spacing:.08em;text-transform:uppercase;
-}
-.sidebar-brand-sub{font-size:11px;color:var(--vd-muted);margin-top:2px}
-.nav-item{
-  display:flex;align-items:center;gap:10px;
-  padding:9px 20px;
-  font-size:12px;font-weight:500;color:var(--vd-muted);
-  text-decoration:none;
-  border-left:2px solid transparent;
-  transition:all .18s;
-}
-.nav-item:hover{color:var(--vd-white);background:rgba(0,212,255,0.05);border-left-color:rgba(0,212,255,0.3)}
-.nav-item.active{color:var(--vd-cyan);background:rgba(0,212,255,0.08);border-left-color:var(--vd-cyan)}
-.nav-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
-.nav-sep{height:1px;background:var(--vd-border);margin:8px 20px}
-.main-content{flex:1;min-width:0}
-
 /* ── Training section ─────────────────────────── */
 .train-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:24px}
 .train-card{
@@ -267,42 +233,11 @@ section{padding:40px}
 .kpi-lbl{font-size:11px;color:var(--vd-muted);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
 
 @media(max-width:700px){
-  .page-layout{flex-direction:column}
-  .sidebar{
-    width:100%;height:auto;position:relative;
-    flex-direction:row;flex-wrap:nowrap;overflow-x:auto;
-    padding:8px 4px;border-right:none;border-bottom:1px solid var(--vd-border);
-  }
-  .sidebar-brand,.nav-sep{display:none}
-  .nav-item{padding:8px 12px;font-size:11px;border-left:none;white-space:nowrap;border-bottom:2px solid transparent;flex-shrink:0}
-  .nav-item:hover,.nav-item.active{border-bottom-color:var(--vd-cyan);border-left-color:transparent;background:transparent}
+  .diff-grid{grid-template-columns:1fr}
 }
 </style>
 
 <div class="page">
-<div class="page-layout">
-
-<!-- SIDEBAR -->
-<nav class="sidebar" id="sidebar">
-  <div class="sidebar-brand">
-    <div class="sidebar-brand-name">MediaExpand</div>
-    <div class="sidebar-brand-sub">Guia do Franqueado</div>
-  </div>
-  <a class="nav-item active" href="#modelo"><span class="nav-icon">📡</span>Modelo</a>
-  <a class="nav-item" href="#planos"><span class="nav-icon">💰</span>Planos</a>
-  <a class="nav-item" href="#recursos"><span class="nav-icon">🛠️</span>Recursos</a>
-  <a class="nav-item" href="#comparativo"><span class="nav-icon">⚖️</span>Comparativo</a>
-  <div class="nav-sep"></div>
-  <a class="nav-item" href="#script"><span class="nav-icon">🎯</span>Script de Venda</a>
-  <a class="nav-item" href="#segmentos"><span class="nav-icon">🏪</span>Segmentos</a>
-  <a class="nav-item" href="#treinamento"><span class="nav-icon">🎓</span>Treinamento</a>
-  <div class="nav-sep"></div>
-  <a class="nav-item" href="#objecoes"><span class="nav-icon">🛡️</span>Objeções</a>
-  <a class="nav-item" href="#fechamento"><span class="nav-icon">🤝</span>Fechar Venda</a>
-</nav>
-
-<!-- CONTEÚDO PRINCIPAL -->
-<div class="main-content">
 
 <!-- HERO -->
 <div class="hero">
@@ -626,25 +561,10 @@ section{padding:40px}
   </div>
 </section>
 
-</div><!-- /main-content -->
-</div><!-- /page-layout -->
+</div><!-- /page -->
 
 <script>
 function toggle(el){
   el.classList.toggle('open');
 }
-
-// Sidebar active link on scroll
-const sections = document.querySelectorAll('section[id]');
-const navItems = document.querySelectorAll('.nav-item[href^="#"]');
-const observer = new IntersectionObserver(entries => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      navItems.forEach(a => a.classList.remove('active'));
-      const active = document.querySelector('.nav-item[href="#' + entry.target.id + '"]');
-      if (active) active.classList.add('active');
-    }
-  });
-}, { threshold: 0.25 });
-sections.forEach(s => observer.observe(s));
 </script>
