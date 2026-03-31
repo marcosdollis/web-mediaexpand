@@ -182,7 +182,7 @@
                         </ul>
                     </li>
 
-                    {% if user.is_franchisee %}
+                    {% if user.is_franchisee or user.is_owner %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'treinamento_guia' %}">
                             <i class="bi bi-mortarboard me-1"></i>Treinamento
