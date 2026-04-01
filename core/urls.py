@@ -4,7 +4,8 @@ from .views import (
     UserViewSet, MunicipioViewSet, ClienteViewSet, VideoViewSet,
     PlaylistViewSet, PlaylistItemViewSet, DispositivoTVViewSet,
     LogExibicaoViewSet, TVAPIView, TVLogExibicaoView, TVLogWebViewView,
-    TVCheckScheduleView, TVCorporativoHTMLView, TVVersionCheckView, DashboardStatsView
+    TVCheckScheduleView, TVCorporativoHTMLView, TVVersionCheckView,
+    TVHeartbeatView, DashboardStatsView
 )
 
 router = DefaultRouter()
@@ -27,6 +28,7 @@ urlpatterns = [
     path('tv/check-schedule/<uuid:identificador_unico>/', TVCheckScheduleView.as_view(), name='tv-check-schedule'),
     path('tv/corporativo/<str:tipo>/<int:playlist_id>/', TVCorporativoHTMLView.as_view(), name='tv-corporativo-html'),
     path('tv/version/', TVVersionCheckView.as_view(), name='tv-version-check'),
+    path('tv/heartbeat/', TVHeartbeatView.as_view(), name='tv-heartbeat'),
 
     # Dashboard
     path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard-stats'),

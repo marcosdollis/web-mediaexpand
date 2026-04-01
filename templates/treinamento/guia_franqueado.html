@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guia do Franqueado — MediaExpand</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366f1'/><text y='22' x='7' font-size='18' fill='white' font-family='sans-serif'>M</text></svg>">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #070a13;
+            font-family: 'DM Sans', system-ui, sans-serif;
+            min-height: 100vh;
+        }
+        .top-bar {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(7,10,19,.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0,212,255,0.12);
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .top-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #9ca3af;
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all .18s;
+        }
+        .back-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .top-bar-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e0e8ff;
+            letter-spacing: .02em;
+        }
+        .top-bar-right {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .guide-wrapper {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 24px 16px 48px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <div class="top-bar-left">
+        <a href="/dashboard/" class="back-btn">
+            ← Voltar ao painel
+        </a>
+        <span class="top-bar-title">Guia do Franqueado · Vitrine Digital</span>
+    </div>
+    <div class="top-bar-right">MediaExpand</div>
+</div>
+
+<div class="guide-wrapper">
+    {% include "treinamento/vitrine_digital_guia_franqueado.html" %}
+</div>
+
+</body>
+</html>

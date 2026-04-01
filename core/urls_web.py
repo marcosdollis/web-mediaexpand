@@ -122,4 +122,7 @@ urlpatterns = [
     path('lab/video-encode/', views.lab_video_encode_view, name='lab_video_encode'),
     path('lab/video-encode/<str:job_id>/', views.lab_video_job_view, name='lab_video_job'),
     path('lab/video-encode/<str:job_id>/status/', views.lab_video_status_api, name='lab_video_status'),
+
+    # Treinamento
+    path('treinamento/guia/', views.treinamento_franqueado_view, name='treinamento_guia'),
 ]

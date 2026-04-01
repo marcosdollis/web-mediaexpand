@@ -699,6 +699,10 @@ class DispositivoTV(models.Model):
         related_name='dispositivos_franqueado',
         help_text='Franqueado responsável por este dispositivo. Permite transferir a gestão da TV ao franqueado sem alterar o município.',
     )
+    alerta_desconexao_enviado = models.BooleanField(
+        default=False,
+        help_text='True quando o alerta de desconexão já foi enviado e o dispositivo continua offline.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -736,6 +740,16 @@ class DispositivoTV(models.Model):
     def tem_horario_funcionamento(self):
         """Retorna True se o dispositivo tem horários de funcionamento definidos"""
         return self.horarios_funcionamento.filter(ativo=True).exists()
+
+    @property
+    def esta_online(self):
+        """True se o dispositivo enviou heartbeat nos últimos OFFLINE_THRESHOLD_MINUTES."""
+        from django.utils import timezone
+        from django.conf import settings as _s
+        threshold = getattr(_s, 'DEVICE_OFFLINE_THRESHOLD_MINUTES', 10)
+        if not self.ultima_sincronizacao:
+            return False
+        return (timezone.now() - self.ultima_sincronizacao).total_seconds() < threshold * 60
 
     def get_playlists_ativas_por_horario(self):
         """
