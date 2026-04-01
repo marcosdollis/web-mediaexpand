@@ -6207,7 +6207,6 @@ def campanha_spin_view(request, token):
     })
 
 
-@csrf_exempt
 def _validar_cpf(cpf: str) -> bool:
     """Valida CPF brasileiro. Aceita '000.000.000-00' ou '00000000000'."""
     import re
@@ -6221,6 +6220,7 @@ def _validar_cpf(cpf: str) -> bool:
     return True
 
 
+@csrf_exempt
 def campanha_roleta_lead_view(request, token, jogada_pk):
     """AJAX/POST público — salva os dados de lead após o ganhador preencher o formulário."""
     if request.method != 'POST':
