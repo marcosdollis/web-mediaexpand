@@ -253,6 +253,21 @@ LOGGING = {
 # External API Keys (for design editor media library)
 PIXABAY_API_KEY = config('PIXABAY_API_KEY', default='')
 
+# ─── E-mail via Brevo SMTP ────────────────────────────────────────────────────
+EMAIL_BACKEND    = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST       = config('EMAIL_HOST',     default='smtp-relay.brevo.com')
+EMAIL_PORT       = config('EMAIL_PORT',     default=587, cast=int)
+EMAIL_USE_TLS    = True
+EMAIL_HOST_USER  = config('EMAIL_HOST_USER',     default='a6dae9001@smtp-brevo.com')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='YTHWwjsRQA9IVp5E')
+DEFAULT_FROM_EMAIL  = config('DEFAULT_FROM_EMAIL', default='noreply@mediaexpand.com.br')
+
+# ─── Alertas de dispositivos offline ─────────────────────────────────────────
+# Minutos sem heartbeat para considerar o dispositivo offline
+DEVICE_OFFLINE_THRESHOLD_MINUTES = config('DEVICE_OFFLINE_THRESHOLD_MINUTES', default=10, cast=int)
+# Intervalo (segundos) do scheduler interno para checar dispositivos
+DEVICE_CHECK_INTERVAL_SECONDS    = config('DEVICE_CHECK_INTERVAL_SECONDS', default=60, cast=int)
+
 # Security settings for production
 if not DEBUG:
     # Railway usa proxy reverso, então precisamos confiar no header X-Forwarded-Proto

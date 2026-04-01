@@ -440,10 +440,22 @@ class TVAPIView(APIView):
             )
             
             # Atualiza última sincronização
+            estava_offline = dispositivo.alerta_desconexao_enviado
             dispositivo.ultima_sincronizacao = timezone.now()
             if versao_app:
                 dispositivo.versao_app = versao_app
+            if estava_offline:
+                dispositivo.alerta_desconexao_enviado = False
             dispositivo.save()
+
+            # Notifica reconexão em background (sem bloquear resposta)
+            if estava_offline:
+                try:
+                    from core.alerts import send_online_alert
+                    import threading
+                    threading.Thread(target=send_online_alert, args=(dispositivo,), daemon=True).start()
+                except Exception:
+                    pass
             
             # Retorna TODAS as playlists ativas no horário atual mescladas
             agendamentos_ativos = dispositivo.get_agendamentos_ativos_por_horario()
@@ -754,6 +766,56 @@ class TVVersionCheckView(APIView):
             'notes': app_version.notas_versao,
         })
 
+
+class TVHeartbeatView(APIView):
+    """
+    Heartbeat leve: o app Android chama este endpoint periodicamente para indicar
+    que o dispositivo está online.
+
+    POST /api/tv/heartbeat/
+    Body: { "identificador_unico": "<uuid>" }
+
+    Atualiza ultima_sincronizacao.
+    Se o dispositivo estava marcado como offline (alerta já enviado), envia e-mail
+    de reconexão e reseta o flag.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        identificador = request.data.get('identificador_unico', '').strip()
+        if not identificador:
+            return Response({'error': 'identificador_unico é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            dispositivo = DispositivoTV.objects.select_related(
+                'municipio', 'municipio__franqueado', 'franqueado'
+            ).get(identificador_unico=identificador, ativo=True)
+        except DispositivoTV.DoesNotExist:
+            return Response({'error': 'Dispositivo não encontrado ou inativo'}, status=status.HTTP_404_NOT_FOUND)
+
+        estava_offline = dispositivo.alerta_desconexao_enviado
+
+        # Atualiza dados de presença
+        now = timezone.now()
+        update_fields = ['ultima_sincronizacao']
+        dispositivo.ultima_sincronizacao = now
+
+        if estava_offline:
+            dispositivo.alerta_desconexao_enviado = False
+            update_fields.append('alerta_desconexao_enviado')
+
+        dispositivo.save(update_fields=update_fields)
+
+        # Envia e-mail "voltou online" sem bloquear a resposta
+        if estava_offline:
+            try:
+                from core.alerts import send_online_alert
+                import threading
+                threading.Thread(target=send_online_alert, args=(dispositivo,), daemon=True).start()
+            except Exception:
+                pass
+
+        return Response({'status': 'ok', 'ts': now.isoformat()})
 
 
 @method_decorator(xframe_options_exempt, name='dispatch')
