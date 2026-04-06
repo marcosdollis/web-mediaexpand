@@ -1954,3 +1954,43 @@ class CampanhaAlertaLead(models.Model):
                 valor = ', '.join(valor)
             resultado.append((campo.rotulo, valor))
         return resultado
+
+
+# ── LANDING PAGE ─────────────────────────────────────────────────────────────
+
+class LandingLead(models.Model):
+    """Lead capturado pelo formulário da landing page pública (raiz do domínio)."""
+
+    SEGMENTO_CHOICES = [
+        ('barbearia_salao',     'Barbearia / Salão'),
+        ('restaurante',         'Restaurante / Lanchonete'),
+        ('loja_roupa',          'Loja de Roupa / Calçados'),
+        ('oficina',             'Oficina Mecânica'),
+        ('academia',            'Academia / Studio'),
+        ('farmacia_otica',      'Farmácia / Ótica'),
+        ('petshop',             'Petshop'),
+        ('clinica',             'Clínica / Consultório'),
+        ('supermercado',        'Supermercado / Mercearia'),
+        ('comercio_geral',      'Comércio em Geral'),
+        ('outro',               'Outro'),
+    ]
+
+    nome      = models.CharField(max_length=200, verbose_name='Nome')
+    whatsapp  = models.CharField(max_length=30, verbose_name='WhatsApp')
+    email     = models.EmailField(blank=True, verbose_name='E-mail')
+    cidade    = models.CharField(max_length=100, blank=True, verbose_name='Cidade')
+    segmento  = models.CharField(
+        max_length=40, blank=True, choices=SEGMENTO_CHOICES,
+        verbose_name='Segmento do negócio',
+    )
+    mensagem  = models.TextField(blank=True, verbose_name='Mensagem')
+    ip        = models.GenericIPAddressField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Lead da Landing Page'
+        verbose_name_plural = 'Leads da Landing Page'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'{self.nome} – {self.whatsapp} ({self.criado_em:%d/%m/%Y %H:%M})'

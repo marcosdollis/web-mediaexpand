@@ -17,6 +17,7 @@ from .models import (
     CampanhaRoletaConfig, CampanhaRoletaPremio, CampanhaJogada,
     CampanhaCartaConfig,
     CampanhaAlertaConfig, CampanhaAlertaCampo, CampanhaAlertaLead,
+    LandingLead,
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -960,10 +961,29 @@ from .forms import VideoForm, PlaylistForm, DispositivoTVForm, SegmentoForm, App
 
 
 def home_view(request):
-    """Página inicial - redireciona para dashboard se logado, senão para login"""
+    """Landing page pública com formulário de captura de leads."""
     if request.user.is_authenticated:
         return redirect('dashboard')
-    return redirect('login')
+
+    if request.method == 'POST':
+        nome     = request.POST.get('nome', '').strip()
+        whatsapp = request.POST.get('whatsapp', '').strip()
+        email    = request.POST.get('email', '').strip()
+        cidade   = request.POST.get('cidade', '').strip()
+        segmento = request.POST.get('segmento', '').strip()
+        mensagem = request.POST.get('mensagem', '').strip()
+
+        if not nome or not whatsapp:
+            return JsonResponse({'success': False, 'error': 'Nome e WhatsApp são obrigatórios.'}, status=400)
+
+        ip = (request.META.get('HTTP_X_FORWARDED_FOR') or '').split(',')[0].strip() or request.META.get('REMOTE_ADDR')
+        LandingLead.objects.create(
+            nome=nome, whatsapp=whatsapp, email=email,
+            cidade=cidade, segmento=segmento, mensagem=mensagem, ip=ip or None,
+        )
+        return JsonResponse({'success': True})
+
+    return render(request, 'landing/index.html')
 
 
 def login_view(request):
