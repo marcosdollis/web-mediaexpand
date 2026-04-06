@@ -133,7 +133,7 @@
 <nav class="me-sidebar" id="sidebar">
 
     <div class="sb-section">
-        <a class="sb-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+        <a class="sb-link" href="{% url 'dashboard' %}">
             <i class="bi bi-house-door-fill"></i> Dashboard
         </a>
     </div>
@@ -143,17 +143,17 @@
     <div class="sb-section">
         <div class="sb-section-label">Gestão</div>
         {% if user.is_owner %}
-        <a class="sb-link {% if 'user' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'user_list' %}">
+        <a class="sb-link" href="{% url 'user_list' %}">
             <i class="bi bi-people"></i> Usuários
         </a>
         {% endif %}
-        <a class="sb-link {% if 'municipio' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'municipio_list' %}">
+        <a class="sb-link" href="{% url 'municipio_list' %}">
             <i class="bi bi-geo-alt"></i> Municípios
         </a>
-        <a class="sb-link {% if 'segmento' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'segmento_list' %}">
+        <a class="sb-link" href="{% url 'segmento_list' %}">
             <i class="bi bi-tags"></i> Segmentos
         </a>
-        <a class="sb-link {% if 'cliente' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'cliente_list' %}">
+        <a class="sb-link" href="{% url 'cliente_list' %}">
             <i class="bi bi-person-badge"></i> Clientes
         </a>
     </div>
@@ -162,16 +162,16 @@
     <div class="sb-divider"></div>
     <div class="sb-section">
         <div class="sb-section-label">Conteúdo</div>
-        <a class="sb-link {% if 'video' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'video_list' %}">
+        <a class="sb-link" href="{% url 'video_list' %}">
             <i class="bi bi-film"></i> Vídeos
         </a>
-        <a class="sb-link {% if 'playlist' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'playlist_list' %}">
+        <a class="sb-link" href="{% url 'playlist_list' %}">
             <i class="bi bi-music-note-list"></i> Playlists
         </a>
-        <a class="sb-link {% if 'conteudo_corporativo' in request.resolver_match.url_name or 'design' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'conteudo_corporativo_list' %}">
+        <a class="sb-link" href="{% url 'conteudo_corporativo_list' %}">
             <i class="bi bi-broadcast"></i> Corporativo
         </a>
-        <a class="sb-link {% if 'design' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'design_list' %}">
+        <a class="sb-link" href="{% url 'design_list' %}">
             <i class="bi bi-palette"></i> Designs
         </a>
     </div>
@@ -179,14 +179,14 @@
     <div class="sb-divider"></div>
     <div class="sb-section">
         <div class="sb-section-label">Operação</div>
-        <a class="sb-link {% if 'dispositivo' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'dispositivo_list' %}">
+        <a class="sb-link" href="{% url 'dispositivo_list' %}">
             <i class="bi bi-display"></i> TVs
         </a>
-        <a class="sb-link {% if 'campanha' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'campanha_list' %}">
+        <a class="sb-link" href="{% url 'campanha_list' %}">
             <i class="bi bi-megaphone"></i> Campanhas
         </a>
         {% if user.is_owner %}
-        <a class="sb-link {% if 'landing_leads' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'landing_leads' %}">
+        <a class="sb-link" href="{% url 'landing_leads' %}">
             <i class="bi bi-person-lines-fill"></i> Leads (Site)
         </a>
         {% endif %}
@@ -196,11 +196,11 @@
     <div class="sb-divider"></div>
     <div class="sb-section">
         <div class="sb-section-label">Suporte</div>
-        <a class="sb-link {% if 'treinamento' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'treinamento_guia' %}">
+        <a class="sb-link" href="{% url 'treinamento_guia' %}">
             <i class="bi bi-mortarboard"></i> Treinamento
         </a>
         {% if user.is_owner %}
-        <a class="sb-link {% if 'configuracao_api' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'configuracao_api' %}">
+        <a class="sb-link" href="{% url 'configuracao_api' %}">
             <i class="bi bi-gear"></i> Config. APIs
         </a>
         {% endif %}
