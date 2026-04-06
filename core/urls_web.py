@@ -125,4 +125,7 @@ urlpatterns = [
 
     # Treinamento
     path('treinamento/guia/', views.treinamento_franqueado_view, name='treinamento_guia'),
+
+    # Leads da landing page
+    path('leads/landing/', views.landing_leads_view, name='landing_leads'),
 ]

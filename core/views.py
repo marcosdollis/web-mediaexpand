@@ -6573,3 +6573,29 @@ def campanha_carta_lead_view(request, token, jogada_pk):
 def treinamento_franqueado_view(request):
     """Guia de vendas e treinamento para franqueados"""
     return render(request, 'treinamento/guia_franqueado.html', {})
+
+
+@login_required
+def landing_leads_view(request):
+    """Lista os leads capturados pela landing page pública (apenas OWNER)."""
+    from .models import LandingLead
+    if not request.user.is_owner:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+
+    import csv
+    # Export CSV
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = 'attachment; filename="leads_landing.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['#', 'Nome', 'WhatsApp', 'E-mail', 'Cidade', 'Segmento', 'Mensagem', 'Data'])
+        for i, lead in enumerate(LandingLead.objects.all(), 1):
+            writer.writerow([i, lead.nome, lead.whatsapp, lead.email, lead.cidade,
+                             lead.get_segmento_display(), lead.mensagem,
+                             lead.criado_em.strftime('%d/%m/%Y %H:%M')])
+        return response
+
+    leads = LandingLead.objects.all()
+    total = leads.count()
+    return render(request, 'landing/leads.html', {'leads': leads, 'total': total})
