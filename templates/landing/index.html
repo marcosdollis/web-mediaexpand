@@ -222,7 +222,7 @@ section { padding: 100px 0; position: relative; }
 
 /* ── CAMPANHAS ── */
 .campanhas-section { background: var(--bg-secondary); }
-.camp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.camp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
 .camp-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius); overflow: hidden; transition: all .2s; }
 .camp-card:hover { transform: translateY(-4px); box-shadow: 0 20px 48px rgba(0,0,0,.4); }
 .camp-card-header { padding: 1.5rem; display: flex; align-items: center; gap: 1rem; }
@@ -387,36 +387,40 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
                 <div class="hero-tag">
                     <span class="badge-pill">
                         <span class="badge-dot"></span>
-                        Vitrine Digital · Gestão Remota · Campanhas de Leads
+                        Vitrine Digital · Atrai quem passa · Traz pra dentro
                     </span>
                 </div>
                 <h1>
-                    Sua TV.<br>
-                    <span class="gradient-text">Sua Vitrine em Movimento.</span>
+                    Quantas pessoas passam<br>
+                    na frente e <span class="gradient-text">não entram?</span>
                 </h1>
                 <p class="hero-sub">
-                    Transforme qualquer TV Android em uma vitrine digital inteligente. Exiba vídeos, anúncios e campanhas gerenciados 100% remotamente, de qualquer lugar.
+                    Uma vitrine em movimento atrai <strong>67% mais olhares</strong> da calçada. Nosso olho segue o movimento — e quem olha, entra. Quem entra, compra. A MediaExpand coloca esse movimento na sua vitrine.
                 </p>
                 <div class="hero-ctas">
-                    <a href="#contato" class="btn-primary"><i class="fas fa-rocket"></i> Quero uma Demo Grátis</a>
-                    <a href="#recursos" class="btn-outline"><i class="fas fa-play-circle"></i> Ver Recursos</a>
+                    <a href="#contato" class="btn-primary"><i class="fas fa-eye"></i> Quero Atrair Mais Clientes</a>
+                    <a href="#recursos" class="btn-outline"><i class="fas fa-play-circle"></i> Como Funciona</a>
                 </div>
                 <div class="hero-stats">
-                    <div class="hstat"><div class="hstat-n">24/7</div><div class="hstat-l">Exibição contínua</div></div>
-                    <div class="hstat"><div class="hstat-n">100%</div><div class="hstat-l">Gestão remota</div></div>
-                    <div class="hstat"><div class="hstat-n">5</div><div class="hstat-l">Planos disponíveis</div></div>
+                    <div class="hstat"><div class="hstat-n">67%</div><div class="hstat-l">mais olhares da calçada</div></div>
+                    <div class="hstat"><div class="hstat-n">24/7</div><div class="hstat-l">vitrine em movimento</div></div>
+                    <div class="hstat"><div class="hstat-n">100%</div><div class="hstat-l">gestão remota</div></div>
                 </div>
             </div>
             <!-- Hero Lead Form Card -->
             <div class="hero-form-card">
-                <h3>Começar agora é grátis</h3>
-                <p class="form-sub">Preencha e nossa equipe entra em contato</p>
+                <h3>Agende sua demonstração</h3>
+                <p class="form-sub">Preencha e nossa equipe entra em contato pelo WhatsApp</p>
                 <form id="heroLeadForm" method="post" action="/">
                     {% csrf_token %}
                     <input type="hidden" name="form_source" value="hero">
                     <div class="form-group">
                         <label for="h-nome">Nome *</label>
                         <input type="text" id="h-nome" name="nome" class="form-control" placeholder="Seu nome completo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="h-email">E-mail</label>
+                        <input type="email" id="h-email" name="email" class="form-control" placeholder="seuemail@exemplo.com">
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -467,19 +471,19 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
         <div class="stats-grid">
             <div class="stat-item">
                 <div class="stat-number">24/7</div>
-                <div class="stat-label">Exibição contínua sem parar</div>
+                <div class="stat-label">Vitrine em movimento sem parar</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">67%</div>
+                <div class="stat-label">Mais olhares de quem passa</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">4</div>
+                <div class="stat-label">Tipos de campanha de leads</div>
             </div>
             <div class="stat-item">
                 <div class="stat-number">100%</div>
                 <div class="stat-label">Gerenciamento remoto</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-number">3</div>
-                <div class="stat-label">Tipos de campanha de leads</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-number">∞</div>
-                <div class="stat-label">TVs gerenciadas remotamente</div>
             </div>
         </div>
     </div>
@@ -489,18 +493,18 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
 <section class="features-section" id="recursos">
     <div class="container">
         <div class="section-header">
-            <span class="badge-pill"><i class="fas fa-star"></i> Recursos da Plataforma</span>
-            <h2>Uma plataforma, <span class="gradient-text">múltiplas soluções</span></h2>
-            <p>Do conteúdo que envolve à campanha que captura leads — tudo gerenciado em tempo real de qualquer lugar.</p>
+            <span class="badge-pill"><i class="fas fa-bolt"></i> Recursos da Plataforma</span>
+            <h2>A vitrine que <span class="gradient-text">trabalha por você</span></h2>
+            <p>Da exibição que atrai olhares à campanha que captura leads — tudo gerenciado em tempo real de qualquer lugar, sem ir até a loja.</p>
         </div>
         <div class="features-grid">
             <div class="feature-card">
-                <div class="feat-icon purple"><i class="fas fa-tv"></i></div>
-                <h3>Vitrine Digital</h3>
-                <p>Exiba vídeos, playlists e conteúdo institucional nas TVs do seu negócio. Atualização imediata via painel web, sem sair do lugar.</p>
+                <div class="feat-icon purple"><i class="fas fa-eye"></i></div>
+                <h3>Vitrine em Movimento</h3>
+                <p>Vídeos e conteúdo dinâmico na TV da vitrine. Movimento que atrai o olhar de quem passa na rua — mais olhares, mais pessoas entram, mais vendas.</p>
             </div>
             <div class="feature-card">
-                <div class="feat-icon green"><i class="fas fa-wifi"></i></div>
+                <div class="feat-icon green"><i class="fas fa-satellite-dish"></i></div>
                 <h3>Gestão 100% Remota</h3>
                 <p>Controle todas as TVs de qualquer dispositivo com internet. Troque playlists, atualize conteúdo e monitore telas em tempo real.</p>
             </div>
@@ -510,12 +514,12 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
                 <p>Cada campanha gera um <strong>link único</strong>. Exiba via QR Code na TV, compartilhe no WhatsApp, Stories ou onde quiser.</p>
             </div>
             <div class="feature-card">
-                <div class="feat-icon red"><i class="fas fa-grip-lines"></i></div>
+                <div class="feat-icon red"><i class="fas fa-closed-captioning"></i></div>
                 <h3>Tarja Informativa</h3>
                 <p>Rodapé dinâmico com mensagens em tempo real: promoções relâmpago, WhatsApp, horário de funcionamento — sem pausar o vídeo.</p>
             </div>
             <div class="feature-card">
-                <div class="feat-icon pink"><i class="fas fa-film"></i></div>
+                <div class="feat-icon pink"><i class="fas fa-sitemap"></i></div>
                 <h3>Conteúdo Corporativo</h3>
                 <p>Distribua comunicados e treinamentos para todas as unidades com controle por franquia. A matriz publica, todos recebem.</p>
             </div>
@@ -535,7 +539,7 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
                 <p>Colete nome, WhatsApp e e-mail dos participantes. Exporte a lista em CSV ou visualize pelo painel de gestão.</p>
             </div>
             <div class="feature-card">
-                <div class="feat-icon purple"><i class="fas fa-shield-alt"></i></div>
+                <div class="feat-icon purple"><i class="fas fa-fingerprint"></i></div>
                 <h3>Anti-fraude e Controle</h3>
                 <p>Proteção por IP, limites de participação e validação de dados. Campanhas confiáveis com relatórios completos.</p>
             </div>
@@ -545,14 +549,14 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
                 <p>Receba alertas automáticos por e-mail quando uma TV fica offline. Identifique problemas antes que o cliente perceba.</p>
             </div>
             <div class="feature-card">
-                <div class="feat-icon pink"><i class="fas fa-layer-group"></i></div>
+                <div class="feat-icon pink"><i class="fas fa-stream"></i></div>
                 <h3>Playlists Personalizadas</h3>
                 <p>Organize o conteúdo em playlists com ordem e repetição configuráveis. Atribua diferentes playlists para cada TV.</p>
             </div>
             <div class="feature-card">
-                <div class="feat-icon red"><i class="fas fa-mobile-alt"></i></div>
+                <div class="feat-icon red"><i class="fab fa-android"></i></div>
                 <h3>App Android Dedicado</h3>
-                <p>Aplicativo leve para qualquer TV Android ou Chromecast. Sem hardware proprietário — usa o equipamento que você já tem.</p>
+                <p>Aplicativo leve para qualquer TV Android. Instala, sincroniza e toca automaticamente. Sem hardware proprietário.</p>
             </div>
         </div>
     </div>
@@ -633,7 +637,7 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
             <div class="step-card">
                 <div class="step-num">1</div>
                 <h4>Instale o App</h4>
-                <p>Instale o aplicativo MediaExpand em qualquer TV Android ou Chromecast. Grátis na Play Store.</p>
+                <p>Instale o aplicativo MediaExpand em qualquer TV Android. Configure uma vez, ela toca automaticamente e atualiza sozinha.</p>
             </div>
             <div class="step-card">
                 <div class="step-num">2</div>
@@ -662,7 +666,7 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
                 <i class="fas fa-magnet"></i> Captação de Leads
             </span>
             <h2>Um link. <span class="gradient-text">Qualquer canal.</span></h2>
-            <p>Cada campanha gera um <strong>link exclusivo</strong> que você usa como quiser: QR Code na TV, WhatsApp, Stories ou panfleto. Uma campanha <em>omnichannel</em> de verdade.</p>
+            <p>Cada campanha gera um <strong>link exclusivo</strong> que você usa como quiser: QR Code na TV, WhatsApp, Stories ou panfleto. Quatro tipos de campanha — sempre com o cliente entrando para descobrir a oferta.</p>
         </div>
         <div class="camp-grid">
             <div class="camp-card">
@@ -756,7 +760,7 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
                 </div>
                 <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Atualização remota em segundos</div>
                 <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Painel web de qualquer lugar</div>
-                <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Cupom, roleta e carta</div>
+                <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Cupom, roleta, carta e alerta inteligente</div>
                 <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> QR Code + tarja na TV</div>
                 <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Alerta de TV offline por e-mail</div>
                 <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Agendamento por dia e horário</div>
@@ -771,80 +775,75 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
     <div class="container">
         <div class="section-header">
             <span class="badge-pill"><i class="fas fa-tag"></i> Planos e Preços</span>
-            <h2>Planos para cada <span class="gradient-text">tamanho de negócio</span></h2>
-            <p>Comece pequeno e cresça com a plataforma. Sem taxa de adesão, sem fidelidade.</p>
+            <h2>Escolha o plano <span class="gradient-text">ideal para você</span></h2>
+            <p>Desde presença na rede até exclusividade total na sua área. Sem taxa de adesão, sem fidelidade.</p>
         </div>
         <div class="planos-grid">
             <div class="plano-card">
-                <div class="plano-icon">🚀</div>
-                <h3>Starter</h3>
-                <div class="plano-price">R$149,90<span>/mês</span></div>
-                <p class="plano-desc">Ideal para pequenos negócios que querem começar com gestão remota.</p>
+                <div class="plano-icon">📢</div>
+                <h3>Somente Anunciar</h3>
+                <div class="plano-price">R$250<span>/mês</span></div>
+                <p class="plano-desc">Seu anúncio exibido nas telas da rede MediaExpand. Sem precisar de TV própria. Visibilidade local com investimento mínimo.</p>
                 <div class="plano-features">
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> 1 TV conectada</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Upload de vídeos</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Playlists personalizadas</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Gestão remota completa</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Suporte por e-mail</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Presença nas telas da rede</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Sem hardware próprio necessário</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Alcance local garantido</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Ideal para marcas regionais</div>
                 </div>
-                <a href="#contato" class="btn-plano">Começar com Starter</a>
+                <a href="#contato" class="btn-plano">Quero Anunciar</a>
             </div>
             <div class="plano-card featured">
-                <div class="plano-badge">Mais Popular</div>
+                <div class="plano-badge">Mais Escolhido</div>
                 <div class="plano-icon">⭐</div>
-                <h3>Pro</h3>
+                <h3>Vitrine + Ads</h3>
+                <div class="plano-price">R$149,90<span>/mês</span></div>
+                <p class="plano-desc">TV própria com gestão completa. 80% do espaço é seu, 20% para parceiros sem concorrência direta. Melhor custo-benefício — porta de entrada ideal.</p>
+                <div class="plano-features">
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> TV própria com gestão remota</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> 80% do espaço é seu</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Campanhas de leads (cupom, roleta, carta, alerta)</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> QR Code + tarja dinâmica</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Sem anúncios de concorrentes diretos</div>
+                </div>
+                <a href="#contato" class="btn-plano featured">Começar Agora</a>
+            </div>
+            <div class="plano-card">
+                <div class="plano-icon">📺</div>
+                <h3>Vitrine Digital</h3>
                 <div class="plano-price">R$299,90<span>/mês</span></div>
-                <p class="plano-desc">Para negócios que querem campanhas de leads e recursos avançados.</p>
+                <p class="plano-desc">TV própria 100% dedicada ao conteúdo do seu negócio. Sem anúncios de terceiros. Controle total da narrativa visual.</p>
                 <div class="plano-features">
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Até 3 TVs</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Campanhas de leads (roleta, cupom, carta)</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> QR Code + tarja informativa</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Agendamento inteligente</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Alertas de desconexão</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Suporte prioritário</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> 100% do espaço é seu</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Sem ads externos</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Campanhas de leads completas</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Agendamento de promoções</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Dashboard de métricas</div>
                 </div>
-                <a href="#contato" class="btn-plano featured">Começar com Pro</a>
+                <a href="#contato" class="btn-plano">Quero Controle Total</a>
             </div>
             <div class="plano-card">
-                <div class="plano-icon">🏢</div>
-                <h3>Empresarial</h3>
+                <div class="plano-icon">🏆</div>
+                <h3>Exclusividade Total</h3>
                 <div class="plano-price">R$499,90<span>/mês</span></div>
-                <p class="plano-desc">Para redes com múltiplas unidades e necessidade de conteúdo corporativo.</p>
+                <p class="plano-desc">Nenhum concorrente do mesmo segmento aparece em nenhuma tela da rede na sua área. Monopólio visual garantido contratualmente.</p>
                 <div class="plano-features">
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> TVs ilimitadas</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Tudo do plano Pro</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Conteúdo corporativo</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Controle por filial/franquia</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> API de integração</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Suporte dedicado</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Exclusividade de segmento na área</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Zero concorrência na rede local</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Tudo do plano Vitrine Digital</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Garantia contratual de exclusividade</div>
                 </div>
-                <a href="#contato" class="btn-plano">Falar com Consultor</a>
+                <a href="#contato" class="btn-plano">Quero Exclusividade</a>
             </div>
-            <div class="plano-card">
-                <div class="plano-icon">💰</div>
-                <h3>Franqueado</h3>
-                <div class="plano-price">R$250,00<span>/mês</span></div>
-                <p class="plano-desc">Plano especial para franqueados da rede MediaExpand.</p>
-                <div class="plano-features">
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> TVs da unidade</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Acesso ao painel do franqueado</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Campanhas próprias</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Conteúdo da matriz</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Suporte exclusivo</div>
-                </div>
-                <a href="#contato" class="btn-plano">Sou Franqueado</a>
-            </div>
-            <div class="plano-card">
-                <div class="plano-icon">🎯</div>
+            <div class="plano-card" style="border-color:rgba(245,158,11,.2);">
+                <div class="plano-icon">⚡</div>
                 <h3>Campanha Avulsa</h3>
-                <div class="plano-price">R$99,90<span>/camp.</span></div>
-                <p class="plano-desc">Crie uma campanha pontual sem assinatura mensal.</p>
+                <div class="plano-price">R$99,90<span>/campanha</span></div>
+                <p class="plano-desc">Campanhas pontuais sem mensalidade — Roleta de Desconto, Cupom, Carta de Oferta ou Alerta Inteligente. Paga só pela campanha ativa.</p>
                 <div class="plano-features">
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> 1 campanha ativa</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Link exclusivo</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Captação de leads</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Exportação CSV</div>
-                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Validade de 30 dias</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Sem mensalidade</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Escolha o tipo: roleta, cupom, carta ou alerta</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Link exclusivo + captação de leads</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Exportação CSV dos participantes</div>
                 </div>
                 <a href="#contato" class="btn-plano">Criar Campanha</a>
             </div>
@@ -915,7 +914,7 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
             </div>
             <div class="faq-item">
                 <div class="faq-q">Como funcionam as campanhas de captação de leads?<span class="faq-toggle"><i class="fas fa-plus"></i></span></div>
-                <div class="faq-a">A TV exibe um QR Code da campanha via tarja. O cliente escaneia com o celular, participa (cupom, roleta ou carta) e preenche os dados. Tudo vai para o painel de leads, exportável em CSV.</div>
+                <div class="faq-a">A TV exibe um QR Code da campanha via tarja. O cliente escaneia com o celular, participa (cupom, roleta, carta ou alerta inteligente) e preenche os dados. Tudo vai para o painel de leads, exportável em CSV.</div>
             </div>
             <div class="faq-item">
                 <div class="faq-q">O sistema funciona se a internet cair?<span class="faq-toggle"><i class="fas fa-plus"></i></span></div>
