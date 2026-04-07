@@ -6,6 +6,7 @@ from .models import (
     Playlist, PlaylistItem, DispositivoTV, AgendamentoExibicao, LogExibicao, AppVersion,
     QRCodeClick, ConteudoCorporativo, ConfiguracaoAPI, Segmento, HorarioFuncionamento,
     Campanha, CampanhaAlertaConfig, CampanhaAlertaCampo, CampanhaAlertaLead,
+    LandingLead,
 )
 
 
@@ -255,3 +256,12 @@ class CampanhaAlertaLeadAdmin(admin.ModelAdmin):
     list_filter = ('campanha',)
     readonly_fields = ('campanha', 'nome', 'telefone', 'email', 'respostas', 'ip', 'criado_em')
     search_fields = ('nome', 'telefone', 'email')
+
+
+@admin.register(LandingLead)
+class LandingLeadAdmin(admin.ModelAdmin):
+    list_display = ('pk', 'nome', 'whatsapp', 'email', 'cidade', 'segmento', 'criado_em')
+    list_filter = ('segmento',)
+    search_fields = ('nome', 'whatsapp', 'email', 'cidade')
+    readonly_fields = ('nome', 'whatsapp', 'email', 'cidade', 'segmento', 'mensagem', 'ip', 'criado_em')
+    ordering = ('-criado_em',)

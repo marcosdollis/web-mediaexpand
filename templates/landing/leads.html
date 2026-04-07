@@ -1,0 +1,87 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Leads da Landing Page — MediaExpand{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <h1 class="h4 fw-bold mb-0"><i class="bi bi-person-lines-fill me-2 text-primary"></i>Leads do Site</h1>
+        <small class="text-muted">Contatos capturados pela landing page pública (mediaexpand.com.br)</small>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <span class="badge bg-primary fs-6">{{ total }} lead{{ total|pluralize:"s" }}</span>
+        {% if total %}
+        <a href="?export=csv" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-download me-1"></i>Exportar CSV
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if leads %}
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:40px">#</th>
+                        <th>Nome</th>
+                        <th>WhatsApp</th>
+                        <th>E-mail</th>
+                        <th>Cidade</th>
+                        <th>Segmento</th>
+                        <th>Mensagem</th>
+                        <th>Data</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lead in leads %}
+                    <tr>
+                        <td class="text-muted small">{{ forloop.counter }}</td>
+                        <td class="fw-semibold">{{ lead.nome }}</td>
+                        <td>
+                            <a href="https://wa.me/55{{ lead.whatsapp|slugify }}" target="_blank" class="text-success text-decoration-none">
+                                <i class="bi bi-whatsapp me-1"></i>{{ lead.whatsapp }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if lead.email %}
+                                <a href="mailto:{{ lead.email }}" class="text-decoration-none">{{ lead.email }}</a>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ lead.cidade|default:"—" }}</td>
+                        <td>
+                            {% if lead.segmento %}
+                                <span class="badge bg-secondary bg-opacity-75">{{ lead.get_segmento_display }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="max-width:200px">
+                            {% if lead.mensagem %}
+                                <span title="{{ lead.mensagem }}" class="d-inline-block text-truncate" style="max-width:180px">{{ lead.mensagem }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small text-nowrap">{{ lead.criado_em|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-inbox display-4 text-muted"></i>
+        <p class="text-muted mt-3 mb-0">Nenhum lead capturado ainda.<br>
+        Quando alguém preencher o formulário em <strong>mediaexpand.com.br</strong>, aparecerá aqui.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
