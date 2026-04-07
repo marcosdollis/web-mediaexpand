@@ -4,594 +4,1151 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MediaExpand — Vitrine Digital em Movimento</title>
-<meta name="description" content="Transforme qualquer TV em uma vitrine digital inteligente. Gestão 100% remota, campanhas, QR code rastreável e muito mais. A partir de R$149,90/mês.">
+<meta name="description" content="Transforme qualquer TV em uma vitrine digital inteligente. Gestão 100% remota, campanhas, QR code e leads. Comece hoje.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+{% load static %}
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --dark:#080c18;
-  --dark2:#0d1225;
-  --card:#111827;
-  --blue:#0f4fff;
-  --cyan:#00d4ff;
-  --cyan2:#00b8e0;
-  --white:#f0f4ff;
-  --muted:#8892b0;
-  --border:rgba(0,212,255,0.12);
-  --border2:rgba(255,255,255,0.06);
-  --radius:14px;
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --bg-dark:       #0a0a0f;
+    --bg-secondary:  #13131a;
+    --bg-card:       #1a1a24;
+    --bg-card-hover: #20202e;
+    --accent:        #6366f1;
+    --accent-2:      #8b5cf6;
+    --accent-green:  #10b981;
+    --accent-orange: #f59e0b;
+    --accent-pink:   #ec4899;
+    --grad-main:     linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    --grad-green:    linear-gradient(135deg, #10b981, #059669);
+    --grad-orange:   linear-gradient(135deg, #f59e0b, #d97706);
+    --text-primary:  #f1f0ff;
+    --text-secondary:#a1a1b5;
+    --text-muted:    #6b6b80;
+    --radius:        16px;
+    --shadow-glow:   0 0 30px rgba(99,102,241,.25);
+    --ease:          cubic-bezier(.4,0,.2,1);
 }
-html{scroll-behavior:smooth}
-body{background:var(--dark);color:var(--white);font-family:'DM Sans',sans-serif;line-height:1.6;overflow-x:hidden}
-a{color:inherit;text-decoration:none}
-img{display:block}
+html { scroll-behavior: smooth; }
+body { background: var(--bg-dark); color: var(--text-primary); font-family: 'Inter', sans-serif; line-height: 1.6; overflow-x: hidden; }
+a { color: inherit; text-decoration: none; }
+img { display: block; }
 
-/* ─── NAVBAR ─── */
-.nav{
-  position:fixed;top:0;left:0;right:0;z-index:100;
-  padding:0 40px;height:64px;
-  display:flex;align-items:center;justify-content:space-between;
-  background:rgba(8,12,24,0.85);backdrop-filter:blur(14px);
-  border-bottom:1px solid var(--border);
+/* ── CONTAINER ── */
+.container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+/* ── NAVBAR ── */
+.navbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    transition: background .3s, backdrop-filter .3s, border-color .3s;
 }
-.nav-logo{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;letter-spacing:-0.5px}
-.nav-logo span{color:var(--cyan)}
-.nav-actions{display:flex;align-items:center;gap:12px}
-.btn-ghost{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:500;border:1px solid var(--border2);color:var(--muted);transition:all .2s;cursor:pointer;background:transparent}
-.btn-ghost:hover{border-color:var(--cyan);color:var(--cyan)}
-.btn-primary{padding:9px 22px;border-radius:8px;font-size:13px;font-weight:600;background:var(--cyan);color:#000;border:none;cursor:pointer;transition:background .2s}
-.btn-primary:hover{background:var(--cyan2)}
-
-/* ─── HERO ─── */
-.hero{
-  min-height:100vh;
-  display:flex;flex-direction:column;justify-content:center;
-  padding:100px 40px 80px;
-  position:relative;overflow:hidden;
-  background:radial-gradient(ellipse 80% 60% at 50% 30%,rgba(15,79,255,0.1) 0%,transparent 70%),
-             var(--dark);
+.navbar.scrolled {
+    background: rgba(10,10,15,.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255,255,255,.07);
 }
-.hero-glow1{position:absolute;top:-120px;right:-120px;width:640px;height:640px;background:radial-gradient(circle,rgba(0,212,255,0.06) 0%,transparent 65%);pointer-events:none}
-.hero-glow2{position:absolute;bottom:-100px;left:-60px;width:480px;height:480px;background:radial-gradient(circle,rgba(15,79,255,0.08) 0%,transparent 65%);pointer-events:none}
-.hero-inner{max-width:1100px;margin:0 auto;width:100%;display:grid;grid-template-columns:1fr 420px;gap:64px;align-items:center}
-.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,212,255,0.07);border:1px solid rgba(0,212,255,0.22);border-radius:20px;padding:5px 16px;font-size:11px;color:var(--cyan);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:24px}
-.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:blink 2s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-.hero-title{font-family:'Syne',sans-serif;font-size:clamp(38px,5.5vw,66px);font-weight:800;line-height:1.02;letter-spacing:-2px;color:#fff;margin-bottom:20px}
-.hero-title .hi{background:linear-gradient(90deg,var(--cyan),#6ee7ff,var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.hero-sub{font-size:17px;color:var(--muted);line-height:1.7;max-width:480px;margin-bottom:36px}
-.hero-sub strong{color:#c8e6ff;font-weight:500}
-.hero-ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:52px}
-.btn-hero{padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;border:none;transition:all .2s}
-.btn-hero-main{background:linear-gradient(135deg,var(--cyan),#0070ff);color:#000;box-shadow:0 0 32px rgba(0,212,255,0.25)}
-.btn-hero-main:hover{transform:translateY(-2px);box-shadow:0 0 48px rgba(0,212,255,0.4)}
-.btn-hero-ghost{background:transparent;border:1px solid rgba(255,255,255,0.14);color:var(--white);font-size:14px;padding:13px 24px}
-.btn-hero-ghost:hover{border-color:var(--cyan);color:var(--cyan)}
-.hero-stats{display:flex;gap:32px;flex-wrap:wrap}
-.hstat{border-left:2px solid rgba(0,212,255,0.4);padding-left:14px}
-.hstat-n{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#fff}
-.hstat-l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
-
-/* ─── FORM HERO CARD ─── */
-.form-card{
-  background:rgba(17,24,39,0.85);border:1px solid rgba(0,212,255,0.18);border-radius:20px;
-  padding:32px 28px;backdrop-filter:blur(12px);
-  box-shadow:0 24px 64px rgba(0,0,0,0.4),0 0 1px rgba(0,212,255,0.25);
-  position:sticky;top:80px;
+.nav-container {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.1rem 0;
 }
-.form-card-label{font-size:12px;color:var(--cyan);letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px}
-.form-card-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#fff;margin-bottom:4px}
-.form-card-sub{font-size:13px;color:var(--muted);margin-bottom:24px}
-.form-group{margin-bottom:16px}
-.form-group label{display:block;font-size:12px;color:#8892b0;font-weight:500;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
-.form-control{
-  width:100%;padding:11px 14px;
-  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);
-  border-radius:9px;color:var(--white);font-size:14px;font-family:'DM Sans',sans-serif;
-  transition:border-color .2s;outline:none;
+.logo { display: flex; align-items: center; gap: .7rem; }
+.logo-icon {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: var(--grad-main);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 1rem; color: #fff;
 }
-.form-control::placeholder{color:#3d4a6a}
-.form-control:focus{border-color:var(--cyan);background:rgba(0,212,255,0.04)}
-select.form-control option{background:#1a2135;color:var(--white)}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.btn-form{
-  width:100%;padding:13px;border-radius:10px;
-  background:linear-gradient(135deg,var(--cyan),#0080ff);
-  color:#000;font-size:15px;font-weight:700;border:none;cursor:pointer;
-  transition:all .2s;margin-top:4px;
+.logo-text { font-weight: 800; font-size: 1.1rem; }
+.nav-links { display: flex; align-items: center; gap: 1.75rem; }
+.nav-links a { font-size: .86rem; color: var(--text-secondary); font-weight: 500; transition: color .2s; white-space: nowrap; }
+.nav-links a:hover { color: var(--text-primary); }
+.nav-cta {
+    padding: .5rem 1.2rem;
+    background: var(--grad-main);
+    border-radius: 50px;
+    font-size: .86rem; font-weight: 700;
+    color: #fff !important;
+    transition: transform .2s, box-shadow .2s;
 }
-.btn-form:hover{filter:brightness(1.08);transform:translateY(-1px)}
-.btn-form:disabled{opacity:.6;cursor:not-allowed;transform:none}
-.form-privacy{font-size:11px;color:#3d4a6a;text-align:center;margin-top:12px}
-.form-success{display:none;text-align:center;padding:20px 10px}
-.form-success-ico{font-size:48px;margin-bottom:12px}
-.form-success-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#fff;margin-bottom:8px}
-.form-success-sub{font-size:13px;color:var(--muted);line-height:1.6}
-.form-error-msg{font-size:12px;color:#ff6b6b;margin-top:8px;text-align:center;display:none}
-
-/* ─── SECTIONS ─── */
-.section{padding:80px 40px;max-width:1100px;margin:0 auto}
-.section-full{padding:80px 40px}
-.sec-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--cyan);font-weight:600;margin-bottom:8px}
-.sec-title{font-family:'Syne',sans-serif;font-size:clamp(26px,3vw,38px);font-weight:800;color:#fff;margin-bottom:14px;letter-spacing:-0.5px}
-.sec-sub{font-size:16px;color:var(--muted);line-height:1.65;max-width:560px;margin-bottom:48px}
-.divider{border:none;border-top:1px solid var(--border);max-width:1100px;margin:0 auto}
-
-/* ─── HOW IT WORKS ─── */
-.how-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
-.how-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 24px;position:relative;overflow:hidden}
-.how-card::before{content:attr(data-num);position:absolute;top:-10px;right:12px;font-family:'Syne',sans-serif;font-size:80px;font-weight:800;color:rgba(0,212,255,0.04);line-height:1}
-.how-icon{font-size:28px;margin-bottom:14px}
-.how-title{font-size:15px;font-weight:600;color:#e0e8ff;margin-bottom:8px}
-.how-desc{font-size:13px;color:var(--muted);line-height:1.65}
-
-/* ─── FEATURES ─── */
-.feat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
-.feat{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:20px;display:flex;align-items:flex-start;gap:14px;transition:border-color .2s,transform .2s}
-.feat:hover{border-color:rgba(0,212,255,0.28);transform:translateY(-2px)}
-.feat-ico{width:38px;height:38px;border-radius:9px;flex-shrink:0;background:rgba(0,212,255,0.07);border:1px solid rgba(0,212,255,0.14);display:flex;align-items:center;justify-content:center;font-size:17px}
-.feat-name{font-size:13px;font-weight:600;color:#e0e8ff;margin-bottom:3px}
-.feat-desc{font-size:12px;color:var(--muted);line-height:1.6}
-
-/* ─── PLANS ─── */
-.plans-bg{background:linear-gradient(180deg,var(--dark) 0%,var(--dark2) 100%)}
-.plans-center{max-width:1100px;margin:0 auto;padding:80px 40px}
-.plans-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-top:48px}
-.plan{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:26px 22px;position:relative;transition:transform .2s,border-color .2s}
-.plan:hover{transform:translateY(-3px)}
-.plan.featured{border-color:var(--cyan);background:linear-gradient(155deg,#0c1b3d,#111827)}
-.plan-badge{position:absolute;top:-1px;left:50%;transform:translateX(-50%);background:var(--cyan);color:#000;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 14px;border-radius:0 0 8px 8px}
-.plan-name{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#fff;margin-bottom:4px;margin-top:8px}
-.plan-price{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:#fff;margin:10px 0 4px}
-.plan-price sup{font-size:13px;font-weight:500;vertical-align:super}
-.plan-price .mo{font-size:13px;font-weight:400;color:var(--muted)}
-.plan-tag{display:inline-block;font-size:11px;padding:2px 10px;border-radius:5px;margin-bottom:12px}
-.tag-cyan{background:rgba(0,212,255,0.08);color:var(--cyan);border:1px solid rgba(0,212,255,0.18)}
-.tag-muted{background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid rgba(255,255,255,0.1)}
-.tag-orange{background:rgba(255,150,50,0.08);color:#ffad5a;border:1px solid rgba(255,150,50,0.18)}
-.plan-desc{font-size:12.5px;color:var(--muted);line-height:1.65}
-
-/* ─── SEGMENTS ─── */
-.seg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
-.seg{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:18px 10px;text-align:center;transition:border-color .2s,transform .2s;cursor:default}
-.seg:hover{border-color:rgba(0,212,255,0.3);transform:translateY(-2px)}
-.seg-ico{font-size:26px;margin-bottom:8px}
-.seg-name{font-size:12px;color:#c8e6ff;font-weight:500;line-height:1.35}
-.seg-hint{font-size:11px;color:var(--muted);margin-top:3px}
-
-/* ─── SOCIAL PROOF / DIFF ─── */
-.proof-bg{background:var(--dark2)}
-.proof-inner{max-width:1100px;margin:0 auto;padding:80px 40px}
-.diff-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-@media(max-width:600px){.diff-grid{grid-template-columns:1fr}}
-.diff-col{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.diff-head{padding:14px 22px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
-.diff-head.old{background:rgba(255,255,255,0.02);color:var(--muted);border-bottom:1px solid var(--border)}
-.diff-head.new{background:rgba(0,212,255,0.05);color:var(--cyan);border-bottom:1px solid rgba(0,212,255,0.15)}
-.diff-list{padding:18px 22px;list-style:none;display:flex;flex-direction:column;gap:10px}
-.diff-item{font-size:13px;display:flex;gap:10px;align-items:flex-start}
-.di{font-size:14px;flex-shrink:0;margin-top:1px}
-.diff-item.neg{color:var(--muted)}
-.diff-item.pos{color:#c8e6ff}
-.diff-item.pos .di{color:var(--cyan)}
-
-/* ─── CTA FORM SECTION (bottom) ─── */
-.cta-bg{background:linear-gradient(135deg,#0a0e1a 0%,#0d1535 50%,#0a1628 100%);padding:80px 40px;position:relative;overflow:hidden}
-.cta-bg::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:800px;height:400px;background:radial-gradient(ellipse,rgba(0,212,255,0.07) 0%,transparent 65%);pointer-events:none}
-.cta-inner{max-width:900px;margin:0 auto;display:grid;grid-template-columns:1fr 400px;gap:60px;align-items:start;position:relative}
-.cta-left .cta-title{font-family:'Syne',sans-serif;font-size:clamp(28px,3.5vw,44px);font-weight:800;color:#fff;line-height:1.1;letter-spacing:-1px;margin-bottom:16px}
-.cta-left .cta-sub{font-size:15px;color:var(--muted);line-height:1.7;margin-bottom:32px}
-.check-list{list-style:none;display:flex;flex-direction:column;gap:10px}
-.check-list li{font-size:14px;color:#c8e6ff;display:flex;gap:10px;align-items:flex-start}
-.check-list li::before{content:'✓';color:var(--cyan);font-weight:700;flex-shrink:0}
-
-/* ─── FOOTER ─── */
-.footer{background:var(--dark);border-top:1px solid var(--border);padding:32px 40px;text-align:center}
-.footer-logo{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin-bottom:8px}
-.footer-logo span{color:var(--cyan)}
-.footer-text{font-size:12px;color:var(--muted);line-height:1.7}
-
-/* ─── RESPONSIVE ─── */
-@media(max-width:860px){
-  .hero-inner{grid-template-columns:1fr;gap:48px}
-  .form-card{position:static}
-  .cta-inner{grid-template-columns:1fr}
-  .section,.section-full,.cta-bg,.plans-center,.proof-inner{padding-left:20px;padding-right:20px}
-  .nav{padding:0 20px}
-  .hero{padding:90px 20px 60px}
+.nav-cta:hover { transform: translateY(-2px); box-shadow: var(--shadow-glow); }
+.nav-login {
+    padding: .48rem 1.1rem;
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 50px;
+    font-size: .84rem; font-weight: 600;
+    color: var(--text-secondary) !important;
+    transition: all .2s;
 }
-@media(max-width:480px){
-  .hero-title{letter-spacing:-1.5px}
-  .hero-ctas{flex-direction:column}
-  .btn-hero{width:100%;text-align:center}
-  .form-row{grid-template-columns:1fr}
+.nav-login:hover { border-color: rgba(255,255,255,.35); color: #fff !important; }
+.hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; background: none; border: none; padding: 4px; }
+.hamburger span { width: 24px; height: 2px; background: #fff; border-radius: 2px; display: block; transition: all .3s; }
+
+/* ── BADGE PILL ── */
+.badge-pill {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .35rem 1rem;
+    background: rgba(99,102,241,.1);
+    border: 1px solid rgba(99,102,241,.25);
+    border-radius: 50px;
+    font-size: .76rem; font-weight: 600; color: #a5b4fc;
 }
+.badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.45;transform:scale(.8)} }
+
+/* ── GRADIENT TEXT ── */
+.gradient-text { background: var(--grad-main); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.gradient-text-green { background: var(--grad-green); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.gradient-text-orange { background: var(--grad-orange); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+/* ── HERO ── */
+.hero {
+    min-height: 100vh; display: flex; align-items: center;
+    padding: 8rem 0 5rem; position: relative; overflow: hidden;
+}
+.hero::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+        radial-gradient(ellipse 80% 60% at 50% -5%, rgba(99,102,241,.16) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 80% 60%, rgba(139,92,246,.10) 0%, transparent 60%);
+    pointer-events: none;
+}
+.hero-grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px), linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+    background-size: 60px 60px; pointer-events: none;
+}
+.hero-inner { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+.hero-tag { margin-bottom: 1.5rem; }
+.hero h1 { font-size: clamp(2.2rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.1; margin-bottom: 1.5rem; }
+.hero-sub { font-size: 1.05rem; color: var(--text-secondary); line-height: 1.75; margin-bottom: 2.5rem; max-width: 480px; }
+.hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 3rem; }
+.btn-primary {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .85rem 2rem; background: var(--grad-main);
+    border-radius: 50px; font-weight: 700; font-size: .95rem; color: #fff;
+    transition: transform .2s, box-shadow .2s;
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99,102,241,.45); }
+.btn-outline {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .85rem 2rem; border: 1px solid rgba(255,255,255,.18);
+    border-radius: 50px; font-weight: 600; font-size: .95rem; color: var(--text-secondary); transition: all .2s;
+}
+.btn-outline:hover { border-color: rgba(255,255,255,.4); color: #fff; }
+.hero-stats { display: flex; gap: 2.5rem; flex-wrap: wrap; }
+.hstat { border-left: 2px solid rgba(99,102,241,.4); padding-left: 1rem; }
+.hstat-n { font-size: 1.6rem; font-weight: 900; color: #fff; }
+.hstat-l { font-size: .7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-top: .2rem; }
+
+/* ── HERO FORM CARD ── */
+.hero-form-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,.08); border-radius: 24px; padding: 2.5rem; box-shadow: 0 24px 60px rgba(0,0,0,.45), var(--shadow-glow); }
+.hero-form-card h3 { font-size: 1.25rem; font-weight: 800; margin-bottom: .35rem; }
+.hero-form-card .form-sub { font-size: .82rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+.form-group { margin-bottom: 1rem; }
+.form-group label { display: block; font-size: .79rem; font-weight: 600; margin-bottom: .38rem; color: var(--text-secondary); }
+.form-control {
+    width: 100%; padding: .68rem 1rem;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 10px; color: #fff; font-size: .9rem; font-family: inherit;
+    transition: border-color .2s; outline: none;
+}
+.form-control:focus { border-color: var(--accent); background: rgba(99,102,241,.06); }
+.form-control::placeholder { color: var(--text-muted); }
+select.form-control option { background: #1a1a24; }
+textarea.form-control { resize: vertical; min-height: 80px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.btn-submit {
+    width: 100%; padding: .9rem; background: var(--grad-main);
+    border: none; border-radius: 12px; color: #fff;
+    font-size: .95rem; font-weight: 700; cursor: pointer;
+    transition: transform .2s, box-shadow .2s; font-family: inherit; margin-top: .5rem;
+    display: flex; align-items: center; justify-content: center; gap: .5rem;
+}
+.btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99,102,241,.5); }
+.btn-submit:disabled { opacity: .6; cursor: default; transform: none; }
+.form-privacy { font-size: .7rem; color: var(--text-muted); text-align: center; margin-top: .75rem; }
+.form-success { text-align: center; padding: 2rem 0; display: none; }
+.form-success .success-icon { font-size: 3rem; margin-bottom: 1rem; }
+.form-success h4 { font-size: 1.2rem; font-weight: 800; margin-bottom: .5rem; }
+.form-success p { font-size: .9rem; color: var(--text-secondary); }
+.form-error-msg { font-size: .8rem; color: #f87171; margin-top: -.5rem; margin-bottom: .75rem; display: none; }
+
+/* ── STATS STRIP ── */
+.stats-strip { background: var(--bg-secondary); border-top: 1px solid rgba(255,255,255,.06); border-bottom: 1px solid rgba(255,255,255,.06); padding: 3rem 0; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem; text-align: center; }
+.stat-number { font-size: 2.5rem; font-weight: 900; background: var(--grad-main); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; }
+.stat-label { font-size: .82rem; color: var(--text-secondary); margin-top: .4rem; }
+
+/* ── SECTIONS ── */
+section { padding: 100px 0; position: relative; }
+.section-header { text-align: center; margin-bottom: 4rem; }
+.section-header h2 { font-size: clamp(1.8rem, 3.5vw, 2.8rem); font-weight: 800; margin: .75rem 0 1rem; line-height: 1.2; }
+.section-header p { font-size: 1rem; color: var(--text-secondary); max-width: 560px; margin: 0 auto; }
+
+/* ── FEATURES ── */
+.features-section { background: var(--bg-dark); }
+.features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.feature-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius); padding: 2rem; transition: border-color .2s, transform .2s, box-shadow .2s; }
+.feature-card:hover { border-color: rgba(99,102,241,.4); transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,.4); }
+.feat-icon { width: 50px; height: 50px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 1.25rem; }
+.feat-icon.purple { background: rgba(99,102,241,.15); color: #a5b4fc; }
+.feat-icon.green  { background: rgba(16,185,129,.15); color: #6ee7b7; }
+.feat-icon.orange { background: rgba(245,158,11,.15); color: #fcd34d; }
+.feat-icon.pink   { background: rgba(236,72,153,.15); color: #f9a8d4; }
+.feat-icon.blue   { background: rgba(59,130,246,.15); color: #93c5fd; }
+.feat-icon.red    { background: rgba(239,68,68,.15); color: #fca5a5; }
+.feature-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: .6rem; }
+.feature-card p  { font-size: .87rem; color: var(--text-secondary); line-height: 1.65; }
+
+/* ── SEGMENTOS ── */
+.segmentos-section { background: var(--bg-secondary); }
+.segmentos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
+.seg-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius); padding: 1.75rem 1.25rem; text-align: center; transition: all .2s; }
+.seg-card:hover { border-color: rgba(99,102,241,.35); background: var(--bg-card-hover); transform: translateY(-3px); }
+.seg-icon { font-size: 2.1rem; margin-bottom: .75rem; }
+.seg-card h4 { font-size: .95rem; font-weight: 700; margin-bottom: .35rem; }
+.seg-card p  { font-size: .78rem; color: var(--text-secondary); }
+
+/* ── COMO FUNCIONA ── */
+.como-section { background: var(--bg-dark); }
+.como-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; position: relative; }
+.como-steps::before { content: ''; position: absolute; top: 32px; left: 10%; right: 10%; height: 2px; background: linear-gradient(90deg, transparent, rgba(99,102,241,.4), transparent); }
+.step-card { text-align: center; position: relative; z-index: 1; }
+.step-num { width: 64px; height: 64px; border-radius: 50%; background: var(--grad-main); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 900; margin: 0 auto 1rem; box-shadow: 0 0 0 8px rgba(99,102,241,.1); }
+.step-card h4 { font-size: .95rem; font-weight: 700; margin-bottom: .5rem; }
+.step-card p  { font-size: .83rem; color: var(--text-secondary); }
+
+/* ── CAMPANHAS ── */
+.campanhas-section { background: var(--bg-secondary); }
+.camp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.camp-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius); overflow: hidden; transition: all .2s; }
+.camp-card:hover { transform: translateY(-4px); box-shadow: 0 20px 48px rgba(0,0,0,.4); }
+.camp-card-header { padding: 1.5rem; display: flex; align-items: center; gap: 1rem; }
+.camp-card-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; }
+.camp-card h3 { font-size: 1.05rem; font-weight: 700; }
+.camp-card-body { padding: 0 1.5rem 1.5rem; font-size: .86rem; color: var(--text-secondary); line-height: 1.65; }
+.camp-card-footer { border-top: 1px solid rgba(255,255,255,.06); padding: 1rem 1.5rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+.camp-tag { padding: .25rem .65rem; border-radius: 50px; font-size: .72rem; font-weight: 600; background: rgba(99,102,241,.12); color: #a5b4fc; }
+
+/* ── LINK HIGHLIGHT ── */
+.link-highlight { background: linear-gradient(135deg, rgba(99,102,241,.12), rgba(139,92,246,.07)); border: 1px solid rgba(99,102,241,.2); border-radius: 20px; padding: 2.5rem; margin-top: 3rem; display: grid; grid-template-columns: auto 1fr; gap: 2rem; align-items: center; }
+.link-highlight-icon { width: 72px; height: 72px; border-radius: 18px; background: var(--grad-main); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; flex-shrink: 0; box-shadow: 0 8px 24px rgba(99,102,241,.4); }
+.link-highlight h3 { font-size: 1.2rem; font-weight: 800; margin-bottom: .5rem; }
+.link-highlight p { font-size: .9rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 1rem; }
+.link-channels { display: flex; flex-wrap: wrap; gap: .5rem; }
+.link-channel { display: inline-flex; align-items: center; gap: .4rem; padding: .28rem .75rem; border-radius: 50px; font-size: .76rem; font-weight: 600; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); }
+
+/* ── COMPARATIVO ── */
+.comp-section { background: var(--bg-dark); }
+.comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; max-width: 900px; margin: 0 auto; }
+.comp-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius); overflow: hidden; }
+.comp-card.featured { border-color: rgba(99,102,241,.35); background: linear-gradient(135deg, rgba(99,102,241,.08), rgba(139,92,246,.04)); }
+.comp-card-header { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,.06); }
+.comp-card-header h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: .3rem; }
+.comp-card-header p  { font-size: .82rem; color: var(--text-muted); }
+.comp-item { padding: .85rem 1.5rem; display: flex; align-items: center; gap: .75rem; font-size: .87rem; border-bottom: 1px solid rgba(255,255,255,.04); }
+.comp-item:last-child { border-bottom: none; }
+.comp-icon-ok  { color: var(--accent-green); flex-shrink: 0; }
+.comp-icon-bad { color: #f87171; flex-shrink: 0; }
+
+/* ── PLANOS ── */
+.planos-section { background: var(--bg-secondary); }
+.planos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.plano-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius); padding: 2rem; transition: all .2s; position: relative; }
+.plano-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,.3); }
+.plano-card.featured { border-color: rgba(99,102,241,.4); background: linear-gradient(180deg, rgba(99,102,241,.08), var(--bg-card)); }
+.plano-badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); padding: .25rem 1rem; border-radius: 50px; font-size: .72rem; font-weight: 700; background: var(--grad-main); color: #fff; white-space: nowrap; }
+.plano-icon { font-size: 2rem; margin-bottom: 1rem; }
+.plano-card h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: .25rem; }
+.plano-price { font-size: 2rem; font-weight: 900; margin: .75rem 0 .25rem; }
+.plano-price span { font-size: .85rem; font-weight: 500; color: var(--text-muted); }
+.plano-desc { font-size: .8rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.5; }
+.plano-features { display: flex; flex-direction: column; gap: .55rem; margin-bottom: 1.5rem; }
+.plano-feat { display: flex; align-items: flex-start; gap: .6rem; font-size: .82rem; color: var(--text-secondary); }
+.plano-feat i { color: var(--accent-green); flex-shrink: 0; margin-top: .1rem; }
+.btn-plano { display: block; width: 100%; padding: .75rem; border-radius: 10px; font-weight: 700; font-size: .88rem; text-align: center; transition: all .2s; cursor: pointer; border: 1px solid rgba(255,255,255,.15); color: var(--text-secondary); }
+.btn-plano:hover { border-color: var(--accent); color: var(--accent); }
+.btn-plano.featured { background: var(--grad-main); border: none; color: #fff !important; }
+.btn-plano.featured:hover { box-shadow: 0 6px 24px rgba(99,102,241,.45); transform: translateY(-1px); }
+
+/* ── LEAD SECTION ── */
+.lead-section { background: var(--bg-dark); position: relative; overflow: hidden; }
+.lead-section::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(99,102,241,.07) 0%, transparent 70%); pointer-events: none; }
+.lead-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; position: relative; z-index: 1; }
+.lead-copy h2 { font-size: clamp(1.8rem, 3.5vw, 2.5rem); font-weight: 800; line-height: 1.2; margin-bottom: 1.25rem; }
+.lead-copy p { color: var(--text-secondary); font-size: .93rem; line-height: 1.75; margin-bottom: 1.5rem; }
+.lead-perks { display: flex; flex-direction: column; gap: .7rem; }
+.lead-perk { display: flex; align-items: center; gap: .75rem; font-size: .88rem; }
+.lead-perk i { width: 26px; height: 26px; border-radius: 8px; background: rgba(99,102,241,.15); color: #a5b4fc; display: flex; align-items: center; justify-content: center; font-size: .72rem; flex-shrink: 0; }
+.lead-form-box { background: var(--bg-card); border: 1px solid rgba(255,255,255,.08); border-radius: 24px; padding: 2.5rem; box-shadow: 0 24px 60px rgba(0,0,0,.4); }
+.lead-form-box h3 { font-size: 1.3rem; font-weight: 800; margin-bottom: .4rem; }
+.lead-form-box .form-sub { font-size: .82rem; color: var(--text-muted); margin-bottom: 1.75rem; }
+
+/* ── DEPOIMENTOS ── */
+.cred-section { background: var(--bg-secondary); }
+.cred-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.cred-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius); padding: 1.75rem; }
+.stars { color: var(--accent-orange); font-size: .85rem; margin-bottom: 1rem; }
+.cred-card blockquote { font-size: .88rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 1.25rem; }
+.cred-author { display: flex; align-items: center; gap: .75rem; }
+.cred-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--grad-main); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; }
+.cred-author-info strong { display: block; font-size: .85rem; }
+.cred-author-info span  { font-size: .73rem; color: var(--text-muted); }
+
+/* ── FAQ ── */
+.faq-section { background: var(--bg-dark); }
+.faq-list { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: .75rem; }
+.faq-item { background: var(--bg-card); border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius); overflow: hidden; }
+.faq-q { padding: 1.1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-weight: 600; font-size: .93rem; user-select: none; gap: 1rem; }
+.faq-q:hover { background: rgba(255,255,255,.03); }
+.faq-toggle { color: var(--accent); font-size: .85rem; flex-shrink: 0; transition: transform .25s; }
+.faq-item.open .faq-toggle { transform: rotate(45deg); }
+.faq-a { max-height: 0; overflow: hidden; font-size: .86rem; color: var(--text-secondary); line-height: 1.7; transition: max-height .3s var(--ease), padding .3s; padding: 0 1.5rem; }
+.faq-item.open .faq-a { max-height: 300px; padding: 0 1.5rem 1.25rem; }
+
+/* ── FOOTER ── */
+footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06); padding: 3rem 0 2rem; }
+.footer-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.footer-copy { font-size: .82rem; color: var(--text-muted); }
+.footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.footer-links a { font-size: .82rem; color: var(--text-muted); transition: color .2s; }
+.footer-links a:hover { color: #fff; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1100px) {
+    .features-grid { grid-template-columns: repeat(2, 1fr); }
+    .segmentos-grid { grid-template-columns: repeat(2, 1fr); }
+    .cred-grid { grid-template-columns: repeat(2, 1fr); }
+    .planos-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 950px) {
+    .nav-links { display: none; }
+    .hamburger { display: flex; }
+    .hero-inner { grid-template-columns: 1fr; gap: 3rem; }
+    .lead-inner { grid-template-columns: 1fr; gap: 2.5rem; }
+    .comp-grid  { grid-template-columns: 1fr; max-width: 500px; }
+    .como-steps { grid-template-columns: repeat(2, 1fr); }
+    .como-steps::before { display: none; }
+}
+@media (max-width: 768px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .features-grid { grid-template-columns: 1fr; }
+    .segmentos-grid { grid-template-columns: repeat(2, 1fr); }
+    .camp-grid { grid-template-columns: 1fr; }
+    .cred-grid { grid-template-columns: 1fr; }
+    .planos-grid { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .link-highlight { grid-template-columns: 1fr; text-align: center; }
+    .link-channels { justify-content: center; }
+    .como-steps { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+    .hero-ctas { flex-direction: column; }
+    .btn-primary, .btn-outline { justify-content: center; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
-<nav class="nav">
-  <div class="nav-logo">Media<span>Expand</span></div>
-  <div class="nav-actions">
-    <a href="/login/" class="btn-ghost">Acesso do Gestor</a>
-    <a href="#contato" class="btn-primary">Quero uma demo</a>
-  </div>
+<!-- ── NAVBAR ── -->
+<nav class="navbar" id="navbar">
+    <div class="container">
+        <div class="nav-container">
+            <div class="logo">
+                <div class="logo-icon">M</div>
+                <span class="logo-text">MediaExpand</span>
+            </div>
+            <div class="nav-links" id="navLinks">
+                <a href="#recursos">Recursos</a>
+                <a href="#segmentos">Segmentos</a>
+                <a href="#campanhas">Campanhas</a>
+                <a href="#como-funciona">Como Funciona</a>
+                <a href="#planos">Planos</a>
+                <a href="/login/" class="nav-login">Acesso do Gestor</a>
+                <a href="#contato" class="nav-cta">Quero uma Demo</a>
+            </div>
+            <button class="hamburger" id="hamburger" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </div>
 </nav>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="hero-glow1"></div>
-  <div class="hero-glow2"></div>
-  <div class="hero-inner">
-    <div class="hero-left">
-      <div class="hero-badge"><span class="badge-dot"></span>Vitrine Digital Inteligente</div>
-      <h1 class="hero-title">Sua TV.<br>Sua <span class="hi">Vitrine</span><br>em Movimento.</h1>
-      <p class="hero-sub">Transforme qualquer TV em uma <strong>central de marketing visual</strong> — sem técnico, sem cabo, sem complicação. Gerencie de qualquer lugar, em tempo real.</p>
-      <div class="hero-ctas">
-        <a href="#contato" class="btn-hero btn-hero-main">Quero uma demonstração</a>
-        <a href="#recursos" class="btn-hero btn-hero-ghost">Ver recursos</a>
-      </div>
-      <div class="hero-stats">
-        <div class="hstat"><div class="hstat-n">24h</div><div class="hstat-l">Vitrine ativa</div></div>
-        <div class="hstat"><div class="hstat-n">100%</div><div class="hstat-l">Gestão remota</div></div>
-        <div class="hstat"><div class="hstat-n">5 planos</div><div class="hstat-l">A partir de R$149</div></div>
-      </div>
-    </div>
-
-    <!-- FORM CARD (hero) -->
-    <div class="form-card" id="form-hero-card">
-      <div id="form-hero-content">
-        <div class="form-card-label">Demonstração grátis</div>
-        <div class="form-card-title">Fale com um especialista</div>
-        <div class="form-card-sub">Veja como fica na prática — sem custo, sem compromisso.</div>
-        <form id="form-hero" novalidate>
-          <div class="form-group">
-            <label>Nome *</label>
-            <input type="text" name="nome" class="form-control" placeholder="Seu nome completo" required>
-          </div>
-          <div class="form-group">
-            <label>WhatsApp *</label>
-            <input type="tel" name="whatsapp" class="form-control" placeholder="(00) 00000-0000" required>
-          </div>
-          <div class="form-row">
-            <div class="form-group" style="margin-bottom:0">
-              <label>E-mail</label>
-              <input type="email" name="email" class="form-control" placeholder="seu@email.com">
+<!-- ── HERO ── -->
+<section class="hero" id="inicio">
+    <div class="hero-grid"></div>
+    <div class="container">
+        <div class="hero-inner">
+            <div>
+                <div class="hero-tag">
+                    <span class="badge-pill">
+                        <span class="badge-dot"></span>
+                        Vitrine Digital · Gestão Remota · Campanhas de Leads
+                    </span>
+                </div>
+                <h1>
+                    Sua TV.<br>
+                    <span class="gradient-text">Sua Vitrine em Movimento.</span>
+                </h1>
+                <p class="hero-sub">
+                    Transforme qualquer TV Android em uma vitrine digital inteligente. Exiba vídeos, anúncios e campanhas gerenciados 100% remotamente, de qualquer lugar.
+                </p>
+                <div class="hero-ctas">
+                    <a href="#contato" class="btn-primary"><i class="fas fa-rocket"></i> Quero uma Demo Grátis</a>
+                    <a href="#recursos" class="btn-outline"><i class="fas fa-play-circle"></i> Ver Recursos</a>
+                </div>
+                <div class="hero-stats">
+                    <div class="hstat"><div class="hstat-n">24/7</div><div class="hstat-l">Exibição contínua</div></div>
+                    <div class="hstat"><div class="hstat-n">100%</div><div class="hstat-l">Gestão remota</div></div>
+                    <div class="hstat"><div class="hstat-n">5</div><div class="hstat-l">Planos disponíveis</div></div>
+                </div>
             </div>
-            <div class="form-group" style="margin-bottom:0">
-              <label>Cidade</label>
-              <input type="text" name="cidade" class="form-control" placeholder="Sua cidade">
+            <!-- Hero Lead Form Card -->
+            <div class="hero-form-card">
+                <h3>Começar agora é grátis</h3>
+                <p class="form-sub">Preencha e nossa equipe entra em contato</p>
+                <form id="heroLeadForm" method="post" action="/">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_source" value="hero">
+                    <div class="form-group">
+                        <label for="h-nome">Nome *</label>
+                        <input type="text" id="h-nome" name="nome" class="form-control" placeholder="Seu nome completo" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="h-whatsapp">WhatsApp *</label>
+                            <input type="tel" id="h-whatsapp" name="whatsapp" class="form-control" placeholder="(11) 99999-9999" maxlength="15" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="h-cidade">Cidade *</label>
+                            <input type="text" id="h-cidade" name="cidade" class="form-control" placeholder="Sua cidade" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="h-segmento">Segmento *</label>
+                        <select id="h-segmento" name="segmento" class="form-control" required>
+                            <option value="">Selecione o seu segmento</option>
+                            <option value="barbearia_salao">Barbearia / Salão</option>
+                            <option value="restaurante">Restaurante / Lanchonete</option>
+                            <option value="loja_roupa">Loja de Roupa / Calçados</option>
+                            <option value="oficina">Oficina Mecânica</option>
+                            <option value="academia">Academia / Studio</option>
+                            <option value="farmacia_otica">Farmácia / Ótica</option>
+                            <option value="petshop">Petshop</option>
+                            <option value="clinica">Clínica / Consultório</option>
+                            <option value="supermercado">Supermercado / Mercearia</option>
+                            <option value="comercio_geral">Comércio em Geral</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                    <div id="heroFormError" class="form-error-msg"></div>
+                    <button type="submit" class="btn-submit" id="heroBtnSubmit">
+                        <i class="fas fa-rocket"></i> Quero Conhecer a Plataforma
+                    </button>
+                    <p class="form-privacy"><i class="fas fa-lock"></i> Sem spam. Seus dados estão seguros.</p>
+                </form>
+                <div class="form-success" id="heroFormSuccess">
+                    <div class="success-icon">🎉</div>
+                    <h4>Recebemos seu contato!</h4>
+                    <p>Nossa equipe entrará em contato em breve pelo WhatsApp.</p>
+                </div>
             </div>
-          </div>
-          <div class="form-group" style="margin-top:16px">
-            <label>Seu segmento</label>
-            <select name="segmento" class="form-control">
-              <option value="">Selecione...</option>
-              <option value="barbearia_salao">Barbearia / Salão</option>
-              <option value="restaurante">Restaurante / Lanchonete</option>
-              <option value="loja_roupa">Loja de Roupa / Calçados</option>
-              <option value="oficina">Oficina Mecânica</option>
-              <option value="academia">Academia / Studio</option>
-              <option value="farmacia_otica">Farmácia / Ótica</option>
-              <option value="petshop">Petshop</option>
-              <option value="clinica">Clínica / Consultório</option>
-              <option value="supermercado">Supermercado / Mercearia</option>
-              <option value="comercio_geral">Comércio em Geral</option>
-              <option value="outro">Outro</option>
-            </select>
-          </div>
-          <button type="submit" class="btn-form" id="btn-hero-submit">Quero ver como funciona →</button>
-          <div class="form-error-msg" id="hero-error"></div>
-        </form>
-        <p class="form-privacy">Seus dados ficam seguros. Sem spam.</p>
-      </div>
-      <div class="form-success" id="form-hero-success">
-        <div class="form-success-ico">🎉</div>
-        <div class="form-success-title">Recebemos seu contato!</div>
-        <div class="form-success-sub">Nossa equipe vai entrar em contato via WhatsApp em breve para agendar sua demonstração gratuita.</div>
-      </div>
+        </div>
     </div>
-  </div>
 </section>
 
-<!-- HOW IT WORKS -->
-<div style="padding:0 40px"><hr class="divider"></div>
-<div class="section">
-  <div class="sec-label">Como funciona</div>
-  <h2 class="sec-title">Do zero à vitrine em funcionamento</h2>
-  <p class="sec-sub">Sem instalação complexa. Em minutos sua TV já exibe seu conteúdo.</p>
-  <div class="how-grid">
-    <div class="how-card" data-num="1">
-      <div class="how-icon">📺</div>
-      <div class="how-title">Instale o app na TV</div>
-      <div class="how-desc">Baixe o app MediaExpand na sua TV Android ou num Android TV Stick. É gratuito e instala em 2 minutos.</div>
-    </div>
-    <div class="how-card" data-num="2">
-      <div class="how-icon">☁️</div>
-      <div class="how-title">Faça upload pelo painel</div>
-      <div class="how-desc">Acesse o painel web de qualquer celular ou computador e envie seus vídeos, imagens ou use os templates prontos.</div>
-    </div>
-    <div class="how-card" data-num="3">
-      <div class="how-icon">▶️</div>
-      <div class="how-title">A tela começa a exibir</div>
-      <div class="how-desc">A TV sincroniza automaticamente e começa a reproduzir sua playlist. Você enxerga tudo no painel em tempo real.</div>
-    </div>
-    <div class="how-card" data-num="4">
-      <div class="how-icon">📊</div>
-      <div class="how-title">Acompanhe os resultados</div>
-      <div class="how-desc">Dashboard de métricas, log de exibição, cliques no QR Code e estimativa de visualizações. Prova de valor concreta.</div>
-    </div>
-  </div>
-</div>
-
-<!-- FEATURES -->
-<div style="padding:0 40px"><hr class="divider"></div>
-<div class="section" id="recursos">
-  <div class="sec-label">Plataforma completa</div>
-  <h2 class="sec-title">Tudo incluído no plano</h2>
-  <p class="sec-sub">Não é só uma tela — é uma plataforma de marketing visual inteligente.</p>
-  <div class="feat-grid">
-    <div class="feat"><div class="feat-ico">📡</div><div><div class="feat-name">Gestão 100% remota</div><div class="feat-desc">Upload, aprovação e troca de conteúdo sem precisar ir ao local. De qualquer lugar, no celular.</div></div></div>
-    <div class="feat"><div class="feat-ico">🕐</div><div><div class="feat-name">Horários automáticos</div><div class="feat-desc">Define quando a tela liga e apaga. Sem depender de ninguém no local.</div></div></div>
-    <div class="feat"><div class="feat-ico">📅</div><div><div class="feat-name">Agendamento de campanhas</div><div class="feat-desc">Ativa e inativa promoções em datas e horários precisos — automaticamente.</div></div></div>
-    <div class="feat"><div class="feat-ico">📊</div><div><div class="feat-name">QR Code rastreável</div><div class="feat-desc">QR Code dinâmico por campanha. Sabe exatamente quantas pessoas escanearam.</div></div></div>
-    <div class="feat"><div class="feat-ico">📺</div><div><div class="feat-name">Tarja estilo CNN</div><div class="feat-desc">Rodapé em movimento que aumenta retenção visual. Prende atenção mesmo de passagem.</div></div></div>
-    <div class="feat"><div class="feat-ico">📈</div><div><div class="feat-name">Dashboard de métricas</div><div class="feat-desc">Estimativa de visibilidade, aparições de marca e log completo de exibição.</div></div></div>
-    <div class="feat"><div class="feat-ico">🎯</div><div><div class="feat-name">Campanhas interativas</div><div class="feat-desc">Roleta de prêmios, cupom QR, carta surprise e alertas inteligentes no celular do cliente.</div></div></div>
-    <div class="feat"><div class="feat-ico">🔔</div><div><div class="feat-name">Alerta de desconexão</div><div class="feat-desc">Receba notificação se a tela ficar offline. Resolva antes do cliente perceber.</div></div></div>
-    <div class="feat"><div class="feat-ico">📰</div><div><div class="feat-name">Conteúdo dinâmico</div><div class="feat-desc">Clima, cotações e notícias em tempo real enriquecem a tela sem esforço.</div></div></div>
-    <div class="feat"><div class="feat-ico">📱</div><div><div class="feat-name">App Android + Windows</div><div class="feat-desc">Roda em qualquer TV Android ou PC. Atualização automática com nova versão.</div></div></div>
-    <div class="feat"><div class="feat-ico">⚡</div><div><div class="feat-name">Upload com padronização</div><div class="feat-desc">Converte automaticamente para Full HD — sem erro de exibição, sem travamento.</div></div></div>
-    <div class="feat"><div class="feat-ico">🎨</div><div><div class="feat-name">Creator com templates</div><div class="feat-desc">Crie peças profissionais direto no painel, sem precisar de designer ou Canva.</div></div></div>
-  </div>
-</div>
-
-<!-- PLANS -->
-<div class="plans-bg">
-  <div class="plans-center" id="planos">
-    <div class="sec-label">Preços</div>
-    <h2 class="sec-title">Plano para cada perfil de negócio</h2>
-    <p class="sec-sub">Sem taxas de adesão. Cancele quando quiser.</p>
-    <div class="plans-grid">
-      <div class="plan">
-        <div class="plan-name">Somente Anunciar</div>
-        <div class="plan-price"><sup>R$</sup>250<span class="mo">/mês</span></div>
-        <span class="plan-tag tag-muted">Presença na rede</span>
-        <p class="plan-desc">Seu anúncio exibido nas telas da rede MediaExpand. Sem precisar de TV própria. Ideal para visibilidade local com investimento mínimo.</p>
-      </div>
-      <div class="plan featured">
-        <div class="plan-badge">Mais escolhido</div>
-        <div class="plan-name">Vitrine + Ads</div>
-        <div class="plan-price"><sup>R$</sup>149<span style="font-size:17px">,90</span><span class="mo">/mês</span></div>
-        <span class="plan-tag tag-orange">Com parceiros externos</span>
-        <p class="plan-desc">TV própria com gestão completa. 80% do espaço é seu, 20% para parceiros sem concorrência direta. Melhor custo-benefício.</p>
-      </div>
-      <div class="plan">
-        <div class="plan-name">Vitrine Digital</div>
-        <div class="plan-price"><sup>R$</sup>299<span style="font-size:17px">,90</span><span class="mo">/mês</span></div>
-        <span class="plan-tag tag-muted">Sem ads externos</span>
-        <p class="plan-desc">TV 100% dedicada ao seu conteúdo. Controle total da narrativa visual do seu negócio. Sem anúncios de terceiros.</p>
-      </div>
-      <div class="plan">
-        <div class="plan-name">Exclusividade Total</div>
-        <div class="plan-price"><sup>R$</sup>499<span style="font-size:17px">,90</span><span class="mo">/mês</span></div>
-        <span class="plan-tag tag-cyan">Exclusivo na rede</span>
-        <p class="plan-desc">Nenhum concorrente do mesmo segmento aparece em nenhuma tela da rede na sua área. Monopólio visual garantido contratualmente.</p>
-      </div>
-      <div class="plan" style="border-color:rgba(255,150,50,0.2)">
-        <div class="plan-name">Campanha Avulsa</div>
-        <div class="plan-price"><sup>R$</sup>99<span style="font-size:17px">,90</span><span class="mo">/camp.</span></div>
-        <span class="plan-tag tag-orange">Por campanha ativa</span>
-        <p class="plan-desc">Roleta de prêmios, cupom, carta surprise ou alerta inteligente. Paga só pela campanha ativa — sem mensalidade.</p>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- SEGMENTS -->
-<div style="padding:0 40px"><hr class="divider"></div>
-<div class="section" id="segmentos">
-  <div class="sec-label">Mercado</div>
-  <h2 class="sec-title">Funciona para o seu negócio</h2>
-  <p class="sec-sub">Qualquer estabelecimento com fluxo de clientes presenciais se beneficia de uma vitrine em movimento.</p>
-  <div class="seg-grid">
-    <div class="seg"><div class="seg-ico">💈</div><div class="seg-name">Barbearias e Salões</div><div class="seg-hint">Tempo de espera</div></div>
-    <div class="seg"><div class="seg-ico">🍕</div><div class="seg-name">Restaurantes</div><div class="seg-hint">Cardápio dinâmico</div></div>
-    <div class="seg"><div class="seg-ico">👗</div><div class="seg-name">Lojas de Roupa</div><div class="seg-hint">Vitrine 24h</div></div>
-    <div class="seg"><div class="seg-ico">🔧</div><div class="seg-name">Oficinas Mecânicas</div><div class="seg-hint">Serviços e combos</div></div>
-    <div class="seg"><div class="seg-ico">🏋️</div><div class="seg-name">Academias</div><div class="seg-hint">Planos e horários</div></div>
-    <div class="seg"><div class="seg-ico">💊</div><div class="seg-name">Farmácias / Óticas</div><div class="seg-hint">Promoções rotativas</div></div>
-    <div class="seg"><div class="seg-ico">🐾</div><div class="seg-name">Petshops</div><div class="seg-hint">Produtos e serviços</div></div>
-    <div class="seg"><div class="seg-ico">🏥</div><div class="seg-name">Clínicas</div><div class="seg-hint">Sala de espera</div></div>
-    <div class="seg"><div class="seg-ico">🛒</div><div class="seg-name">Supermercados</div><div class="seg-hint">Ofertas em tempo real</div></div>
-    <div class="seg"><div class="seg-ico">👟</div><div class="seg-name">Calçadistas</div><div class="seg-hint">Catálogo visual</div></div>
-  </div>
-</div>
-
-<!-- COMPARISON -->
-<div class="proof-bg">
-  <div class="proof-inner">
-    <div class="sec-label">Por que MediaExpand</div>
-    <h2 class="sec-title">Muito além da TV com pen drive</h2>
-    <p class="sec-sub" style="margin-bottom:40px">Compare e entenda o que muda.</p>
-    <div class="diff-grid">
-      <div class="diff-col">
-        <div class="diff-head old">📀 TV com pen drive / slide</div>
-        <ul class="diff-list">
-          <li class="diff-item neg"><span class="di">✕</span>Atualizar exige ir pessoalmente</li>
-          <li class="diff-item neg"><span class="di">✕</span>Sem agendamento de campanhas</li>
-          <li class="diff-item neg"><span class="di">✕</span>Sem rastreamento de resultado</li>
-          <li class="diff-item neg"><span class="di">✕</span>Não sabe quando a tela caiu</li>
-          <li class="diff-item neg"><span class="di">✕</span>Conteúdo estático — sem dinamismo</li>
-          <li class="diff-item neg"><span class="di">✕</span>Zero interação com o cliente</li>
-        </ul>
-      </div>
-      <div class="diff-col">
-        <div class="diff-head new">✦ Vitrine Digital MediaExpand</div>
-        <ul class="diff-list">
-          <li class="diff-item pos"><span class="di">✓</span>Atualiza de qualquer lugar em segundos</li>
-          <li class="diff-item pos"><span class="di">✓</span>Agendamento automático de promoções</li>
-          <li class="diff-item pos"><span class="di">✓</span>Dashboard completo de métricas</li>
-          <li class="diff-item pos"><span class="di">✓</span>Alerta imediato de desconexão</li>
-          <li class="diff-item pos"><span class="di">✓</span>Clima, cotações e notícias ao vivo</li>
-          <li class="diff-item pos"><span class="di">✓</span>QR rastreável + campanhas interativas</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- CTA / FORM BOTTOM -->
-<div class="cta-bg" id="contato">
-  <div class="cta-inner">
-    <div class="cta-left">
-      <div class="sec-label" style="margin-bottom:10px">Pronto para começar?</div>
-      <div class="cta-title">Sua vitrine pode estar no ar ainda essa semana.</div>
-      <p class="cta-sub">Preencha o formulário ao lado e nossa equipe entra em contato via WhatsApp para agendar uma demonstração gratuita — sem compromisso.</p>
-      <ul class="check-list">
-        <li>Demonstração gratuita e sem compromisso</li>
-        <li>Instalação em menos de 20 minutos</li>
-        <li>Suporte incluído no plano</li>
-        <li>Cancele quando quiser</li>
-      </ul>
-    </div>
-    <div>
-      <div class="form-card" id="form-bottom-card">
-        <div id="form-bottom-content">
-          <div class="form-card-label">Fale conosco</div>
-          <div class="form-card-title">Receba uma proposta</div>
-          <div class="form-card-sub">Resposta em até 2 horas.</div>
-          <form id="form-bottom" novalidate>
-            <div class="form-group">
-              <label>Nome *</label>
-              <input type="text" name="nome" class="form-control" placeholder="Seu nome completo" required>
+<!-- ── STATS STRIP ── -->
+<div class="stats-strip">
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">24/7</div>
+                <div class="stat-label">Exibição contínua sem parar</div>
             </div>
-            <div class="form-group">
-              <label>WhatsApp *</label>
-              <input type="tel" name="whatsapp" class="form-control" placeholder="(00) 00000-0000" required>
+            <div class="stat-item">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">Gerenciamento remoto</div>
             </div>
-            <div class="form-group">
-              <label>E-mail</label>
-              <input type="email" name="email" class="form-control" placeholder="seu@email.com">
+            <div class="stat-item">
+                <div class="stat-number">3</div>
+                <div class="stat-label">Tipos de campanha de leads</div>
             </div>
-            <div class="form-row">
-              <div class="form-group" style="margin-bottom:0">
-                <label>Cidade</label>
-                <input type="text" name="cidade" class="form-control" placeholder="Sua cidade">
-              </div>
-              <div class="form-group" style="margin-bottom:0">
-                <label>Segmento</label>
-                <select name="segmento" class="form-control">
-                  <option value="">Selecione...</option>
-                  <option value="barbearia_salao">Barbearia / Salão</option>
-                  <option value="restaurante">Restaurante / Lanchonete</option>
-                  <option value="loja_roupa">Loja de Roupa / Calçados</option>
-                  <option value="oficina">Oficina Mecânica</option>
-                  <option value="academia">Academia / Studio</option>
-                  <option value="farmacia_otica">Farmácia / Ótica</option>
-                  <option value="petshop">Petshop</option>
-                  <option value="clinica">Clínica / Consultório</option>
-                  <option value="supermercado">Supermercado / Mercearia</option>
-                  <option value="comercio_geral">Comércio em Geral</option>
-                  <option value="outro">Outro</option>
-                </select>
-              </div>
+            <div class="stat-item">
+                <div class="stat-number">∞</div>
+                <div class="stat-label">TVs gerenciadas remotamente</div>
             </div>
-            <div class="form-group" style="margin-top:16px">
-              <label>Mensagem (opcional)</label>
-              <textarea name="mensagem" class="form-control" rows="2" placeholder="Algum detalhe sobre seu negócio..." style="resize:vertical"></textarea>
-            </div>
-            <button type="submit" class="btn-form" id="btn-bottom-submit">Quero minha vitrine digital →</button>
-            <div class="form-error-msg" id="bottom-error"></div>
-          </form>
-          <p class="form-privacy">Seus dados ficam seguros. Sem spam.</p>
         </div>
-        <div class="form-success" id="form-bottom-success">
-          <div class="form-success-ico">🎉</div>
-          <div class="form-success-title">Mensagem enviada!</div>
-          <div class="form-success-sub">Nossa equipe vai entrar em contato via WhatsApp em breve. Até logo!</div>
-        </div>
-      </div>
     </div>
-  </div>
 </div>
 
-<!-- FOOTER -->
-<footer class="footer">
-  <div class="footer-logo">Media<span>Expand</span></div>
-  <div class="footer-text">
-    © 2025 MediaExpand. Todos os direitos reservados.<br>
-    Vitrine Digital Inteligente — Gestão remota de mídia indoor.
-  </div>
+<!-- ── RECURSOS ── -->
+<section class="features-section" id="recursos">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge-pill"><i class="fas fa-star"></i> Recursos da Plataforma</span>
+            <h2>Uma plataforma, <span class="gradient-text">múltiplas soluções</span></h2>
+            <p>Do conteúdo que envolve à campanha que captura leads — tudo gerenciado em tempo real de qualquer lugar.</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feat-icon purple"><i class="fas fa-tv"></i></div>
+                <h3>Vitrine Digital</h3>
+                <p>Exiba vídeos, playlists e conteúdo institucional nas TVs do seu negócio. Atualização imediata via painel web, sem sair do lugar.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feat-icon green"><i class="fas fa-wifi"></i></div>
+                <h3>Gestão 100% Remota</h3>
+                <p>Controle todas as TVs de qualquer dispositivo com internet. Troque playlists, atualize conteúdo e monitore telas em tempo real.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feat-icon orange"><i class="fas fa-link"></i></div>
+                <h3>Link Exclusivo de Campanha</h3>
+                <p>Cada campanha gera um <strong>link único</strong>. Exiba via QR Code na TV, compartilhe no WhatsApp, Stories ou onde quiser.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feat-icon red"><i class="fas fa-grip-lines"></i></div>
+                <h3>Tarja Informativa</h3>
+                <p>Rodapé dinâmico com mensagens em tempo real: promoções relâmpago, WhatsApp, horário de funcionamento — sem pausar o vídeo.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feat-icon pink"><i class="fas fa-film"></i></div>
+                <h3>Conteúdo Corporativo</h3>
+                <p>Distribua comunicados e treinamentos para todas as unidades com controle por franquia. A matriz publica, todos recebem.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feat-icon blue"><i class="fas fa-calendar-alt"></i></div>
+                <h3>Agendamento Inteligente</h3>
+                <p>Programe quando cada conteúdo aparece — dias, horários e datas específicas. A vitrine muda sozinha no momento certo.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feat-icon orange"><i class="fas fa-qrcode"></i></div>
+                <h3>QR Code Rastreável</h3>
+                <p>QR Code exibido na TV com a tarja da campanha. O cliente escaneia, acessa a campanha e seus dados são capturados automaticamente.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feat-icon green"><i class="fas fa-users"></i></div>
+                <h3>Captação de Leads</h3>
+                <p>Colete nome, WhatsApp e e-mail dos participantes. Exporte a lista em CSV ou visualize pelo painel de gestão.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feat-icon purple"><i class="fas fa-shield-alt"></i></div>
+                <h3>Anti-fraude e Controle</h3>
+                <p>Proteção por IP, limites de participação e validação de dados. Campanhas confiáveis com relatórios completos.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feat-icon blue"><i class="fas fa-bell"></i></div>
+                <h3>Alertas de Desconexão</h3>
+                <p>Receba alertas automáticos por e-mail quando uma TV fica offline. Identifique problemas antes que o cliente perceba.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feat-icon pink"><i class="fas fa-layer-group"></i></div>
+                <h3>Playlists Personalizadas</h3>
+                <p>Organize o conteúdo em playlists com ordem e repetição configuráveis. Atribua diferentes playlists para cada TV.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feat-icon red"><i class="fas fa-mobile-alt"></i></div>
+                <h3>App Android Dedicado</h3>
+                <p>Aplicativo leve para qualquer TV Android ou Chromecast. Sem hardware proprietário — usa o equipamento que você já tem.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── SEGMENTOS ── -->
+<section class="segmentos-section" id="segmentos">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge-pill"><i class="fas fa-building"></i> Segmentos Atendidos</span>
+            <h2>Para <span class="gradient-text-orange">qualquer negócio</span><br>que queira comunicar melhor</h2>
+            <p>Do varejo à clínica, da academia ao petshop — a vitrine digital se adapta ao seu contexto e ao que você quer exibir.</p>
+        </div>
+        <div class="segmentos-grid">
+            <div class="seg-card">
+                <div class="seg-icon">✂️</div>
+                <h4>Barbearia / Salão</h4>
+                <p>Promoções, serviços e campanhas de fidelidade via QR Code na TV.</p>
+            </div>
+            <div class="seg-card">
+                <div class="seg-icon">🍽️</div>
+                <h4>Restaurante / Lanchonete</h4>
+                <p>Cardápio visual, combos do dia e campanhas de happy hour com link compartilhável.</p>
+            </div>
+            <div class="seg-card">
+                <div class="seg-icon">👗</div>
+                <h4>Loja de Roupa / Calçados</h4>
+                <p>Coleções em destaque, promoções e campanhas de lançamento com roleta de prêmios.</p>
+            </div>
+            <div class="seg-card">
+                <div class="seg-icon">🔧</div>
+                <h4>Oficina Mecânica</h4>
+                <p>Informe serviços e preços. Campanhas sazonais de revisão via link exclusivo.</p>
+            </div>
+            <div class="seg-card">
+                <div class="seg-icon">🏋️</div>
+                <h4>Academia / Studio</h4>
+                <p>Grades de aula, desafios e promoções de planos via QR Code no espaço.</p>
+            </div>
+            <div class="seg-card">
+                <div class="seg-icon">💊</div>
+                <h4>Farmácia / Ótica</h4>
+                <p>Produtos em promoção e campanhas de saúde com cupom digital.</p>
+            </div>
+            <div class="seg-card">
+                <div class="seg-icon">🐾</div>
+                <h4>Petshop</h4>
+                <p>Serviços, rações e promoções sazonais. Sorteios para fidelizar tutores.</p>
+            </div>
+            <div class="seg-card">
+                <div class="seg-icon">🏥</div>
+                <h4>Clínica / Consultório</h4>
+                <p>Sala de espera enriquecida com dicas de saúde e cadastro digital.</p>
+            </div>
+            <div class="seg-card">
+                <div class="seg-icon">🛒</div>
+                <h4>Supermercado / Mercearia</h4>
+                <p>Promoções do dia, tabelas de preços e campanhas de fidelidade com link próprio.</p>
+            </div>
+            <div class="seg-card">
+                <div class="seg-icon">🏪</div>
+                <h4>Comércio em Geral</h4>
+                <p>Qualquer varejo que queira comunicar melhor dentro do ponto de venda.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── COMO FUNCIONA ── -->
+<section class="como-section" id="como-funciona">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge-pill"><i class="fas fa-bolt"></i> Como Funciona</span>
+            <h2>Comece a exibir em <span class="gradient-text">minutos</span></h2>
+            <p>Processo simples, sem técnico especializado ou hardware proprietário.</p>
+        </div>
+        <div class="como-steps">
+            <div class="step-card">
+                <div class="step-num">1</div>
+                <h4>Instale o App</h4>
+                <p>Instale o aplicativo MediaExpand em qualquer TV Android ou Chromecast. Grátis na Play Store.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">2</div>
+                <h4>Suba seu Conteúdo</h4>
+                <p>Faça upload de vídeos e imagens pelo painel web. Organize em playlists personalizadas.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">3</div>
+                <h4>Crie uma Campanha</h4>
+                <p>Crie cupom, roleta ou carta. Copie o link exclusivo e distribua — TV, WhatsApp, Stories ou panfleto.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">4</div>
+                <h4>Gerencie Remotamente</h4>
+                <p>Atualize playlists, mude a tarja e colete os leads — tudo em tempo real, de qualquer dispositivo.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── CAMPANHAS ── -->
+<section class="campanhas-section" id="campanhas">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge-pill" style="background:rgba(236,72,153,.12);border-color:rgba(236,72,153,.3);color:#f9a8d4;">
+                <i class="fas fa-magnet"></i> Captação de Leads
+            </span>
+            <h2>Um link. <span class="gradient-text">Qualquer canal.</span></h2>
+            <p>Cada campanha gera um <strong>link exclusivo</strong> que você usa como quiser: QR Code na TV, WhatsApp, Stories ou panfleto. Uma campanha <em>omnichannel</em> de verdade.</p>
+        </div>
+        <div class="camp-grid">
+            <div class="camp-card">
+                <div class="camp-card-header">
+                    <div class="camp-card-icon" style="background:rgba(245,158,11,.12);color:var(--accent-orange);"><i class="fas fa-ticket-alt"></i></div>
+                    <div><h3>Cupom de Desconto</h3></div>
+                </div>
+                <div class="camp-card-body">
+                    Gera um link exclusivo. Exiba via QR Code + tarja na TV ou compartilhe em qualquer canal. O cliente acessa, preenche o cadastro e recebe o cupom. Código único ou individual por participante.
+                </div>
+                <div class="camp-card-footer">
+                    <span class="camp-tag">🔗 Link exclusivo</span>
+                    <span class="camp-tag">QR + Tarja TV</span>
+                    <span class="camp-tag">Exportar CSV</span>
+                </div>
+            </div>
+            <div class="camp-card">
+                <div class="camp-card-header">
+                    <div class="camp-card-icon" style="background:rgba(99,102,241,.12);color:#a5b4fc;"><i class="fas fa-dharmachakra"></i></div>
+                    <div><h3>Roleta de Prêmios</h3></div>
+                </div>
+                <div class="camp-card-body">
+                    Link exclusivo exibido na TV com QR Code + tarja. O cliente acessa, gira a roleta e seus dados são capturados na hora. Pesos configuráveis por prêmio. Sistema anti-fraude por IP e CPF.
+                </div>
+                <div class="camp-card-footer">
+                    <span class="camp-tag">🔗 Link exclusivo</span>
+                    <span class="camp-tag">Gamificação</span>
+                    <span class="camp-tag">Anti-fraude</span>
+                </div>
+            </div>
+            <div class="camp-card">
+                <div class="camp-card-header">
+                    <div class="camp-card-icon" style="background:rgba(16,185,129,.12);color:#6ee7b7;"><i class="fas fa-clone"></i></div>
+                    <div><h3>Virar a Carta</h3></div>
+                </div>
+                <div class="camp-card-body">
+                    Link exclusivo. Exiba na tela ou distribua em qualquer canal. O cliente vira uma carta e descobre o prêmio. A logo da empresa aparece no verso. Resultado ponderado + lead capturado.
+                </div>
+                <div class="camp-card-footer">
+                    <span class="camp-tag">🔗 Link exclusivo</span>
+                    <span class="camp-tag">Logo no verso</span>
+                    <span class="camp-tag">Animação 3D</span>
+                </div>
+            </div>
+        </div>
+        <div class="link-highlight">
+            <div class="link-highlight-icon">🔗</div>
+            <div>
+                <h3>O link funciona onde você precisar</h3>
+                <p>Não precisa de TV para a campanha funcionar. O link exclusivo pode ser distribuído em qualquer canal — você decide onde e quando ativar.</p>
+                <div class="link-channels">
+                    <span class="link-channel"><i class="fab fa-whatsapp" style="color:#25d366;"></i> WhatsApp</span>
+                    <span class="link-channel"><i class="fab fa-instagram" style="color:#e1306c;"></i> Stories/Bio</span>
+                    <span class="link-channel"><i class="fas fa-tv" style="color:#a5b4fc;"></i> QR na TV</span>
+                    <span class="link-channel"><i class="fas fa-grip-lines" style="color:#fcd34d;"></i> Tarja TV</span>
+                    <span class="link-channel"><i class="fas fa-envelope" style="color:#6ee7b7;"></i> E-mail</span>
+                    <span class="link-channel"><i class="fas fa-print" style="color:#f9a8d4;"></i> Panfleto</span>
+                    <span class="link-channel"><i class="fas fa-globe" style="color:#93c5fd;"></i> Site</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── COMPARATIVO ── -->
+<section class="comp-section" id="comparativo">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge-pill"><i class="fas fa-balance-scale"></i> Por que MediaExpand?</span>
+            <h2>Pen drive vs. <span class="gradient-text">Vitrine Digital</span></h2>
+            <p>Compare o método tradicional com a solução moderna que seu negócio merece.</p>
+        </div>
+        <div class="comp-grid">
+            <div class="comp-card">
+                <div class="comp-card-header">
+                    <h3>📺 TV com Pen Drive</h3>
+                    <p>Método tradicional</p>
+                </div>
+                <div class="comp-item"><i class="fas fa-times comp-icon-bad"></i> Atualização manual in loco</div>
+                <div class="comp-item"><i class="fas fa-times comp-icon-bad"></i> Sem gestão remota</div>
+                <div class="comp-item"><i class="fas fa-times comp-icon-bad"></i> Sem campanhas de leads</div>
+                <div class="comp-item"><i class="fas fa-times comp-icon-bad"></i> Sem QR Code ou tarja</div>
+                <div class="comp-item"><i class="fas fa-times comp-icon-bad"></i> Sem alertas de desconexão</div>
+                <div class="comp-item"><i class="fas fa-times comp-icon-bad"></i> Sem agendamento inteligente</div>
+                <div class="comp-item"><i class="fas fa-times comp-icon-bad"></i> Sem conteúdo corporativo</div>
+            </div>
+            <div class="comp-card featured">
+                <div class="comp-card-header">
+                    <h3 class="gradient-text">✦ Vitrine Digital MediaExpand</h3>
+                    <p>Plataforma moderna</p>
+                </div>
+                <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Atualização remota em segundos</div>
+                <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Painel web de qualquer lugar</div>
+                <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Cupom, roleta e carta</div>
+                <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> QR Code + tarja na TV</div>
+                <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Alerta de TV offline por e-mail</div>
+                <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Agendamento por dia e horário</div>
+                <div class="comp-item"><i class="fas fa-check comp-icon-ok"></i> Conteúdo para filiais/franquias</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── PLANOS ── -->
+<section class="planos-section" id="planos">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge-pill"><i class="fas fa-tag"></i> Planos e Preços</span>
+            <h2>Planos para cada <span class="gradient-text">tamanho de negócio</span></h2>
+            <p>Comece pequeno e cresça com a plataforma. Sem taxa de adesão, sem fidelidade.</p>
+        </div>
+        <div class="planos-grid">
+            <div class="plano-card">
+                <div class="plano-icon">🚀</div>
+                <h3>Starter</h3>
+                <div class="plano-price">R$149,90<span>/mês</span></div>
+                <p class="plano-desc">Ideal para pequenos negócios que querem começar com gestão remota.</p>
+                <div class="plano-features">
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> 1 TV conectada</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Upload de vídeos</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Playlists personalizadas</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Gestão remota completa</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Suporte por e-mail</div>
+                </div>
+                <a href="#contato" class="btn-plano">Começar com Starter</a>
+            </div>
+            <div class="plano-card featured">
+                <div class="plano-badge">Mais Popular</div>
+                <div class="plano-icon">⭐</div>
+                <h3>Pro</h3>
+                <div class="plano-price">R$299,90<span>/mês</span></div>
+                <p class="plano-desc">Para negócios que querem campanhas de leads e recursos avançados.</p>
+                <div class="plano-features">
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Até 3 TVs</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Campanhas de leads (roleta, cupom, carta)</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> QR Code + tarja informativa</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Agendamento inteligente</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Alertas de desconexão</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Suporte prioritário</div>
+                </div>
+                <a href="#contato" class="btn-plano featured">Começar com Pro</a>
+            </div>
+            <div class="plano-card">
+                <div class="plano-icon">🏢</div>
+                <h3>Empresarial</h3>
+                <div class="plano-price">R$499,90<span>/mês</span></div>
+                <p class="plano-desc">Para redes com múltiplas unidades e necessidade de conteúdo corporativo.</p>
+                <div class="plano-features">
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> TVs ilimitadas</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Tudo do plano Pro</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Conteúdo corporativo</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Controle por filial/franquia</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> API de integração</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Suporte dedicado</div>
+                </div>
+                <a href="#contato" class="btn-plano">Falar com Consultor</a>
+            </div>
+            <div class="plano-card">
+                <div class="plano-icon">💰</div>
+                <h3>Franqueado</h3>
+                <div class="plano-price">R$250,00<span>/mês</span></div>
+                <p class="plano-desc">Plano especial para franqueados da rede MediaExpand.</p>
+                <div class="plano-features">
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> TVs da unidade</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Acesso ao painel do franqueado</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Campanhas próprias</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Conteúdo da matriz</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Suporte exclusivo</div>
+                </div>
+                <a href="#contato" class="btn-plano">Sou Franqueado</a>
+            </div>
+            <div class="plano-card">
+                <div class="plano-icon">🎯</div>
+                <h3>Campanha Avulsa</h3>
+                <div class="plano-price">R$99,90<span>/camp.</span></div>
+                <p class="plano-desc">Crie uma campanha pontual sem assinatura mensal.</p>
+                <div class="plano-features">
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> 1 campanha ativa</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Link exclusivo</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Captação de leads</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Exportação CSV</div>
+                    <div class="plano-feat"><i class="fas fa-check-circle"></i> Validade de 30 dias</div>
+                </div>
+                <a href="#contato" class="btn-plano">Criar Campanha</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── DEPOIMENTOS ── -->
+<section class="cred-section">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge-pill"><i class="fas fa-heart"></i> O que dizem</span>
+            <h2>Negócios que já <span class="gradient-text">comunicam melhor</span></h2>
+        </div>
+        <div class="cred-grid">
+            <div class="cred-card">
+                <div class="stars">★★★★★</div>
+                <blockquote>"Antes precisava ir até a loja para trocar o vídeo no pen drive. Hoje atualizo direto do celular em 30 segundos. Mudou completamente a operação."</blockquote>
+                <div class="cred-author">
+                    <div class="cred-avatar">RC</div>
+                    <div class="cred-author-info">
+                        <strong>Roberto C.</strong>
+                        <span>Proprietário · Barbearia Style</span>
+                    </div>
+                </div>
+            </div>
+            <div class="cred-card">
+                <div class="stars">★★★★★</div>
+                <blockquote>"A campanha de roleta no evento de aniversário capturou mais de 180 leads em um fim de semana. Nunca tínhamos tido tanto resultado com tão pouco esforço."</blockquote>
+                <div class="cred-author">
+                    <div class="cred-avatar">AM</div>
+                    <div class="cred-author-info">
+                        <strong>Ana M.</strong>
+                        <span>Gerente · Loja de Roupas Fashion</span>
+                    </div>
+                </div>
+            </div>
+            <div class="cred-card">
+                <div class="stars">★★★★★</div>
+                <blockquote>"Gerencio as TVs de 4 unidades sem sair do escritório. O conteúdo corporativo chega em todas ao mesmo tempo. Não imagino mais trabalhar sem a plataforma."</blockquote>
+                <div class="cred-author">
+                    <div class="cred-avatar">FP</div>
+                    <div class="cred-author-info">
+                        <strong>Felipe P.</strong>
+                        <span>Diretor · Rede de Academias</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── FAQ ── -->
+<section class="faq-section">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge-pill"><i class="fas fa-question-circle"></i> Dúvidas Frequentes</span>
+            <h2>Perguntas <span class="gradient-text">frequentes</span></h2>
+        </div>
+        <div class="faq-list">
+            <div class="faq-item">
+                <div class="faq-q">Preciso de uma TV especial ou hardware proprietário?<span class="faq-toggle"><i class="fas fa-plus"></i></span></div>
+                <div class="faq-a">Não. Qualquer Smart TV Android ou TV com entrada HDMI + Chromecast funciona. Se a TV já estiver no local, você já tem o hardware. Basta instalar o app e conectar à plataforma.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">Consigo gerenciar TVs de locais diferentes ao mesmo tempo?<span class="faq-toggle"><i class="fas fa-plus"></i></span></div>
+                <div class="faq-a">Sim. O painel permite gerenciar múltiplos dispositivos em locais distintos. Você pode enviar o mesmo conteúdo para todos ou conteúdos diferentes para cada local, tudo em tempo real.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">Como funcionam as campanhas de captação de leads?<span class="faq-toggle"><i class="fas fa-plus"></i></span></div>
+                <div class="faq-a">A TV exibe um QR Code da campanha via tarja. O cliente escaneia com o celular, participa (cupom, roleta ou carta) e preenche os dados. Tudo vai para o painel de leads, exportável em CSV.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">O sistema funciona se a internet cair?<span class="faq-toggle"><i class="fas fa-plus"></i></span></div>
+                <div class="faq-a">O aplicativo armazena as playlists localmente no dispositivo. Em caso de queda de internet, o conteúdo continua sendo exibido. Assim que a conexão for restabelecida, o app sincroniza automaticamente.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">Qual formato de vídeo é aceito?<span class="faq-toggle"><i class="fas fa-plus"></i></span></div>
+                <div class="faq-a">Os principais formatos são suportados (MP4, MOV, AVI). Você também pode usar imagens JPEG ou PNG. O upload é feito pelo painel web, sem software adicional.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">Posso testar antes de assinar?<span class="faq-toggle"><i class="fas fa-plus"></i></span></div>
+                <div class="faq-a">Sim! Solicite uma demonstração gratuita pelo formulário nesta página. Nossa equipe apresenta a plataforma personalizada para o seu segmento, sem compromisso e sem cartão de crédito.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── LEAD SECTION (CONTATO) ── -->
+<section class="lead-section" id="contato">
+    <div class="container">
+        <div class="lead-inner">
+            <div class="lead-copy">
+                <span class="badge-pill" style="margin-bottom:1.25rem;"><i class="fas fa-headset"></i> Fale com a Equipe</span>
+                <h2>Comece a usar o <span class="gradient-text">MediaExpand</span> no seu negócio</h2>
+                <p>Preencha o formulário e um especialista entrará em contato para entender o seu negócio e mostrar como a plataforma se encaixa na sua realidade.</p>
+                <div class="lead-perks">
+                    <div class="lead-perk"><i class="fas fa-check"></i><span>Demonstração personalizada para o seu segmento</span></div>
+                    <div class="lead-perk"><i class="fas fa-check"></i><span>Análise gratuita das TVs que você já possui</span></div>
+                    <div class="lead-perk"><i class="fas fa-check"></i><span>Proposta comercial sem compromisso</span></div>
+                    <div class="lead-perk"><i class="fas fa-check"></i><span>Suporte na implantação e configuração inicial</span></div>
+                    <div class="lead-perk"><i class="fas fa-check"></i><span>Retorno em até 24 horas úteis</span></div>
+                </div>
+            </div>
+            <div class="lead-form-box">
+                <h3>Solicitar Demonstração</h3>
+                <p class="form-sub">Gratuita e sem compromisso</p>
+                <form id="mainLeadForm" method="post" action="/">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_source" value="contato">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="m-nome">Nome *</label>
+                            <input type="text" id="m-nome" name="nome" class="form-control" placeholder="Seu nome" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="m-email">E-mail *</label>
+                            <input type="email" id="m-email" name="email" class="form-control" placeholder="seu@email.com" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="m-whatsapp">WhatsApp *</label>
+                            <input type="tel" id="m-whatsapp" name="whatsapp" class="form-control" placeholder="(11) 99999-9999" maxlength="15" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="m-cidade">Cidade *</label>
+                            <input type="text" id="m-cidade" name="cidade" class="form-control" placeholder="Sua cidade" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="m-segmento">Segmento do Negócio *</label>
+                        <select id="m-segmento" name="segmento" class="form-control" required>
+                            <option value="">Selecione seu segmento</option>
+                            <option value="barbearia_salao">Barbearia / Salão</option>
+                            <option value="restaurante">Restaurante / Lanchonete</option>
+                            <option value="loja_roupa">Loja de Roupa / Calçados</option>
+                            <option value="oficina">Oficina Mecânica</option>
+                            <option value="academia">Academia / Studio</option>
+                            <option value="farmacia_otica">Farmácia / Ótica</option>
+                            <option value="petshop">Petshop</option>
+                            <option value="clinica">Clínica / Consultório</option>
+                            <option value="supermercado">Supermercado / Mercearia</option>
+                            <option value="comercio_geral">Comércio em Geral</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="m-mensagem">Mensagem <span style="color:var(--text-muted)">(opcional)</span></label>
+                        <textarea id="m-mensagem" name="mensagem" class="form-control" rows="3" placeholder="Conte um pouco sobre seu negócio ou tire uma dúvida..."></textarea>
+                    </div>
+                    <div id="mainFormError" class="form-error-msg"></div>
+                    <button type="submit" class="btn-submit" id="mainBtnSubmit">
+                        <i class="fas fa-rocket"></i> Quero uma Demonstração Gratuita
+                    </button>
+                    <p class="form-privacy"><i class="fas fa-lock"></i> Seus dados são protegidos. Não fazemos spam.</p>
+                </form>
+                <div class="form-success" id="mainFormSuccess">
+                    <div class="success-icon">🎉</div>
+                    <h4>Solicitação recebida!</h4>
+                    <p>Entraremos em contato em breve no WhatsApp ou e-mail informado.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── CTA FINAL ── -->
+<section style="background:var(--bg-secondary);padding:80px 0;text-align:center;">
+    <div class="container">
+        <span class="badge-pill" style="margin-bottom:1.5rem;"><i class="fas fa-rocket"></i> Comece Hoje</span>
+        <h2 style="font-size:clamp(1.8rem,4vw,3rem);font-weight:900;margin-bottom:1rem;">
+            Suas TVs já estão lá.<br><span class="gradient-text">Coloque-as pra trabalhar.</span>
+        </h2>
+        <p style="color:var(--text-secondary);font-size:1rem;max-width:480px;margin:0 auto 2.5rem;">
+            Não compre novo equipamento. Use o que você já tem. Atualize o conteúdo de onde estiver, capture leads e comunique melhor.
+        </p>
+        <a href="#contato" class="btn-primary" style="font-size:1.05rem;padding:1rem 2.5rem;display:inline-flex;">
+            <i class="fas fa-calendar-check"></i> Agendar Demonstração Gratuita
+        </a>
+    </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+    <div class="container">
+        <div class="footer-inner">
+            <div>
+                <div class="logo" style="margin-bottom:.5rem;">
+                    <div class="logo-icon">M</div>
+                    <span class="logo-text">MediaExpand</span>
+                </div>
+                <p class="footer-copy">Comunicação visual inteligente para o seu negócio.</p>
+            </div>
+            <div class="footer-links">
+                <a href="#recursos">Recursos</a>
+                <a href="#segmentos">Segmentos</a>
+                <a href="#campanhas">Campanhas</a>
+                <a href="#planos">Planos</a>
+                <a href="#contato">Contato</a>
+                <a href="/login/">Acesso do Gestor</a>
+            </div>
+        </div>
+    </div>
 </footer>
 
 <script>
-// CSRF token
-function getCookie(name){
-  let v=null;
-  document.cookie.split(';').forEach(c=>{
-    c=c.trim();
-    if(c.startsWith(name+'=')){v=c.substring(name.length+1);}
-  });
-  return v;
-}
+// ── Navbar scroll ────────────────────────────────────────────────
+window.addEventListener('scroll', () => {
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
+});
 
-function serializeForm(form){
-  const fd=new FormData(form);
-  const params=new URLSearchParams();
-  fd.forEach((v,k)=>params.append(k,v));
-  return params;
-}
-
-function handleFormSubmit(formId, btnId, successId, errorId){
-  const form=document.getElementById(formId);
-  const btn=document.getElementById(btnId);
-  const successEl=document.getElementById(successId);
-  const errorEl=document.getElementById(errorId);
-  const contentEl=successEl.previousElementSibling;
-
-  form.addEventListener('submit',async function(e){
-    e.preventDefault();
-    const nome=form.querySelector('[name="nome"]').value.trim();
-    const wa=form.querySelector('[name="whatsapp"]').value.trim();
-    if(!nome||!wa){
-      errorEl.textContent='Por favor, preencha nome e WhatsApp.';
-      errorEl.style.display='block';
-      return;
+// ── Hamburger ────────────────────────────────────────────────────
+document.getElementById('hamburger').addEventListener('click', function () {
+    const nav = document.getElementById('navLinks');
+    const isOpen = nav.style.display === 'flex';
+    nav.style.cssText = isOpen
+        ? 'display:none'
+        : 'display:flex;flex-direction:column;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,10,15,.97);align-items:center;justify-content:center;gap:2rem;z-index:999;font-size:1.25rem;';
+    const spans = this.querySelectorAll('span');
+    spans[0].style.transform = isOpen ? '' : 'rotate(45deg) translate(5px,5px)';
+    spans[1].style.opacity   = isOpen ? '' : '0';
+    spans[2].style.transform = isOpen ? '' : 'rotate(-45deg) translate(5px,-5px)';
+});
+document.getElementById('navLinks').addEventListener('click', e => {
+    if (e.target.tagName === 'A') {
+        document.getElementById('navLinks').style.display = '';
+        document.querySelectorAll('.hamburger span').forEach(s => { s.style.transform = ''; s.style.opacity = ''; });
     }
-    btn.disabled=true;
-    btn.textContent='Enviando...';
-    errorEl.style.display='none';
+});
 
-    const body=serializeForm(form);
-    const csrf=getCookie('csrftoken');
-    if(csrf) body.append('csrfmiddlewaretoken',csrf);
+// ── FAQ accordion ─────────────────────────────────────────────────
+document.querySelectorAll('.faq-q').forEach(q => {
+    q.addEventListener('click', () => {
+        const item = q.parentElement;
+        const wasOpen = item.classList.contains('open');
+        document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+        if (!wasOpen) item.classList.add('open');
+    });
+});
 
-    try{
-      const res=await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Requested-With':'XMLHttpRequest'},body:body.toString()});
-      const data=await res.json();
-      if(data.success){
-        contentEl.style.display='none';
-        successEl.style.display='block';
-      } else {
-        errorEl.textContent=data.error||'Erro ao enviar. Tente novamente.';
-        errorEl.style.display='block';
-        btn.disabled=false;
-        btn.textContent='Quero ver como funciona →';
-      }
-    } catch(_){
-      errorEl.textContent='Erro de conexão. Tente novamente.';
-      errorEl.style.display='block';
-      btn.disabled=false;
-      btn.textContent='Quero ver como funciona →';
-    }
-  });
+// ── Phone mask ────────────────────────────────────────────────────
+function phoneMask(el) {
+    el.addEventListener('input', function () {
+        let v = this.value.replace(/\D/g, '');
+        if (v.length > 11) v = v.slice(0, 11);
+        if      (v.length > 7) v = `(${v.slice(0,2)}) ${v.slice(2,7)}-${v.slice(7)}`;
+        else if (v.length > 2) v = `(${v.slice(0,2)}) ${v.slice(2)}`;
+        else if (v.length > 0) v = `(${v}`;
+        this.value = v;
+    });
+}
+phoneMask(document.getElementById('h-whatsapp'));
+phoneMask(document.getElementById('m-whatsapp'));
+
+// ── Smooth scroll ─────────────────────────────────────────────────
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
+    });
+});
+
+// ── AJAX form submit ──────────────────────────────────────────────
+function setupForm(formId, btnId, errorId, successId) {
+    const form      = document.getElementById(formId);
+    const btn       = document.getElementById(btnId);
+    const errorEl   = document.getElementById(errorId);
+    const successEl = document.getElementById(successId);
+    if (!form) return;
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        errorEl.style.display = 'none';
+        btn.disabled = true;
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = '<span style="display:inline-block;width:1rem;height:1rem;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:.5rem;"></span>Enviando…';
+        try {
+            const resp = await fetch('/', { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const data = await resp.json();
+            if (data.success) {
+                form.style.display = 'none';
+                successEl.style.display = 'block';
+            } else {
+                errorEl.textContent = data.error || 'Erro ao enviar. Tente novamente.';
+                errorEl.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        } catch (err) {
+            errorEl.textContent = 'Erro de conexão. Tente novamente.';
+            errorEl.style.display = 'block';
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    });
 }
 
-handleFormSubmit('form-hero','btn-hero-submit','form-hero-success','hero-error');
-handleFormSubmit('form-bottom','btn-bottom-submit','form-bottom-success','bottom-error');
+setupForm('heroLeadForm', 'heroBtnSubmit', 'heroFormError',  'heroFormSuccess');
+setupForm('mainLeadForm', 'mainBtnSubmit', 'mainFormError',  'mainFormSuccess');
+
+// ── Spinner keyframe ──────────────────────────────────────────────
+const _s = document.createElement('style');
+_s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+document.head.appendChild(_s);
 </script>
 </body>
 </html>
