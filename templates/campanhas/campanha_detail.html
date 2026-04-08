@@ -248,6 +248,37 @@
                     </a>
                 </div>
                 {% endif %}
+                {% elif config_sorteio %}
+                <!-- SORTEIO CONFIG -->
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <th class="text-muted fw-normal" style="width:45%">Participantes Inscritos</th>
+                        <td><strong>{{ sorteio_ativos_count }}</strong> ativo(s)
+                            {% with inat=sorteio_participantes_count|add:"-0" %}
+                            {% if sorteio_participantes_count > sorteio_ativos_count %}
+                            <span class="text-danger ms-1">({{ sorteio_participantes_count }} total)</span>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Bloqueio CPF Duplicado</th>
+                        <td>{% if config_sorteio.bloquear_duplicados_cpf %}<span class="badge bg-success">Ativo</span>{% else %}<span class="badge bg-secondary">Inativo</span>{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Data do Sorteio</th>
+                        <td>{% if config_sorteio.data_sorteio %}{{ config_sorteio.data_sorteio|date:"d/m/Y H:i" }}{% else %}<span class="text-muted">Não definida</span>{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted fw-normal">Encerramento</th>
+                        <td>{% if campanha.data_fim %}{{ campanha.data_fim|date:"d/m/Y H:i" }}{% else %}<span class="text-muted">Sem prazo</span>{% endif %}</td>
+                    </tr>
+                </table>
+                <div class="d-flex gap-2 mt-1">
+                    <a href="{% url 'campanha_sorteio_draw' campanha.pk %}" class="btn btn-sm btn-warning">
+                        <i class="fas fa-trophy me-1"></i>Abrir Sorteador
+                    </a>
+                </div>
                 {% else %}
                 <p class="text-muted">Campanha não configurada. <a href="{% url 'campanha_configure' campanha.pk %}">Configurar agora</a></p>
                 {% endif %}

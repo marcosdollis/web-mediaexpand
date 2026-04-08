@@ -129,7 +129,7 @@
 
 <script>
 const PARTICIPANTES_URL = "{% url 'campanha_sorteio_participantes' campanha.pk %}";
-const TOGGLE_URL_BASE   = "{% url 'campanha_sorteio_toggle_participante' campanha.pk 0 %}".replace('/0/', '/');
+const TOGGLE_URL_BASE   = "{% url 'campanha_sorteio_toggle_participante' campanha.pk 0 %}".replace('/0/toggle/', '/');
 const CSRF_TOKEN        = "{{ csrf_token }}";
 
 let animationId   = null;

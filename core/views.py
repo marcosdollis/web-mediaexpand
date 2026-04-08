@@ -6486,7 +6486,8 @@ def _campanha_sorteio_landing(request, campanha, encerrada):
                               request.META.get('REMOTE_ADDR', '')).split(',')[0].strip() or None
 
         nome     = request.POST.get('nome', '').strip()
-        cpf      = request.POST.get('cpf', '').strip()
+        cpf_raw  = request.POST.get('cpf', '').strip()
+        cpf      = ''.join(filter(str.isdigit, cpf_raw))  # normaliza para só dígitos
         telefone = request.POST.get('telefone', '').strip()
         endereco = request.POST.get('endereco', '').strip()
 
@@ -6498,8 +6499,7 @@ def _campanha_sorteio_landing(request, campanha, encerrada):
 
         # Bloquear duplicado por CPF
         if not erro and config.bloquear_duplicados_cpf:
-            cpf_limpo = ''.join(filter(str.isdigit, cpf))
-            if campanha.participantes_sorteio.filter(cpf__icontains=cpf_limpo).exists():
+            if campanha.participantes_sorteio.filter(cpf=cpf).exists():
                 erro = 'Este CPF já está inscrito neste sorteio.'
 
         # Bloquear duplicado por IP
@@ -6511,7 +6511,7 @@ def _campanha_sorteio_landing(request, campanha, encerrada):
             return render(request, 'campanhas/campanha_landing_sorteio.html', {
                 'campanha': campanha, 'config': config, 'encerrada': encerrada,
                 'erro': erro,
-                'form_nome': nome, 'form_cpf': cpf,
+                'form_nome': nome, 'form_cpf': cpf_raw,
                 'form_telefone': telefone, 'form_endereco': endereco,
             })
 
