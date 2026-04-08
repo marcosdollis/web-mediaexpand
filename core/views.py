@@ -17,6 +17,7 @@ from .models import (
     CampanhaRoletaConfig, CampanhaRoletaPremio, CampanhaJogada,
     CampanhaCartaConfig,
     CampanhaAlertaConfig, CampanhaAlertaCampo, CampanhaAlertaLead,
+    CampanhaSorteioConfig, CampanhaParticipanteSorteio,
     LandingLead,
 )
 from .serializers import (
@@ -5603,6 +5604,8 @@ def campanha_create_view(request):
             CampanhaCartaConfig.objects.create(campanha=campanha)
         elif tipo == 'ALERTA':
             CampanhaAlertaConfig.objects.create(campanha=campanha)
+        elif tipo == 'SORTEIO':
+            CampanhaSorteioConfig.objects.create(campanha=campanha)
 
         messages.success(request, f'Campanha "{nome}" criada. Configure os detalhes abaixo.')
         return redirect('campanha_configure', pk=campanha.pk)
@@ -5928,8 +5931,47 @@ def campanha_configure_view(request, pk):
             'status_choices': Campanha.STATUS_CHOICES,
         })
 
+    if campanha.tipo == 'SORTEIO':
+        return _campanha_configure_sorteio(request, campanha)
+
     messages.warning(request, 'Tipo de campanha ainda não suportado.')
     return redirect('campanha_list')
+
+
+def _campanha_configure_sorteio(request, campanha):
+    """Handler interno para configurar campanha do tipo SORTEIO."""
+    config, _ = CampanhaSorteioConfig.objects.get_or_create(campanha=campanha)
+    if request.method == 'POST':
+        config.titulo_pagina    = request.POST.get('titulo_pagina', '').strip()
+        config.descricao_pagina = request.POST.get('descricao_pagina', '').strip()
+        config.mensagem_sucesso = request.POST.get('mensagem_sucesso', config.mensagem_sucesso).strip() or config.mensagem_sucesso
+        config.capturar_telefone  = 'capturar_telefone' in request.POST
+        config.capturar_endereco  = 'capturar_endereco' in request.POST
+        config.bloquear_duplicados_cpf = 'bloquear_duplicados_cpf' in request.POST
+        config.bloquear_duplicados_ip  = 'bloquear_duplicados_ip' in request.POST
+        config.cor_primaria     = request.POST.get('cor_primaria', '#6366f1').strip()
+        data_sorteio_raw = request.POST.get('data_sorteio', '').strip()
+        if data_sorteio_raw:
+            from django.utils.dateparse import parse_datetime
+            config.data_sorteio = parse_datetime(data_sorteio_raw)
+        else:
+            config.data_sorteio = None
+        if 'foto_item' in request.FILES:
+            config.foto_item = request.FILES['foto_item']
+        config.save()
+
+        campanha.nome    = request.POST.get('nome', campanha.nome).strip() or campanha.nome
+        campanha.data_fim = request.POST.get('data_fim') or None
+        campanha.status  = request.POST.get('status', campanha.status)
+        campanha.save()
+        messages.success(request, 'Sorteio configurado com sucesso!')
+        return redirect('campanha_detail', pk=campanha.pk)
+
+    return render(request, 'campanhas/campanha_configure_sorteio.html', {
+        'campanha': campanha,
+        'config': config,
+        'status_choices': Campanha.STATUS_CHOICES,
+    })
 
 
 @login_required
@@ -5945,19 +5987,25 @@ def campanha_detail_view(request, pk):
     config_roleta = getattr(campanha, 'config_roleta', None)
     config_carta = getattr(campanha, 'config_carta', None)
     config_alerta = getattr(campanha, 'config_alerta', None)
+    config_sorteio = getattr(campanha, 'config_sorteio', None)
     jogadas_count = campanha.jogadas.count() if campanha.tipo in ('ROLETA', 'CARTA') else 0
     ganhadores_count = campanha.jogadas.filter(ganhou=True).count() if campanha.tipo in ('ROLETA', 'CARTA') else 0
     alerta_leads_count = campanha.leads_alerta.count() if campanha.tipo == 'ALERTA' else 0
+    sorteio_participantes_count = campanha.participantes_sorteio.count() if campanha.tipo == 'SORTEIO' else 0
+    sorteio_ativos_count = campanha.participantes_sorteio.filter(ativo_sorteio=True).count() if campanha.tipo == 'SORTEIO' else 0
     return render(request, 'campanhas/campanha_detail.html', {
         'campanha': campanha,
         'config': config,
         'config_roleta': config_roleta,
         'config_carta': config_carta,
         'config_alerta': config_alerta,
+        'config_sorteio': config_sorteio,
         'leads_count': leads_count,
         'jogadas_count': jogadas_count,
         'ganhadores_count': ganhadores_count,
         'alerta_leads_count': alerta_leads_count,
+        'sorteio_participantes_count': sorteio_participantes_count,
+        'sorteio_ativos_count': sorteio_ativos_count,
     })
 
 
@@ -5999,6 +6047,10 @@ def campanha_leads_view(request, pk):
     # Campanhas do tipo ALERTA têm seus próprios leads
     if campanha.tipo == 'ALERTA':
         return redirect('campanha_alerta_leads', pk=pk)
+
+    # Campanhas do tipo SORTEIO vão para a tela do sorteio
+    if campanha.tipo == 'SORTEIO':
+        return redirect('campanha_sorteio_draw', pk=pk)
 
     leads = campanha.leads.order_by('-criado_em')
 
@@ -6048,7 +6100,8 @@ def campanha_landing_view(request, token):
     if campanha.tipo == 'ALERTA':
         return _campanha_alerta_landing(request, campanha, encerrada)
 
-    if request.method == 'POST' and not encerrada and campanha.tipo == 'CUPOM' and config:
+    if campanha.tipo == 'SORTEIO':
+        return _campanha_sorteio_landing(request, campanha, encerrada)
         ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip() or None
 
         # ── Deduplicação por IP (modos com lead) ──────────────────────────────
@@ -6418,6 +6471,120 @@ def _campanha_alerta_landing(request, campanha, encerrada):
         'campos': campos,
         'encerrada': encerrada,
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  SORTEIO — views públicas e autenticadas
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _campanha_sorteio_landing(request, campanha, encerrada):
+    """Formulário público de inscrição no sorteio."""
+    config = getattr(campanha, 'config_sorteio', None)
+
+    if request.method == 'POST' and not encerrada and config:
+        ip = request.META.get('HTTP_X_FORWARDED_FOR',
+                              request.META.get('REMOTE_ADDR', '')).split(',')[0].strip() or None
+
+        nome     = request.POST.get('nome', '').strip()
+        cpf      = request.POST.get('cpf', '').strip()
+        telefone = request.POST.get('telefone', '').strip()
+        endereco = request.POST.get('endereco', '').strip()
+
+        erro = None
+
+        # Validação CPF
+        if not _validar_cpf(cpf):
+            erro = 'CPF inválido. Verifique os dígitos e tente novamente.'
+
+        # Bloquear duplicado por CPF
+        if not erro and config.bloquear_duplicados_cpf:
+            cpf_limpo = ''.join(filter(str.isdigit, cpf))
+            if campanha.participantes_sorteio.filter(cpf__icontains=cpf_limpo).exists():
+                erro = 'Este CPF já está inscrito neste sorteio.'
+
+        # Bloquear duplicado por IP
+        if not erro and config.bloquear_duplicados_ip and ip:
+            if campanha.participantes_sorteio.filter(ip=ip).exists():
+                erro = 'Você já está inscrito neste sorteio.'
+
+        if erro:
+            return render(request, 'campanhas/campanha_landing_sorteio.html', {
+                'campanha': campanha, 'config': config, 'encerrada': encerrada,
+                'erro': erro,
+                'form_nome': nome, 'form_cpf': cpf,
+                'form_telefone': telefone, 'form_endereco': endereco,
+            })
+
+        CampanhaParticipanteSorteio.objects.create(
+            campanha=campanha,
+            nome=nome,
+            cpf=cpf,
+            telefone=telefone,
+            endereco=endereco,
+            ip=ip,
+        )
+
+        return render(request, 'campanhas/campanha_sorteio_sucesso.html', {
+            'campanha': campanha,
+            'config': config,
+        })
+
+    return render(request, 'campanhas/campanha_landing_sorteio.html', {
+        'campanha': campanha,
+        'config': config,
+        'encerrada': encerrada,
+    })
+
+
+@login_required
+def campanha_sorteio_draw_view(request, pk):
+    """Tela do sorteio animado — apenas autenticados (franqueado/owner)."""
+    campanha = get_object_or_404(Campanha, pk=pk, tipo='SORTEIO')
+    user = request.user
+    if not user.is_owner() and campanha.franqueado != user:
+        messages.error(request, 'Sem permissão.')
+        return redirect('campanha_list')
+
+    config = getattr(campanha, 'config_sorteio', None)
+    participantes = campanha.participantes_sorteio.all().order_by('nome')
+    total = campanha.participantes_sorteio.filter(ativo_sorteio=True).count()
+    inativos = campanha.participantes_sorteio.filter(ativo_sorteio=False).count()
+
+    return render(request, 'campanhas/campanha_sorteio_draw.html', {
+        'campanha': campanha,
+        'config': config,
+        'participantes': participantes,
+        'total': total,
+        'inativos': inativos,
+    })
+
+
+@login_required
+def campanha_sorteio_participantes_view(request, pk):
+    """JSON: lista participantes ativos para o sorteador."""
+    campanha = get_object_or_404(Campanha, pk=pk, tipo='SORTEIO')
+    user = request.user
+    if not user.is_owner() and campanha.franqueado != user:
+        return JsonResponse({'error': 'Sem permissão.'}, status=403)
+
+    qs = campanha.participantes_sorteio.filter(ativo_sorteio=True).values('id', 'nome', 'cpf', 'telefone')
+    return JsonResponse({'participantes': list(qs)})
+
+
+@login_required
+def campanha_sorteio_toggle_participante_view(request, pk, participante_pk):
+    """Toggle ativo_sorteio de um participante."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed.'}, status=405)
+    campanha = get_object_or_404(Campanha, pk=pk, tipo='SORTEIO')
+    user = request.user
+    if not user.is_owner() and campanha.franqueado != user:
+        return JsonResponse({'error': 'Sem permissão.'}, status=403)
+
+    participante = get_object_or_404(CampanhaParticipanteSorteio, pk=participante_pk, campanha=campanha)
+    participante.ativo_sorteio = not participante.ativo_sorteio
+    participante.save(update_fields=['ativo_sorteio'])
+    return JsonResponse({'success': True, 'ativo_sorteio': participante.ativo_sorteio})
 
 
 @login_required

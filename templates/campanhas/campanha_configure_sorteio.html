@@ -1,0 +1,177 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block title %}Configurar Sorteio - MediaExpand{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="mb-4">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'campanha_list' %}">Campanhas</a></li>
+                    <li class="breadcrumb-item active">Configurar</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0"><i class="fas fa-trophy me-2 text-warning"></i>Configurar Sorteio</h1>
+            <p class="text-muted">Passo 2 de 2 — {{ campanha.nome }}</p>
+        </div>
+
+        {% if messages %}{% for msg in messages %}
+        <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}success{% endif %} alert-dismissible fade show">
+            {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}{% endif %}
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <!-- ── Informações gerais ── -->
+            <div class="card shadow mb-4">
+                <div class="card-header fw-semibold"><i class="fas fa-info-circle me-2"></i>Informações Gerais</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Nome da Campanha</label>
+                            <input type="text" name="nome" class="form-control" value="{{ campanha.nome }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Status</label>
+                            <select name="status" class="form-select">
+                                {% for v, l in status_choices %}
+                                <option value="{{ v }}" {% if campanha.status == v %}selected{% endif %}>{{ l }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">
+                                Data/Hora de Encerramento das Inscrições
+                                <small class="text-muted fw-normal">(opcional)</small>
+                            </label>
+                            <input type="datetime-local" name="data_fim" class="form-control"
+                                   value="{% if campanha.data_fim %}{{ campanha.data_fim|date:'Y-m-d' }}T{{ campanha.data_fim|time:'H:i' }}{% endif %}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">
+                                Data/Hora do Sorteio
+                                <small class="text-muted fw-normal">(opcional — exibida na página)</small>
+                            </label>
+                            <input type="datetime-local" name="data_sorteio" class="form-control"
+                                   value="{% if config.data_sorteio %}{{ config.data_sorteio|date:'Y-m-d' }}T{{ config.data_sorteio|time:'H:i' }}{% endif %}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Página pública ── -->
+            <div class="card shadow mb-4">
+                <div class="card-header fw-semibold"><i class="fas fa-globe me-2"></i>Página Pública de Inscrições</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Título <small class="text-muted fw-normal">(deixe em branco para usar o nome da campanha)</small></label>
+                            <input type="text" name="titulo_pagina" class="form-control"
+                                   value="{{ config.titulo_pagina }}" placeholder="Ex: Sorteio de Natal — Ganhe um iPhone!">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Descrição / Instruções</label>
+                            <textarea name="descricao_pagina" class="form-control" rows="3"
+                                      placeholder="Descreva o prêmio e as regras do sorteio...">{{ config.descricao_pagina }}</textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Mensagem após inscrição</label>
+                            <input type="text" name="mensagem_sucesso" class="form-control"
+                                   value="{{ config.mensagem_sucesso }}">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Foto do Item Sorteado <small class="text-muted fw-normal">(opcional)</small></label>
+                            {% if config.foto_item %}
+                            <div class="mb-2">
+                                <img src="{{ config.foto_item.url }}" alt="Foto atual" class="img-thumbnail" style="max-height:120px">
+                                <small class="text-muted d-block">Foto atual</small>
+                            </div>
+                            {% endif %}
+                            <input type="file" name="foto_item" class="form-control" accept="image/*">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Cor Principal</label>
+                            <div class="input-group">
+                                <input type="color" name="cor_primaria" class="form-control form-control-color"
+                                       value="{{ config.cor_primaria }}" style="max-width:60px">
+                                <input type="text" id="cor_hex" class="form-control" value="{{ config.cor_primaria }}"
+                                       readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Campos do formulário ── -->
+            <div class="card shadow mb-4">
+                <div class="card-header fw-semibold"><i class="fas fa-list-check me-2"></i>Campos do Formulário de Inscrição</div>
+                <div class="card-body">
+                    <div class="alert alert-info border-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <strong>Nome</strong> e <strong>CPF</strong> são sempre coletados no sorteio para garantir a validade da inscrição.
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="capturar_telefone"
+                                       id="capturar_telefone" {% if config.capturar_telefone %}checked{% endif %}>
+                                <label class="form-check-label" for="capturar_telefone">Capturar Telefone / WhatsApp</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="capturar_endereco"
+                                       id="capturar_endereco" {% if config.capturar_endereco %}checked{% endif %}>
+                                <label class="form-check-label" for="capturar_endereco">Capturar Endereço</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Anti-fraude ── -->
+            <div class="card shadow mb-4">
+                <div class="card-header fw-semibold"><i class="fas fa-shield-alt me-2"></i>Controle de Duplicadas</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="bloquear_duplicados_cpf"
+                                       id="bloquear_cpf" {% if config.bloquear_duplicados_cpf %}checked{% endif %}>
+                                <label class="form-check-label fw-semibold" for="bloquear_cpf">
+                                    Bloquear CPF duplicado
+                                    <small class="text-muted d-block fw-normal">Impede que o mesmo CPF se inscreva mais de uma vez.</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="bloquear_duplicados_ip"
+                                       id="bloquear_ip" {% if config.bloquear_duplicados_ip %}checked{% endif %}>
+                                <label class="form-check-label fw-semibold" for="bloquear_ip">
+                                    Bloquear IP duplicado
+                                    <small class="text-muted d-block fw-normal">Impede que o mesmo dispositivo/rede se inscreva mais de uma vez.</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="fas fa-save me-2"></i>Salvar e Concluir
+                </button>
+                <a href="{% url 'campanha_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    document.querySelector('[name="cor_primaria"]').addEventListener('input', function() {
+        document.getElementById('cor_hex').value = this.value;
+    });
+</script>
+{% endblock %}

@@ -6,6 +6,7 @@ from .models import (
     Playlist, PlaylistItem, DispositivoTV, AgendamentoExibicao, LogExibicao, AppVersion,
     QRCodeClick, ConteudoCorporativo, ConfiguracaoAPI, Segmento, HorarioFuncionamento,
     Campanha, CampanhaAlertaConfig, CampanhaAlertaCampo, CampanhaAlertaLead,
+    CampanhaSorteioConfig, CampanhaParticipanteSorteio,
     LandingLead,
 )
 
@@ -265,3 +266,18 @@ class LandingLeadAdmin(admin.ModelAdmin):
     search_fields = ('nome', 'whatsapp', 'email', 'cidade')
     readonly_fields = ('nome', 'whatsapp', 'email', 'cidade', 'segmento', 'mensagem', 'ip', 'criado_em')
     ordering = ('-criado_em',)
+
+
+@admin.register(CampanhaSorteioConfig)
+class CampanhaSorteioConfigAdmin(admin.ModelAdmin):
+    list_display = ('campanha', 'data_sorteio', 'bloquear_duplicados_cpf', 'bloquear_duplicados_ip')
+    list_filter = ('bloquear_duplicados_cpf', 'bloquear_duplicados_ip')
+
+
+@admin.register(CampanhaParticipanteSorteio)
+class CampanhaParticipanteSorteioAdmin(admin.ModelAdmin):
+    list_display = ('pk', 'campanha', 'nome', 'cpf', 'telefone', 'ativo_sorteio', 'criado_em')
+    list_filter = ('campanha', 'ativo_sorteio')
+    search_fields = ('nome', 'cpf', 'telefone')
+    list_editable = ('ativo_sorteio',)
+    readonly_fields = ('ip', 'criado_em')

@@ -1437,9 +1437,7 @@ class Campanha(models.Model):
         ('ROLETA', 'Roleta de Prêmios'),
         ('CARTA', 'Virar a Carta'),
         ('ALERTA', 'Alerta Inteligente'),
-        # Adicionar outros tipos aqui conforme necessário:
-        # ('SORTEIO', 'Sorteio'),
-        # ('PESQUISA', 'Pesquisa de Satisfação'),
+        ('SORTEIO', 'Sorteio'),
     ]
 
     STATUS_CHOICES = [
@@ -1954,6 +1952,97 @@ class CampanhaAlertaLead(models.Model):
                 valor = ', '.join(valor)
             resultado.append((campo.rotulo, valor))
         return resultado
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  SORTEIO
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class CampanhaSorteioConfig(models.Model):
+    """Configuração da campanha Sorteio."""
+
+    campanha = models.OneToOneField(
+        Campanha, on_delete=models.CASCADE, related_name='config_sorteio'
+    )
+    # ── Aparência / conteúdo ──────────────────────────────────────────────
+    titulo_pagina = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Título da Página Pública',
+        help_text='Deixe em branco para usar o nome da campanha.',
+    )
+    descricao_pagina = models.TextField(
+        blank=True,
+        verbose_name='Descrição / Instruções',
+        help_text='Texto motivacional exibido antes do formulário de inscrição.',
+    )
+    mensagem_sucesso = models.CharField(
+        max_length=400,
+        default='Inscrição realizada! Boa sorte no sorteio!',
+        verbose_name='Mensagem de Sucesso',
+    )
+    foto_item = models.ImageField(
+        upload_to='campanhas/sorteio/',
+        null=True, blank=True,
+        verbose_name='Foto do Item Sorteado',
+        help_text='Opcional. Imagem do prêmio exibida na página de inscrição.',
+    )
+    # ── Captura de dados ─────────────────────────────────────────────────
+    # Nome e CPF são sempre coletados no sorteio
+    capturar_telefone = models.BooleanField(default=True, verbose_name='Capturar Telefone')
+    capturar_endereco = models.BooleanField(default=False, verbose_name='Capturar Endereço')
+    # ── Controle anti-fraude ─────────────────────────────────────────────
+    bloquear_duplicados_cpf = models.BooleanField(
+        default=True,
+        verbose_name='Bloquear CPF duplicado',
+        help_text='Impede que o mesmo CPF se inscreva mais de uma vez.',
+    )
+    bloquear_duplicados_ip = models.BooleanField(
+        default=False,
+        verbose_name='Bloquear IP duplicado',
+        help_text='Impede que o mesmo IP se inscreva mais de uma vez.',
+    )
+    # ── Aparência ────────────────────────────────────────────────────────
+    cor_primaria = models.CharField(max_length=7, default='#6366f1', verbose_name='Cor Principal')
+    # ── Data do sorteio ──────────────────────────────────────────────────
+    data_sorteio = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Data/Hora do Sorteio',
+        help_text='Opcional. Exibida na página para criar urgência.',
+    )
+
+    class Meta:
+        verbose_name = 'Config. Sorteio'
+
+    def __str__(self):
+        return f'Config sorteio – {self.campanha.nome}'
+
+
+class CampanhaParticipanteSorteio(models.Model):
+    """Participante inscrito em um sorteio."""
+
+    campanha = models.ForeignKey(
+        Campanha, on_delete=models.CASCADE, related_name='participantes_sorteio'
+    )
+    nome = models.CharField(max_length=200)
+    cpf = models.CharField(max_length=14)
+    telefone = models.CharField(max_length=20, blank=True)
+    endereco = models.CharField(max_length=400, blank=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    ativo_sorteio = models.BooleanField(
+        default=True,
+        verbose_name='Participar do Sorteio',
+        help_text='Desmarque para excluir este participante do sorteio (duplicatas, etc.).',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Participante de Sorteio'
+        verbose_name_plural = 'Participantes de Sorteio'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'{self.nome} (CPF {self.cpf}) – {self.campanha.nome}'
 
 
 # ── LANDING PAGE ─────────────────────────────────────────────────────────────

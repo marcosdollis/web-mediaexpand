@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscrição Confirmada — {{ campanha.nome }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { --cor: {{ config.cor_primaria|default:"#6366f1" }}; }
+        body {
+            background: linear-gradient(135deg, var(--cor) 0%, color-mix(in srgb, var(--cor) 55%, #000) 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .card-main { border-radius: 1.5rem; box-shadow: 0 20px 60px rgba(0,0,0,.35); border: none; }
+        .success-icon {
+            width: 90px; height: 90px;
+            background: #198754;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 1.25rem;
+            font-size: 2.5rem; color: #fff;
+            box-shadow: 0 6px 24px rgba(25,135,84,.4);
+            animation: pop .4s cubic-bezier(.22,1,.36,1);
+        }
+        @keyframes pop {
+            0%  { transform: scale(0); opacity: 0; }
+            100%{ transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="d-flex align-items-center py-4 px-2">
+<div class="container" style="max-width:480px">
+    <div class="card card-main p-4 p-md-5 text-center">
+        <div class="success-icon">
+            <i class="fas fa-check"></i>
+        </div>
+
+        <h2 class="fw-bold mb-2">Inscrição realizada!</h2>
+        <p class="text-muted fs-5 mb-3">
+            {% if config and config.mensagem_sucesso %}
+                {{ config.mensagem_sucesso }}
+            {% else %}
+                Boa sorte no sorteio!
+            {% endif %}
+        </p>
+
+        {% if config and config.data_sorteio %}
+        <div class="p-3 rounded-3 mb-3" style="background:rgba(99,102,241,.08); border: 1px solid rgba(99,102,241,.2)">
+            <i class="fas fa-calendar-check me-2" style="color:var(--cor)"></i>
+            Sorteio em <strong>{{ config.data_sorteio|date:"d/m/Y" }} às {{ config.data_sorteio|time:"H:i" }}</strong>
+        </div>
+        {% endif %}
+
+        <p class="text-muted small mb-0">
+            <i class="fas fa-trophy me-1"></i> {{ campanha.nome }}
+        </p>
+    </div>
+    <p class="text-center text-white-50 small mt-3">Powered by MediaExpand</p>
+</div>
+</body>
+</html>
