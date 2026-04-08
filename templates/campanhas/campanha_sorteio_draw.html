@@ -68,41 +68,47 @@
     </div>
 
     {# ── Participant list ────────────────────────────────────────────────── #}
-    <div class="col-lg-5">
+    <div class="col-lg-5" id="col-participantes">
       <div class="card shadow-sm">
-        <div class="card-header d-flex align-items-center justify-content-between">
-          <span class="fw-semibold"><i class="fas fa-users me-2"></i>Participantes</span>
-          <span class="badge bg-primary rounded-pill" id="badge-ativos">{{ total }}</span>
+        <div class="card-header d-flex align-items-center justify-content-between gap-2">
+          <span class="fw-semibold"><i class="fas fa-users me-2"></i>Participantes
+            <span class="badge bg-primary rounded-pill ms-1" id="badge-ativos">{{ total }}</span>
+            {% if inativos %}<span class="badge bg-secondary rounded-pill ms-1" id="badge-inativos" title="Inativos">{{ inativos }} off</span>{% else %}<span class="badge bg-secondary rounded-pill ms-1 d-none" id="badge-inativos"></span>{% endif %}
+          </span>
+          <button class="btn btn-sm btn-outline-secondary" id="btn-hide-list" onclick="toggleListVisibility()" title="Ocultar lista">
+            <i class="fas fa-eye-slash me-1"></i><span id="lbl-hide">Ocultar</span>
+          </button>
         </div>
-        <div class="card-body p-0" style="max-height:520px;overflow-y:auto">
-          <div id="participantes-list">
-            {% if participantes %}
-            <ul class="list-group list-group-flush" id="list-ul">
-              {% for p in participantes %}
-              <li class="list-group-item d-flex align-items-center justify-content-between py-2 px-3"
-                  id="row-{{ p.pk }}" data-ativo="{{ p.ativo_sorteio|yesno:'1,0' }}">
-                <div>
-                  <div class="fw-semibold small">{{ p.nome }}</div>
-                  <div class="text-muted font-monospace" style="font-size:.7rem">{{ p.cpf }}</div>
-                </div>
-                <button class="btn btn-sm {% if p.ativo_sorteio %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
-                        title="{% if p.ativo_sorteio %}Desativar{% else %}Reativar{% endif %}"
-                        onclick="toggleParticipante({{ p.pk }}, this)">
-                  <i class="fas {% if p.ativo_sorteio %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
-                </button>
-              </li>
-              {% endfor %}
-            </ul>
-            {% else %}
-            <p class="text-center text-muted py-4 mb-0">Nenhum participante inscrito ainda.</p>
-            {% endif %}
+        <div id="list-collapse">
+          <div class="card-body p-0" style="max-height:520px;overflow-y:auto">
+            <div id="participantes-list">
+              {% if participantes %}
+              <ul class="list-group list-group-flush" id="list-ul">
+                {% for p in participantes %}
+                <li class="list-group-item d-flex align-items-center justify-content-between py-2 px-3 {% if not p.ativo_sorteio %}list-item-inativo{% endif %}"
+                    id="row-{{ p.pk }}" data-ativo="{{ p.ativo_sorteio|yesno:'1,0' }}">
+                  <div>
+                    <div class="fw-semibold small participante-nome">{{ p.nome }}</div>
+                    <div class="text-muted font-monospace" style="font-size:.7rem">{{ p.cpf }}</div>
+                  </div>
+                  <button class="btn btn-sm btn-toggle {% if p.ativo_sorteio %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                          title="{% if p.ativo_sorteio %}Desativar do sorteio{% else %}Reativar para o sorteio{% endif %}"
+                          onclick="toggleParticipante({{ p.pk }}, this)">
+                    <i class="fas {% if p.ativo_sorteio %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+                    <span class="btn-toggle-lbl ms-1">{% if p.ativo_sorteio %}Desativar{% else %}Reativar{% endif %}</span>
+                  </button>
+                </li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <p class="text-center text-muted py-4 mb-0">Nenhum participante inscrito ainda.</p>
+              {% endif %}
+            </div>
+          </div>
+          <div class="card-footer small text-muted text-center" id="footer-total">
+            Total inscrito: {{ participantes|length }}
           </div>
         </div>
-        {% if all_participantes %}
-        <div class="card-footer small text-muted text-center">
-          Total inscrito (incluindo inativos): {{ all_participantes|length }}
-        </div>
-        {% endif %}
       </div>
     </div>
 
@@ -125,6 +131,34 @@
     text-align: center;
   }
   #drum-reel { transition: top .05s linear; }
+
+  /* Inactive participant row */
+  .list-item-inativo {
+    opacity: .45;
+    background: #f8f9fa;
+  }
+  .list-item-inativo .participante-nome {
+    text-decoration: line-through;
+    color: #6c757d !important;
+  }
+
+  /* Toggle button loading state */
+  .btn-toggle[disabled] {
+    pointer-events: none;
+    opacity: .6;
+  }
+
+  /* Slide-collapse for the list panel */
+  #list-collapse {
+    transition: max-height .3s ease, opacity .3s ease;
+    max-height: 600px;
+    opacity: 1;
+    overflow: hidden;
+  }
+  #list-collapse.collapsed {
+    max-height: 0;
+    opacity: 0;
+  }
 </style>
 
 <script>
@@ -144,34 +178,101 @@ async function fetchParticipants() {
 
 /* ── Toggle active/inactive participant ────────────────────────────────── */
 async function toggleParticipante(pk, btn) {
-  const row   = document.getElementById('row-' + pk);
-  const ativo = row.dataset.ativo === '1';
+  // Immediate loading feedback
+  btn.disabled = true;
+  const prevHtml = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
 
-  const r = await fetch(TOGGLE_URL_BASE + pk + '/toggle/', {
-    method: 'POST',
-    headers: { 'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json' }
-  });
-  const d = await r.json();
-  if (!d.ok) return;
+  let d;
+  try {
+    const r = await fetch(TOGGLE_URL_BASE + pk + '/toggle/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json' }
+    });
+    d = await r.json();
+  } catch(e) {
+    btn.innerHTML = prevHtml;
+    btn.disabled = false;
+    alert('Erro ao comunicar com o servidor.');
+    return;
+  }
 
+  if (!d.ok) {
+    btn.innerHTML = prevHtml;
+    btn.disabled = false;
+    return;
+  }
+
+  const row      = document.getElementById('row-' + pk);
   const novoAtivo = d.ativo_sorteio;
   row.dataset.ativo = novoAtivo ? '1' : '0';
 
-  // Swap button style + icon
+  // Row styling
   if (novoAtivo) {
-    btn.classList.replace('btn-outline-success','btn-outline-danger');
-    btn.innerHTML = '<i class="fas fa-user-slash"></i>';
-    btn.title = 'Desativar';
+    row.classList.remove('list-item-inativo');
   } else {
-    btn.classList.replace('btn-outline-danger','btn-outline-success');
-    btn.innerHTML = '<i class="fas fa-user-check"></i>';
-    btn.title = 'Reativar';
+    row.classList.add('list-item-inativo');
   }
 
-  // Update badge count
-  const ativos = document.querySelectorAll('#list-ul li[data-ativo="1"]').length;
-  document.getElementById('badge-ativos').textContent = ativos;
-  document.getElementById('lbl-total').textContent    = ativos;
+  // Button swap
+  if (novoAtivo) {
+    btn.classList.replace('btn-outline-success', 'btn-outline-danger');
+    btn.innerHTML = '<i class="fas fa-user-slash"></i><span class="btn-toggle-lbl ms-1">Desativar</span>';
+    btn.title = 'Desativar do sorteio';
+  } else {
+    btn.classList.replace('btn-outline-danger', 'btn-outline-success');
+    btn.innerHTML = '<i class="fas fa-user-check"></i><span class="btn-toggle-lbl ms-1">Reativar</span>';
+    btn.title = 'Reativar para o sorteio';
+  }
+  btn.disabled = false;
+
+  // Update counters
+  const ativos   = document.querySelectorAll('#list-ul li[data-ativo="1"]').length;
+  const inativos = document.querySelectorAll('#list-ul li[data-ativo="0"]').length;
+  document.getElementById('badge-ativos').textContent  = ativos;
+  document.getElementById('lbl-total').textContent     = ativos;
+  const badgeInat = document.getElementById('badge-inativos');
+  if (inativos > 0) {
+    badgeInat.textContent = inativos + ' off';
+    badgeInat.classList.remove('d-none');
+  } else {
+    badgeInat.classList.add('d-none');
+  }
+
+  // Flash feedback toast
+  showToast(novoAtivo ? '\u2705 Reativado para o sorteio' : '\u274c Removido do sorteio', novoAtivo ? 'success' : 'secondary');
+}
+
+/* ── Hide / show participant list ───────────────────────────────────────── */
+function toggleListVisibility() {
+  const panel = document.getElementById('list-collapse');
+  const btn   = document.getElementById('btn-hide-list');
+  const lbl   = document.getElementById('lbl-hide');
+  const hidden = panel.classList.toggle('collapsed');
+  if (hidden) {
+    btn.innerHTML  = '<i class="fas fa-eye me-1"></i><span id="lbl-hide">Mostrar</span>';
+    btn.title      = 'Mostrar lista';
+  } else {
+    btn.innerHTML  = '<i class="fas fa-eye-slash me-1"></i><span id="lbl-hide">Ocultar</span>';
+    btn.title      = 'Ocultar lista';
+  }
+}
+
+/* ── Toast helper ───────────────────────────────────────────────────────── */
+function showToast(msg, type) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:10000;display:flex;flex-direction:column;gap:.5rem';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'toast show align-items-center text-bg-' + type + ' border-0 shadow';
+  toast.setAttribute('role', 'alert');
+  toast.innerHTML = `<div class="d-flex"><div class="toast-body">${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').remove()"></button></div>`;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
 }
 
 /* ── Build reel DOM from array of names ─────────────────────────────────── */
