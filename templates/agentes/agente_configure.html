@@ -41,20 +41,20 @@
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Nome do Agente <span class="text-danger">*</span></label>
                 <input type="text" name="nome" class="form-control"
-                       value="{{ agente.nome|default:form_data.nome|default:'' }}"
+                       value="{% if agente %}{{ agente.nome }}{% else %}{{ initial.nome }}{% endif %}"
                        placeholder="Ex: Assistente do Café Silva" required>
                 <div class="form-text">Este nome aparece no chat para os clientes.</div>
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Nome da Empresa</label>
                 <input type="text" name="nome_empresa" class="form-control"
-                       value="{{ agente.nome_empresa|default:form_data.nome_empresa|default:'' }}"
+                       value="{% if agente %}{{ agente.nome_empresa }}{% else %}{{ initial.nome_empresa }}{% endif %}"
                        placeholder="Ex: Café Silva">
               </div>
               <div class="col-md-8">
                 <label class="form-label fw-semibold">Tagline</label>
                 <input type="text" name="descricao_curta" class="form-control"
-                       value="{{ agente.descricao_curta|default:form_data.descricao_curta|default:'' }}"
+                       value="{% if agente %}{{ agente.descricao_curta }}{% else %}{{ initial.descricao_curta }}{% endif %}"
                        placeholder="Ex: Seu assistente de atendimento 24h" maxlength="200">
               </div>
               <div class="col-md-4">

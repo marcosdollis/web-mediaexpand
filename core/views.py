@@ -6794,6 +6794,30 @@ def agente_list_view(request):
 
 @login_required
 def agente_create_view(request):
+    def _initial_from_post(post):
+        return {
+            'nome': post.get('nome', ''),
+            'nome_empresa': post.get('nome_empresa', ''),
+            'descricao_curta': post.get('descricao_curta', ''),
+            'modelo_ia': post.get('modelo_ia', 'gpt-4o-mini'),
+            'temperatura': post.get('temperatura', '0.7'),
+            'max_tokens': post.get('max_tokens', '500'),
+            'prompt_sistema': post.get('prompt_sistema', ''),
+            'restricoes': post.get('restricoes', ''),
+            'mensagem_boas_vindas': post.get('mensagem_boas_vindas', 'Olá! Como posso te ajudar hoje? 😊'),
+            'cor_primaria': post.get('cor_primaria', '#6366f1'),
+            'placeholder_input': post.get('placeholder_input', 'Digite sua mensagem…'),
+            'mensagem_coleta': post.get('mensagem_coleta', 'Para continuar, preencha seus dados:'),
+            'limite_mensagens': post.get('limite_mensagens', '0'),
+            'whatsapp_escalada': post.get('whatsapp_escalada', ''),
+            'mensagem_escalada': post.get('mensagem_escalada', 'Preciso falar com um atendente'),
+            'coleta_contato': 'coleta_contato' in post,
+            'coleta_nome': 'coleta_nome' in post,
+            'coleta_telefone': 'coleta_telefone' in post,
+            'coleta_email': 'coleta_email' in post,
+            'ativo': 'ativo' in post,
+        }
+
     if request.method == 'POST':
         nome      = request.POST.get('nome', '').strip()
         modelo_ia = request.POST.get('modelo_ia', 'gpt-4o-mini')
@@ -6801,10 +6825,12 @@ def agente_create_view(request):
 
         if not nome or not api_key:
             messages.error(request, 'Nome e chave de API são obrigatórios.')
+            franchisees = User.objects.filter(role='FRANCHISEE') if request.user.is_owner() else None
             return render(request, 'agentes/agente_configure.html', {
                 'agente': None,
                 'modelo_choices': AgenteIA.MODELO_CHOICES,
-                'form_data': request.POST,
+                'franchisees': franchisees,
+                'initial': _initial_from_post(request.POST),
             })
 
         franqueado = request.user
@@ -6849,7 +6875,7 @@ def agente_create_view(request):
         'agente': None,
         'modelo_choices': AgenteIA.MODELO_CHOICES,
         'franchisees': franchisees,
-        'form_data': {},
+        'initial': _initial_from_post({}),
     })
 
 
