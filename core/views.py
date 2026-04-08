@@ -6849,6 +6849,7 @@ def agente_create_view(request):
         'agente': None,
         'modelo_choices': AgenteIA.MODELO_CHOICES,
         'franchisees': franchisees,
+        'form_data': {},
     })
 
 
