@@ -69,8 +69,11 @@
     .bubble-wrap { display: flex; align-items: flex-end; gap: .5rem; }
     .bubble-wrap.me { flex-direction: row-reverse; }
 
-    .bubble {
+    .bubble-col {
       max-width: 78%;
+      min-width: 0;
+    }
+    .bubble {
       padding: .55rem .85rem;
       border-radius: 1.2rem;
       font-size: .9rem;
@@ -276,6 +279,7 @@ function addBubble(texto, role) {
   }
 
   const col = document.createElement('div');
+  col.className = 'bubble-col';
   const bub = document.createElement('div');
   bub.className = 'bubble ' + (role === 'user' ? 'me' : 'them');
   bub.textContent = texto;
