@@ -131,4 +131,11 @@ urlpatterns = [
 
     # Leads da landing page
     path('leads/landing/', views.landing_leads_view, name='landing_leads'),
+
+    # Agentes de IA
+    path('agentes/', views.agente_list_view, name='agente_list'),
+    path('agentes/criar/', views.agente_create_view, name='agente_create'),
+    path('agentes/<int:pk>/configurar/', views.agente_configure_view, name='agente_configure'),
+    path('agentes/<int:pk>/delete/', views.agente_delete_view, name='agente_delete'),
+    path('agentes/<int:pk>/historico/', views.agente_historico_view, name='agente_historico'),
 ]

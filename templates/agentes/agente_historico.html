@@ -1,0 +1,66 @@
+{% extends "base/base.html" %}
+{% block title %}Histórico — {{ agente.nome }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 px-3 px-md-4">
+
+  <div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+    <a href="{% url 'agente_configure' agente.pk %}" class="btn btn-sm btn-outline-secondary">
+      <i class="fas fa-arrow-left"></i>
+    </a>
+    <div>
+      <h4 class="fw-bold mb-0"><i class="fas fa-history me-2 text-primary"></i>Histórico — {{ agente.nome }}</h4>
+      <small class="text-muted">{{ conversas.count }} conversa(s) registrada(s)</small>
+    </div>
+  </div>
+
+  {% if conversas %}
+  <div class="row g-3">
+    {% for conversa in conversas %}
+    <div class="col-12 col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header d-flex align-items-center justify-content-between py-2">
+          <div>
+            <span class="fw-semibold">
+              {% if conversa.nome_visitante %}{{ conversa.nome_visitante }}{% else %}<span class="text-muted fst-italic">Anônimo</span>{% endif %}
+            </span>
+            {% if conversa.telefone_visitante %}
+            <span class="ms-2 text-muted small"><i class="fas fa-phone me-1"></i>{{ conversa.telefone_visitante }}</span>
+            {% endif %}
+          </div>
+          <small class="text-muted">{{ conversa.criado_em|date:"d/m/Y H:i" }}</small>
+        </div>
+        <div class="card-body p-0" style="max-height:300px;overflow-y:auto">
+          <ul class="list-unstyled mb-0 px-3 py-2">
+            {% for msg in conversa.mensagens.all %}
+            <li class="mb-2 {% if msg.role == 'user' %}text-end{% endif %}">
+              <span class="badge {% if msg.role == 'user' %}bg-primary{% else %}bg-light text-dark border{% endif %} px-2 py-1 text-wrap text-start" style="max-width:80%;font-size:.8rem;font-weight:400;white-space:pre-wrap">{{ msg.conteudo }}</span>
+              <div class="text-muted" style="font-size:.65rem">{{ msg.criado_em|time:"H:i" }}</div>
+            </li>
+            {% empty %}
+            <li class="text-muted small py-2 text-center">Sem mensagens</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="card-footer d-flex gap-3 py-1" style="font-size:.75rem">
+          <span class="text-muted"><i class="fas fa-comments me-1"></i>{{ conversa.total_mensagens }} msg(s)</span>
+          {% if conversa.ip %}<span class="text-muted font-monospace">{{ conversa.ip }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card text-center border-0 shadow-sm py-5">
+    <div class="card-body">
+      <i class="fas fa-comments fs-1 text-muted opacity-25 mb-3 d-block"></i>
+      <p class="text-muted">Nenhuma conversa registrada ainda.</p>
+      <a href="{% url 'agente_chat' agente.slug %}" class="btn btn-sm btn-outline-primary" target="_blank">
+        Abrir página de chat
+      </a>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

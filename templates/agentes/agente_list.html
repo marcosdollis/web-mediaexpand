@@ -1,0 +1,121 @@
+{% extends "base/base.html" %}
+{% block title %}Agentes de IA{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 px-3 px-md-4">
+
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+    <div>
+      <h4 class="fw-bold mb-0"><i class="bi bi-robot me-2 text-primary"></i>Agentes de IA</h4>
+      <small class="text-muted">Assistentes virtuais para as lojas dos seus clientes</small>
+    </div>
+    <a href="{% url 'agente_create' %}" class="btn btn-primary">
+      <i class="fas fa-plus me-1"></i>Novo Agente
+    </a>
+  </div>
+
+  {% if agentes %}
+  <div class="row g-3">
+    {% for agente in agentes %}
+    <div class="col-sm-6 col-xl-4">
+      <div class="card shadow-sm h-100 border-0" style="border-left: 4px solid {{ agente.cor_primaria }} !important; border-left-width: 4px !important;">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-3 mb-3">
+            {% if agente.avatar %}
+            <img src="{{ agente.avatar.url }}" alt="{{ agente.nome }}"
+                 class="rounded-circle" style="width:48px;height:48px;object-fit:cover;">
+            {% else %}
+            <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold fs-4 text-white"
+                 style="width:48px;height:48px;background:{{ agente.cor_primaria }};flex-shrink:0">
+              {{ agente.nome|first|upper }}
+            </div>
+            {% endif %}
+            <div class="flex-grow-1 min-width-0">
+              <div class="fw-semibold text-truncate">{{ agente.nome }}</div>
+              <small class="text-muted">{{ agente.get_modelo_ia_display }}</small>
+            </div>
+            {% if agente.ativo %}
+            <span class="badge bg-success-subtle text-success">Ativo</span>
+            {% else %}
+            <span class="badge bg-secondary-subtle text-secondary">Inativo</span>
+            {% endif %}
+          </div>
+
+          {% if agente.descricao_curta %}
+          <p class="text-muted small mb-2">{{ agente.descricao_curta }}</p>
+          {% endif %}
+          {% if agente.nome_empresa %}
+          <p class="small mb-2"><i class="fas fa-store me-1 text-muted"></i>{{ agente.nome_empresa }}</p>
+          {% endif %}
+
+          <div class="d-flex flex-wrap gap-1 mb-3">
+            <span class="badge bg-light text-dark border">
+              <i class="fas fa-comments me-1"></i>{{ agente.conversas.count }} conversa(s)
+            </span>
+            {% if agente.coleta_contato %}
+            <span class="badge bg-info-subtle text-info border border-info-subtle">
+              <i class="fas fa-address-card me-1"></i>Coleta dados
+            </span>
+            {% endif %}
+            {% if agente.whatsapp_escalada %}
+            <span class="badge bg-success-subtle text-success border border-success-subtle">
+              <i class="fab fa-whatsapp me-1"></i>Escalada
+            </span>
+            {% endif %}
+          </div>
+
+          <!-- Public link -->
+          <div class="input-group input-group-sm mb-3">
+            <input type="text" class="form-control font-monospace" style="font-size:.7rem"
+                   id="link-{{ agente.pk }}"
+                   value="{{ request.scheme }}://{{ request.get_host }}{% url 'agente_chat' agente.slug %}"
+                   readonly>
+            <button class="btn btn-outline-secondary" onclick="copyLink({{ agente.pk }})" title="Copiar link">
+              <i class="fas fa-copy" id="copy-icon-{{ agente.pk }}"></i>
+            </button>
+          </div>
+
+          <div class="d-flex gap-2">
+            <a href="{% url 'agente_configure' agente.pk %}" class="btn btn-sm btn-outline-primary flex-fill">
+              <i class="fas fa-cog me-1"></i>Configurar
+            </a>
+            <a href="{% url 'agente_historico' agente.pk %}" class="btn btn-sm btn-outline-secondary flex-fill">
+              <i class="fas fa-history me-1"></i>Histórico
+            </a>
+            <a href="{% url 'agente_chat' agente.slug %}" class="btn btn-sm btn-outline-success" target="_blank" title="Abrir chat">
+              <i class="fas fa-external-link-alt"></i>
+            </a>
+            <a href="{% url 'agente_delete' agente.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
+              <i class="fas fa-trash"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card border-0 shadow-sm text-center py-5">
+    <div class="card-body">
+      <i class="bi bi-robot fs-1 text-muted opacity-30 d-block mb-3"></i>
+      <h5 class="text-muted">Nenhum agente criado ainda</h5>
+      <p class="text-muted small">Crie um agente e gere um link de chat para o site do seu cliente.</p>
+      <a href="{% url 'agente_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i>Criar primeiro agente
+      </a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function copyLink(pk) {
+  const input = document.getElementById('link-' + pk);
+  navigator.clipboard.writeText(input.value).then(() => {
+    const icon = document.getElementById('copy-icon-' + pk);
+    icon.className = 'fas fa-check text-success';
+    setTimeout(() => icon.className = 'fas fa-copy', 1800);
+  });
+}
+</script>
+{% endblock %}

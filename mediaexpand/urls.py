@@ -139,7 +139,7 @@ Todos os endpoints REST padrão para gerenciamento de:
    permission_classes=(permissions.AllowAny,),
 )
 
-from core.views import qrcode_redirect_view, serve_media_streaming, campanha_landing_view, campanha_spin_view, campanha_roleta_lead_view, campanha_carta_flip_view, campanha_carta_lead_view
+from core.views import qrcode_redirect_view, serve_media_streaming, campanha_landing_view, campanha_spin_view, campanha_roleta_lead_view, campanha_carta_flip_view, campanha_carta_lead_view, agente_chat_view, agente_chat_iniciar_view, agente_chat_enviar_view
 
 urlpatterns = [
     path('', include('core.urls_web')),  # Web URLs (templates)
@@ -157,6 +157,11 @@ urlpatterns = [
     path('c/<uuid:token>/lead/<int:jogada_pk>/', campanha_roleta_lead_view, name='campanha_roleta_lead'),
     path('c/<uuid:token>/flip/', campanha_carta_flip_view, name='campanha_carta_flip'),
     path('c/<uuid:token>/carta-lead/<int:jogada_pk>/', campanha_carta_lead_view, name='campanha_carta_lead'),
+
+    # Chat público de agentes de IA
+    path('chat/<slug:slug>/', agente_chat_view, name='agente_chat'),
+    path('chat/<slug:slug>/iniciar/', agente_chat_iniciar_view, name='agente_chat_iniciar'),
+    path('chat/<slug:slug>/enviar/', agente_chat_enviar_view, name='agente_chat_enviar'),
 ]
 
 # Swagger/OpenAPI Documentation — only in development

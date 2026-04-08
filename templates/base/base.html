@@ -185,6 +185,9 @@
         <a class="sb-link" href="{% url 'campanha_list' %}">
             <i class="bi bi-megaphone"></i> Campanhas
         </a>
+        <a class="sb-link" href="{% url 'agente_list' %}">
+            <i class="bi bi-robot"></i> Agentes de IA
+        </a>
         {% if user.is_owner %}
         <a class="sb-link" href="{% url 'landing_leads' %}">
             <i class="bi bi-person-lines-fill"></i> Leads (Site)

@@ -2083,3 +2083,166 @@ class LandingLead(models.Model):
 
     def __str__(self):
         return f'{self.nome} – {self.whatsapp} ({self.criado_em:%d/%m/%Y %H:%M})'
+
+
+# ── AGENTE DE IA ─────────────────────────────────────────────────────────────
+
+def agente_avatar_upload(instance, filename):
+    ext = os.path.splitext(filename)[1]
+    return f'agentes/avatares/{instance.slug}{ext}'
+
+
+class AgenteIA(models.Model):
+    """Agente de IA configurável por franqueado, com link público de chat."""
+
+    MODELO_CHOICES = [
+        # OpenAI
+        ('gpt-4o',            'GPT-4o (OpenAI)'),
+        ('gpt-4o-mini',       'GPT-4o Mini (OpenAI)'),
+        ('gpt-3.5-turbo',     'GPT-3.5 Turbo (OpenAI)'),
+        # Anthropic
+        ('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet (Anthropic)'),
+        ('claude-3-haiku-20240307',    'Claude 3 Haiku (Anthropic)'),
+        # Google
+        ('gemini-1.5-pro',    'Gemini 1.5 Pro (Google)'),
+        ('gemini-1.5-flash',  'Gemini 1.5 Flash (Google)'),
+    ]
+
+    franqueado = models.ForeignKey(
+        'User',
+        on_delete=models.CASCADE,
+        related_name='agentes_ia',
+        limit_choices_to={'role': 'FRANCHISEE'},
+        verbose_name='Franqueado',
+    )
+    nome             = models.CharField(max_length=100, verbose_name='Nome do Agente',
+                                        help_text='Ex: Assistente do Café Silva')
+    slug             = models.SlugField(max_length=120, unique=True, blank=True,
+                                        help_text='Gerado automaticamente — define a URL pública')
+    descricao_curta  = models.CharField(max_length=200, blank=True,
+                                        verbose_name='Tagline', help_text='Aparece abaixo do nome no chat')
+    avatar           = models.ImageField(upload_to=agente_avatar_upload, null=True, blank=True,
+                                         verbose_name='Avatar / Foto do Agente')
+    nome_empresa     = models.CharField(max_length=200, blank=True, verbose_name='Nome da Empresa',
+                                        help_text='Contexto para o agente saber onde trabalha')
+
+    # ── Configuração de IA
+    modelo_ia        = models.CharField(max_length=60, choices=MODELO_CHOICES,
+                                        default='gpt-4o-mini', verbose_name='Modelo de IA')
+    api_key          = models.CharField(max_length=200, verbose_name='Chave de API',
+                                        help_text='Chave secreta do provedor (OpenAI, Anthropic, Google…)')
+    temperatura      = models.FloatField(default=0.7, verbose_name='Temperatura (criatividade)',
+                                         help_text='0 = respostas determinísticas | 1 = mais criativas')
+    max_tokens       = models.PositiveIntegerField(default=500, verbose_name='Máx. tokens por resposta')
+
+    # ── Treinamento
+    prompt_sistema   = models.TextField(verbose_name='Prompt de Sistema (treinamento)',
+                                        help_text='Descreva quem é o agente, o que pode responder, '
+                                                  'o tom de voz, informações sobre a loja…')
+    restricoes       = models.TextField(blank=True, verbose_name='Restrições',
+                                        help_text='O que o agente NÃO deve responder (ex: política, concorrentes)')
+
+    # ── Interface do chat
+    mensagem_boas_vindas = models.TextField(default='Olá! Como posso te ajudar hoje? 😊',
+                                            verbose_name='Mensagem de Boas-vindas')
+    cor_primaria     = models.CharField(max_length=7, default='#6366f1', verbose_name='Cor Principal')
+    placeholder_input = models.CharField(max_length=100, default='Digite sua mensagem…',
+                                          verbose_name='Placeholder do campo de mensagem')
+
+    # ── Coleta de contato antes do chat
+    coleta_contato   = models.BooleanField(default=False, verbose_name='Coletar dados antes do chat')
+    coleta_nome      = models.BooleanField(default=True, verbose_name='Pedir nome')
+    coleta_telefone  = models.BooleanField(default=False, verbose_name='Pedir telefone')
+    coleta_email     = models.BooleanField(default=False, verbose_name='Pedir e-mail')
+    mensagem_coleta  = models.CharField(max_length=200, blank=True,
+                                         default='Para continuar, preencha seus dados:',
+                                         verbose_name='Mensagem antes da coleta')
+
+    # ── Limites
+    limite_mensagens = models.PositiveIntegerField(default=0, verbose_name='Limite de mensagens por sessão',
+                                                    help_text='0 = sem limite')
+
+    # ── Escalada para humano
+    whatsapp_escalada = models.CharField(max_length=30, blank=True, verbose_name='WhatsApp de suporte',
+                                          help_text='Número com DDI ex: 5511999999999 — exibe botão de escalada')
+    mensagem_escalada = models.CharField(max_length=200, blank=True,
+                                          default='Preciso falar com um atendente',
+                                          verbose_name='Texto do botão de escalada')
+
+    ativo            = models.BooleanField(default=True)
+    criado_em        = models.DateTimeField(auto_now_add=True)
+    atualizado_em    = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Agente de IA'
+        verbose_name_plural = 'Agentes de IA'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'{self.nome} ({self.get_modelo_ia_display()})'
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            from django.utils.text import slugify
+            base = slugify(self.nome)[:80]
+            slug = base
+            n = 1
+            while AgenteIA.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f'{base}-{n}'
+                n += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    @property
+    def provedor(self):
+        if self.modelo_ia.startswith('gpt'):
+            return 'openai'
+        if self.modelo_ia.startswith('claude'):
+            return 'anthropic'
+        if self.modelo_ia.startswith('gemini'):
+            return 'google'
+        return 'unknown'
+
+    def get_chat_url(self):
+        from django.urls import reverse
+        return reverse('agente_chat', kwargs={'slug': self.slug})
+
+
+class AgenteIAConversa(models.Model):
+    """Sessão de conversa de um visitante com o agente."""
+
+    agente             = models.ForeignKey(AgenteIA, on_delete=models.CASCADE, related_name='conversas')
+    session_id         = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    nome_visitante     = models.CharField(max_length=100, blank=True)
+    telefone_visitante = models.CharField(max_length=30, blank=True)
+    email_visitante    = models.EmailField(blank=True)
+    ip                 = models.GenericIPAddressField(null=True, blank=True)
+    total_mensagens    = models.PositiveIntegerField(default=0)
+    criado_em          = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Conversa'
+        verbose_name_plural = 'Conversas'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'Conversa {self.session_id} — {self.agente.nome}'
+
+
+class AgenteIAMensagem(models.Model):
+    """Mensagem individual dentro de uma conversa."""
+
+    ROLE_CHOICES = [('user', 'Usuário'), ('assistant', 'Agente')]
+
+    conversa  = models.ForeignKey(AgenteIAConversa, on_delete=models.CASCADE, related_name='mensagens')
+    role      = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    conteudo  = models.TextField()
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Mensagem'
+        verbose_name_plural = 'Mensagens'
+        ordering = ['criado_em']
+
+    def __str__(self):
+        return f'[{self.role}] {self.conteudo[:60]}'

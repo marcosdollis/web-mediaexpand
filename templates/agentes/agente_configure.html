@@ -1,0 +1,321 @@
+{% extends "base/base.html" %}
+{% block title %}{% if agente %}Configurar{% else %}Novo{% endif %} Agente de IA{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 px-3 px-md-4" style="max-width:900px">
+
+  <div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{% url 'agente_list' %}" class="btn btn-sm btn-outline-secondary">
+      <i class="fas fa-arrow-left"></i>
+    </a>
+    <div>
+      <h4 class="fw-bold mb-0">
+        <i class="bi bi-robot me-2 text-primary"></i>
+        {% if agente %}{{ agente.nome }}{% else %}Novo Agente de IA{% endif %}
+      </h4>
+      <small class="text-muted">{% if agente %}Editar configurações{% else %}Criar assistente virtual{% endif %}</small>
+    </div>
+    {% if agente %}
+    <div class="ms-auto d-flex gap-2">
+      <a href="{% url 'agente_chat' agente.slug %}" class="btn btn-sm btn-outline-success" target="_blank">
+        <i class="fas fa-external-link-alt me-1"></i>Abrir Chat
+      </a>
+      <a href="{% url 'agente_historico' agente.pk %}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-history me-1"></i>Histórico
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="row g-3">
+
+      {# ── 1. Identidade ───────────────────────────────────────────────── #}
+      <div class="col-12">
+        <div class="card shadow-sm border-0">
+          <div class="card-header fw-semibold"><i class="fas fa-id-card me-2 text-primary"></i>Identidade do Agente</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Nome do Agente <span class="text-danger">*</span></label>
+                <input type="text" name="nome" class="form-control"
+                       value="{{ agente.nome|default:form_data.nome|default:'' }}"
+                       placeholder="Ex: Assistente do Café Silva" required>
+                <div class="form-text">Este nome aparece no chat para os clientes.</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Nome da Empresa</label>
+                <input type="text" name="nome_empresa" class="form-control"
+                       value="{{ agente.nome_empresa|default:form_data.nome_empresa|default:'' }}"
+                       placeholder="Ex: Café Silva">
+              </div>
+              <div class="col-md-8">
+                <label class="form-label fw-semibold">Tagline</label>
+                <input type="text" name="descricao_curta" class="form-control"
+                       value="{{ agente.descricao_curta|default:form_data.descricao_curta|default:'' }}"
+                       placeholder="Ex: Seu assistente de atendimento 24h" maxlength="200">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Cor Principal</label>
+                <div class="input-group">
+                  <input type="color" name="cor_primaria" id="colorPicker"
+                         value="{{ agente.cor_primaria|default:'#6366f1' }}"
+                         class="form-control form-control-color" style="max-width:50px"
+                         oninput="document.getElementById('hexInput').value=this.value">
+                  <input type="text" id="hexInput" class="form-control font-monospace"
+                         value="{{ agente.cor_primaria|default:'#6366f1' }}" maxlength="7"
+                         oninput="document.getElementById('colorPicker').value=this.value;this.name='cor_primaria'"
+                         name="cor_primaria_txt" style="display:none">
+                </div>
+                <div class="form-text">{{ agente.cor_primaria|default:'#6366f1' }}</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Avatar (foto)</label>
+                <input type="file" name="avatar" class="form-control" accept="image/*">
+                {% if agente and agente.avatar %}
+                <div class="mt-2 d-flex align-items-center gap-2">
+                  <img src="{{ agente.avatar.url }}" class="rounded-circle" style="width:40px;height:40px;object-fit:cover">
+                  <small class="text-muted">Avatar atual</small>
+                </div>
+                {% endif %}
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Placeholder do chat</label>
+                <input type="text" name="placeholder_input" class="form-control"
+                       value="{{ agente.placeholder_input|default:'Digite sua mensagem…' }}" maxlength="100">
+              </div>
+              <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="ativo" id="ativo"
+                         {% if agente == None or agente.ativo %}checked{% endif %}>
+                  <label class="form-check-label" for="ativo">Agente <strong>ativo</strong></label>
+                </div>
+              </div>
+              {% if franchisees %}
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Franqueado</label>
+                <select name="franqueado_id" class="form-select">
+                  {% for f in franchisees %}
+                  <option value="{{ f.pk }}">{{ f.get_full_name|default:f.username }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ── 2. Modelo de IA ─────────────────────────────────────────────── #}
+      <div class="col-12">
+        <div class="card shadow-sm border-0">
+          <div class="card-header fw-semibold"><i class="fas fa-brain me-2 text-warning"></i>Motor de IA</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-5">
+                <label class="form-label fw-semibold">Modelo <span class="text-danger">*</span></label>
+                <select name="modelo_ia" class="form-select" onchange="updateProviderBadge(this)">
+                  {% for value, label in modelo_choices %}
+                  <option value="{{ value }}" {% if agente and agente.modelo_ia == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                <span id="provider-badge" class="badge mt-1 bg-secondary">–</span>
+              </div>
+              <div class="col-md-7">
+                <label class="form-label fw-semibold">
+                  Chave de API <span class="text-danger">*</span>
+                  <small class="text-muted fw-normal">(OpenAI, Anthropic, Google…)</small>
+                </label>
+                <div class="input-group">
+                  <input type="password" name="api_key" class="form-control font-monospace"
+                         id="apiKeyInput"
+                         placeholder="{% if agente %}Deixe em branco para manter a atual{% else %}sk-…{% endif %}"
+                         {% if not agente %}required{% endif %}>
+                  <button type="button" class="btn btn-outline-secondary" onclick="toggleApiKey()">
+                    <i class="fas fa-eye" id="apiEyeIcon"></i>
+                  </button>
+                </div>
+                <div class="form-text text-danger">
+                  <i class="fas fa-lock me-1"></i>Nunca compartilhe sua chave. Ela é usada apenas para chamadas de IA.
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold" for="temperatura">
+                  Temperatura: <span id="tmpVal">{{ agente.temperatura|default:'0.7' }}</span>
+                </label>
+                <input type="range" name="temperatura" id="temperatura" class="form-range"
+                       min="0" max="2" step="0.1"
+                       value="{{ agente.temperatura|default:'0.7' }}"
+                       oninput="document.getElementById('tmpVal').textContent=this.value">
+                <div class="d-flex justify-content-between" style="font-size:.7rem;color:#888">
+                  <span>Preciso</span><span>Equilibrado</span><span>Criativo</span>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Máx. tokens por resposta</label>
+                <input type="number" name="max_tokens" class="form-control"
+                       value="{{ agente.max_tokens|default:500 }}" min="50" max="4000">
+                <div class="form-text">~500 = respostas médias | ~2000 = respostas longas</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ── 3. Treinamento ──────────────────────────────────────────────── #}
+      <div class="col-12">
+        <div class="card shadow-sm border-0">
+          <div class="card-header fw-semibold"><i class="fas fa-graduation-cap me-2 text-success"></i>Treinamento</div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Prompt de Sistema <span class="text-danger">*</span></label>
+              <div class="card bg-light border-0 p-2 mb-2 small text-muted">
+                <strong>Dicas:</strong> Descreva quem é o agente, qual o tom de voz (formal, descontraído…),
+                quais informações ele deve usar (produtos, horários, endereço, políticas), o que deve priorizar.
+                Quanto mais detalhado, melhor.
+              </div>
+              <textarea name="prompt_sistema" class="form-control font-monospace" rows="8"
+                        placeholder="Você é um assistente de atendimento da [Nome da Loja]. Seu objetivo é ajudar os clientes com dúvidas sobre nossos produtos e serviços. Sempre seja educado e proativo. Horário de funcionamento: Seg-Sex 9h-18h. Endereço: Rua Exemplo, 123...">{{ agente.prompt_sistema|default:'' }}</textarea>
+            </div>
+            <div>
+              <label class="form-label fw-semibold">Restrições</label>
+              <textarea name="restricoes" class="form-control" rows="3"
+                        placeholder="Ex: Não discutir preços de concorrentes. Não dar opiniões políticas. Não fazer promessas de desconto sem aprovação.">{{ agente.restricoes|default:'' }}</textarea>
+              <div class="form-text">Lista de tópicos que o agente não deve abordar.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ── 4. Coleta de contato ────────────────────────────────────────── #}
+      <div class="col-md-6">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header fw-semibold"><i class="fas fa-address-card me-2 text-info"></i>Coleta de Contato</div>
+          <div class="card-body">
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" name="coleta_contato" id="coletaContato"
+                     {% if agente and agente.coleta_contato %}checked{% endif %}
+                     onchange="toggleColeta(this)">
+              <label class="form-check-label" for="coletaContato">
+                <strong>Pedir dados antes do chat</strong>
+              </label>
+            </div>
+            <div id="coleta-fields" {% if not agente or not agente.coleta_contato %}style="display:none"{% endif %}>
+              <div class="mb-2">
+                <input type="text" name="mensagem_coleta" class="form-control"
+                       value="{{ agente.mensagem_coleta|default:'Para continuar, preencha seus dados:' }}"
+                       placeholder="Mensagem exibida antes do formulário">
+              </div>
+              <div class="d-flex flex-column gap-2 mt-2">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="coleta_nome" id="coletaNome"
+                         {% if agente == None or agente.coleta_nome %}checked{% endif %}>
+                  <label class="form-check-label" for="coletaNome">Pedir nome</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="coleta_telefone" id="coletaTel"
+                         {% if agente and agente.coleta_telefone %}checked{% endif %}>
+                  <label class="form-check-label" for="coletaTel">Pedir telefone</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="coleta_email" id="coletaEmail"
+                         {% if agente and agente.coleta_email %}checked{% endif %}>
+                  <label class="form-check-label" for="coletaEmail">Pedir e-mail</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ── 5. Escalada + Limites ───────────────────────────────────────── #}
+      <div class="col-md-6">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header fw-semibold"><i class="fab fa-whatsapp me-2 text-success"></i>Escalada & Limites</div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">WhatsApp de suporte</label>
+              <input type="text" name="whatsapp_escalada" class="form-control"
+                     value="{{ agente.whatsapp_escalada|default:'' }}"
+                     placeholder="5511999999999">
+              <div class="form-text">Com DDI. Exibe botão "Falar com atendente" no chat.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Texto do botão de escalada</label>
+              <input type="text" name="mensagem_escalada" class="form-control"
+                     value="{{ agente.mensagem_escalada|default:'Preciso falar com um atendente' }}" maxlength="200">
+            </div>
+            <div>
+              <label class="form-label fw-semibold">Limite de mensagens por sessão</label>
+              <input type="number" name="limite_mensagens" class="form-control"
+                     value="{{ agente.limite_mensagens|default:0 }}" min="0">
+              <div class="form-text">0 = sem limite. Útil para controlar custos de API.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ── 6. Mensagem de boas-vindas ──────────────────────────────────── #}
+      <div class="col-12">
+        <div class="card shadow-sm border-0">
+          <div class="card-header fw-semibold"><i class="fas fa-comment-dots me-2 text-primary"></i>Mensagem de Boas-vindas</div>
+          <div class="card-body">
+            <textarea name="mensagem_boas_vindas" class="form-control" rows="2"
+                      placeholder="Olá! Como posso te ajudar hoje? 😊">{{ agente.mensagem_boas_vindas|default:'Olá! Como posso te ajudar hoje? 😊' }}</textarea>
+            <div class="form-text">Primeira mensagem que o agente envia ao abrir o chat.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 d-flex gap-2 justify-content-end pb-4">
+        <a href="{% url 'agente_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary px-4">
+          <i class="fas fa-save me-1"></i>
+          {% if agente %}Salvar alterações{% else %}Criar Agente{% endif %}
+        </button>
+      </div>
+
+    </div>{# /row #}
+  </form>
+</div>
+
+<script>
+const PROVIDERS = {
+  'gpt': {label:'OpenAI', cls:'bg-success'},
+  'claude': {label:'Anthropic', cls:'bg-warning text-dark'},
+  'gemini': {label:'Google', cls:'bg-info text-dark'},
+};
+
+function updateProviderBadge(sel) {
+  const val = sel.value;
+  const badge = document.getElementById('provider-badge');
+  for (const [prefix, info] of Object.entries(PROVIDERS)) {
+    if (val.startsWith(prefix)) {
+      badge.textContent = info.label;
+      badge.className = 'badge mt-1 ' + info.cls;
+      return;
+    }
+  }
+  badge.textContent = '–'; badge.className = 'badge mt-1 bg-secondary';
+}
+
+function toggleApiKey() {
+  const inp = document.getElementById('apiKeyInput');
+  const icon = document.getElementById('apiEyeIcon');
+  if (inp.type === 'password') {
+    inp.type = 'text'; icon.className = 'fas fa-eye-slash';
+  } else {
+    inp.type = 'password'; icon.className = 'fas fa-eye';
+  }
+}
+
+function toggleColeta(cb) {
+  document.getElementById('coleta-fields').style.display = cb.checked ? '' : 'none';
+}
+
+// Init badge
+updateProviderBadge(document.querySelector('[name="modelo_ia"]'));
+</script>
+{% endblock %}

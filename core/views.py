@@ -19,6 +19,7 @@ from .models import (
     CampanhaAlertaConfig, CampanhaAlertaCampo, CampanhaAlertaLead,
     CampanhaSorteioConfig, CampanhaParticipanteSorteio,
     LandingLead,
+    AgenteIA, AgenteIAConversa, AgenteIAMensagem,
 )
 from .serializers import (
     UserSerializer, UserMinimalSerializer, MunicipioSerializer,
@@ -6766,3 +6767,306 @@ def landing_leads_view(request):
     leads = LandingLead.objects.all()
     total = leads.count()
     return render(request, 'landing/leads.html', {'leads': leads, 'total': total})
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  AGENTES DE IA
+# ════════════════════════════════════════════════════════════════════════════
+
+def _get_agente_or_403(request, pk):
+    """Helper: retorna o agente garantindo que o user tem acesso."""
+    agente = get_object_or_404(AgenteIA, pk=pk)
+    user = request.user
+    if not user.is_owner() and agente.franqueado != user:
+        return None, redirect('agente_list')
+    return agente, None
+
+
+@login_required
+def agente_list_view(request):
+    user = request.user
+    if user.is_owner():
+        agentes = AgenteIA.objects.select_related('franqueado').all()
+    else:
+        agentes = AgenteIA.objects.filter(franqueado=user)
+    return render(request, 'agentes/agente_list.html', {'agentes': agentes})
+
+
+@login_required
+def agente_create_view(request):
+    if request.method == 'POST':
+        nome      = request.POST.get('nome', '').strip()
+        modelo_ia = request.POST.get('modelo_ia', 'gpt-4o-mini')
+        api_key   = request.POST.get('api_key', '').strip()
+
+        if not nome or not api_key:
+            messages.error(request, 'Nome e chave de API são obrigatórios.')
+            return render(request, 'agentes/agente_configure.html', {
+                'agente': None,
+                'modelo_choices': AgenteIA.MODELO_CHOICES,
+                'form_data': request.POST,
+            })
+
+        franqueado = request.user
+        if request.user.is_owner():
+            fk = request.POST.get('franqueado_id')
+            if fk:
+                franqueado = get_object_or_404(User, pk=fk, role='FRANCHISEE')
+
+        agente = AgenteIA.objects.create(
+            franqueado=franqueado,
+            nome=nome,
+            modelo_ia=modelo_ia,
+            api_key=api_key,
+            descricao_curta=request.POST.get('descricao_curta', '').strip(),
+            nome_empresa=request.POST.get('nome_empresa', '').strip(),
+            temperatura=float(request.POST.get('temperatura', 0.7)),
+            max_tokens=int(request.POST.get('max_tokens', 500)),
+            prompt_sistema=request.POST.get('prompt_sistema', '').strip(),
+            restricoes=request.POST.get('restricoes', '').strip(),
+            mensagem_boas_vindas=request.POST.get('mensagem_boas_vindas', 'Olá! Como posso te ajudar hoje? 😊').strip(),
+            cor_primaria=request.POST.get('cor_primaria', '#6366f1').strip(),
+            placeholder_input=request.POST.get('placeholder_input', 'Digite sua mensagem…').strip(),
+            coleta_contato='coleta_contato' in request.POST,
+            coleta_nome='coleta_nome' in request.POST,
+            coleta_telefone='coleta_telefone' in request.POST,
+            coleta_email='coleta_email' in request.POST,
+            mensagem_coleta=request.POST.get('mensagem_coleta', '').strip(),
+            limite_mensagens=int(request.POST.get('limite_mensagens', 0)),
+            whatsapp_escalada=request.POST.get('whatsapp_escalada', '').strip(),
+            mensagem_escalada=request.POST.get('mensagem_escalada', 'Preciso falar com um atendente').strip(),
+            ativo='ativo' in request.POST,
+        )
+        if 'avatar' in request.FILES:
+            agente.avatar = request.FILES['avatar']
+            agente.save()
+
+        messages.success(request, f'Agente "{agente.nome}" criado com sucesso!')
+        return redirect('agente_configure', pk=agente.pk)
+
+    franchisees = User.objects.filter(role='FRANCHISEE') if request.user.is_owner() else None
+    return render(request, 'agentes/agente_configure.html', {
+        'agente': None,
+        'modelo_choices': AgenteIA.MODELO_CHOICES,
+        'franchisees': franchisees,
+    })
+
+
+@login_required
+def agente_configure_view(request, pk):
+    agente, redir = _get_agente_or_403(request, pk)
+    if redir:
+        return redir
+
+    if request.method == 'POST':
+        agente.nome               = request.POST.get('nome', agente.nome).strip()
+        agente.descricao_curta    = request.POST.get('descricao_curta', '').strip()
+        agente.nome_empresa       = request.POST.get('nome_empresa', '').strip()
+        agente.modelo_ia          = request.POST.get('modelo_ia', agente.modelo_ia)
+        novo_key                  = request.POST.get('api_key', '').strip()
+        if novo_key:
+            agente.api_key        = novo_key
+        agente.temperatura        = float(request.POST.get('temperatura', agente.temperatura))
+        agente.max_tokens         = int(request.POST.get('max_tokens', agente.max_tokens))
+        agente.prompt_sistema     = request.POST.get('prompt_sistema', '').strip()
+        agente.restricoes         = request.POST.get('restricoes', '').strip()
+        agente.mensagem_boas_vindas = request.POST.get('mensagem_boas_vindas', '').strip()
+        agente.cor_primaria       = request.POST.get('cor_primaria', '#6366f1').strip()
+        agente.placeholder_input  = request.POST.get('placeholder_input', '').strip()
+        agente.coleta_contato     = 'coleta_contato' in request.POST
+        agente.coleta_nome        = 'coleta_nome' in request.POST
+        agente.coleta_telefone    = 'coleta_telefone' in request.POST
+        agente.coleta_email       = 'coleta_email' in request.POST
+        agente.mensagem_coleta    = request.POST.get('mensagem_coleta', '').strip()
+        agente.limite_mensagens   = int(request.POST.get('limite_mensagens', 0))
+        agente.whatsapp_escalada  = request.POST.get('whatsapp_escalada', '').strip()
+        agente.mensagem_escalada  = request.POST.get('mensagem_escalada', '').strip()
+        agente.ativo              = 'ativo' in request.POST
+        if 'avatar' in request.FILES:
+            agente.avatar = request.FILES['avatar']
+        agente.save()
+        messages.success(request, 'Agente atualizado com sucesso!')
+        return redirect('agente_configure', pk=agente.pk)
+
+    return render(request, 'agentes/agente_configure.html', {
+        'agente': agente,
+        'modelo_choices': AgenteIA.MODELO_CHOICES,
+    })
+
+
+@login_required
+def agente_delete_view(request, pk):
+    agente, redir = _get_agente_or_403(request, pk)
+    if redir:
+        return redir
+    if request.method == 'POST':
+        nome = agente.nome
+        agente.delete()
+        messages.success(request, f'Agente "{nome}" removido.')
+        return redirect('agente_list')
+    return render(request, 'agentes/agente_confirm_delete.html', {'agente': agente})
+
+
+@login_required
+def agente_historico_view(request, pk):
+    agente, redir = _get_agente_or_403(request, pk)
+    if redir:
+        return redir
+    conversas = agente.conversas.prefetch_related('mensagens').order_by('-criado_em')
+    return render(request, 'agentes/agente_historico.html', {
+        'agente': agente,
+        'conversas': conversas,
+    })
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _chamar_ia(agente, historico_msgs):
+    """
+    Chama o provedor de IA e retorna o texto da resposta.
+    `historico_msgs` é lista de dicts [{role, content}, …].
+    Raises: Exception com mensagem amigável em caso de erro.
+    """
+    sistema_completo = agente.prompt_sistema
+    if agente.restricoes:
+        sistema_completo += f'\n\nRESTRIÇÕES IMPORTANTES:\n{agente.restricoes}'
+    if agente.nome_empresa:
+        sistema_completo = f'Você é um assistente da empresa "{agente.nome_empresa}".\n\n' + sistema_completo
+
+    provedor = agente.provedor
+
+    if provedor == 'openai':
+        try:
+            import openai as _oai
+        except ImportError:
+            raise Exception('Pacote openai não instalado no servidor.')
+        client = _oai.OpenAI(api_key=agente.api_key)
+        resp = client.chat.completions.create(
+            model=agente.modelo_ia,
+            temperature=agente.temperatura,
+            max_tokens=agente.max_tokens,
+            messages=[{'role': 'system', 'content': sistema_completo}] + historico_msgs,
+        )
+        return resp.choices[0].message.content.strip()
+
+    elif provedor == 'anthropic':
+        try:
+            import anthropic as _ant
+        except ImportError:
+            raise Exception('Pacote anthropic não instalado no servidor.')
+        client = _ant.Anthropic(api_key=agente.api_key)
+        resp = client.messages.create(
+            model=agente.modelo_ia,
+            max_tokens=agente.max_tokens,
+            system=sistema_completo,
+            messages=historico_msgs,
+        )
+        return resp.content[0].text.strip()
+
+    elif provedor == 'google':
+        try:
+            import google.generativeai as genai
+        except ImportError:
+            raise Exception('Pacote google-generativeai não instalado no servidor.')
+        genai.configure(api_key=agente.api_key)
+        model = genai.GenerativeModel(
+            model_name=agente.modelo_ia,
+            system_instruction=sistema_completo,
+        )
+        chat = model.start_chat(history=[
+            {'role': m['role'] if m['role'] != 'assistant' else 'model', 'parts': [m['content']]}
+            for m in historico_msgs[:-1]
+        ])
+        resp = chat.send_message(historico_msgs[-1]['content'])
+        return resp.text.strip()
+
+    raise Exception(f'Provedor desconhecido: {provedor}')
+
+
+# ── Public chat views ─────────────────────────────────────────────────────────
+
+def agente_chat_view(request, slug):
+    """Página pública de chat."""
+    agente = get_object_or_404(AgenteIA, slug=slug, ativo=True)
+    return render(request, 'agentes/agente_chat.html', {'agente': agente})
+
+
+@csrf_exempt
+def agente_chat_iniciar_view(request, slug):
+    """POST — cria/recupera a sessão e devolve session_id + boas-vindas."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed.'}, status=405)
+
+    agente = get_object_or_404(AgenteIA, slug=slug, ativo=True)
+
+    import json as _json
+    try:
+        body = _json.loads(request.body)
+    except Exception:
+        body = {}
+
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip()
+
+    conversa = AgenteIAConversa.objects.create(
+        agente=agente,
+        nome_visitante=body.get('nome', ''),
+        telefone_visitante=body.get('telefone', ''),
+        email_visitante=body.get('email', ''),
+        ip=ip or None,
+    )
+
+    return JsonResponse({
+        'ok': True,
+        'session_id': str(conversa.session_id),
+        'mensagem_boas_vindas': agente.mensagem_boas_vindas,
+    })
+
+
+@csrf_exempt
+def agente_chat_enviar_view(request, slug):
+    """POST — envia mensagem do usuário, retorna resposta da IA."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed.'}, status=405)
+
+    agente = get_object_or_404(AgenteIA, slug=slug, ativo=True)
+
+    import json as _json
+    try:
+        body = _json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'JSON inválido.'}, status=400)
+
+    session_id = body.get('session_id', '')
+    mensagem   = body.get('mensagem', '').strip()
+
+    if not session_id or not mensagem:
+        return JsonResponse({'error': 'session_id e mensagem são obrigatórios.'}, status=400)
+
+    conversa = get_object_or_404(AgenteIAConversa, session_id=session_id, agente=agente)
+
+    # Limite de mensagens por sessão
+    if agente.limite_mensagens and conversa.total_mensagens >= agente.limite_mensagens:
+        return JsonResponse({'error': 'Limite de mensagens atingido nesta sessão.', 'limite': True}, status=429)
+
+    # Salva mensagem do usuário
+    AgenteIAMensagem.objects.create(conversa=conversa, role='user', conteudo=mensagem)
+
+    # Monta histórico para a IA (últimas 20 mensagens para não explodir tokens)
+    msgs_db = conversa.mensagens.order_by('criado_em')
+    historico = [{'role': m.role if m.role != 'assistant' else 'assistant', 'content': m.conteudo}
+                 for m in msgs_db]
+    # Para OpenAI/Anthropic "assistant" é válido; já para Gemini é tratado em _chamar_ia
+
+    try:
+        resposta_texto = _chamar_ia(agente, historico[-40:])  # janela de 40 msgs
+    except Exception as e:
+        return JsonResponse({'error': f'Erro ao consultar IA: {str(e)}'}, status=500)
+
+    # Salva resposta
+    AgenteIAMensagem.objects.create(conversa=conversa, role='assistant', conteudo=resposta_texto)
+
+    # Atualiza contador
+    conversa.total_mensagens = conversa.mensagens.filter(role='user').count()
+    conversa.save(update_fields=['total_mensagens'])
+
+    return JsonResponse({'ok': True, 'resposta': resposta_texto})

@@ -8,6 +8,7 @@ from .models import (
     Campanha, CampanhaAlertaConfig, CampanhaAlertaCampo, CampanhaAlertaLead,
     CampanhaSorteioConfig, CampanhaParticipanteSorteio,
     LandingLead,
+    AgenteIA, AgenteIAConversa, AgenteIAMensagem,
 )
 
 
@@ -281,3 +282,39 @@ class CampanhaParticipanteSorteioAdmin(admin.ModelAdmin):
     search_fields = ('nome', 'cpf', 'telefone')
     list_editable = ('ativo_sorteio',)
     readonly_fields = ('ip', 'criado_em')
+
+
+class AgenteIAMensagemInline(admin.TabularInline):
+    model = AgenteIAMensagem
+    fields = ('role', 'conteudo', 'criado_em')
+    readonly_fields = ('criado_em',)
+    extra = 0
+
+
+class AgenteIAConversaInline(admin.TabularInline):
+    model = AgenteIAConversa
+    fields = ('session_id', 'nome_visitante', 'telefone_visitante', 'email_visitante', 'total_mensagens', 'criado_em')
+    readonly_fields = ('session_id', 'total_mensagens', 'criado_em')
+    extra = 0
+
+
+@admin.register(AgenteIA)
+class AgenteIAAdmin(admin.ModelAdmin):
+    list_display  = ('pk', 'nome', 'franqueado', 'modelo_ia', 'ativo', 'total_conversas', 'criado_em')
+    list_filter   = ('modelo_ia', 'ativo', 'franqueado')
+    search_fields = ('nome', 'slug', 'nome_empresa')
+    readonly_fields = ('slug', 'criado_em', 'atualizado_em')
+    inlines = [AgenteIAConversaInline]
+
+    def total_conversas(self, obj):
+        return obj.conversas.count()
+    total_conversas.short_description = 'Conversas'
+
+
+@admin.register(AgenteIAConversa)
+class AgenteIAConversaAdmin(admin.ModelAdmin):
+    list_display  = ('pk', 'agente', 'nome_visitante', 'telefone_visitante', 'total_mensagens', 'criado_em')
+    list_filter   = ('agente',)
+    search_fields = ('nome_visitante', 'telefone_visitante', 'email_visitante')
+    readonly_fields = ('session_id', 'ip', 'criado_em')
+    inlines = [AgenteIAMensagemInline]
