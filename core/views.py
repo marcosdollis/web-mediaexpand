@@ -6866,6 +6866,9 @@ def agente_create_view(request):
         if 'avatar' in request.FILES:
             agente.avatar = request.FILES['avatar']
             agente.save()
+        if 'base_conhecimento' in request.FILES:
+            agente.base_conhecimento = request.FILES['base_conhecimento']
+            agente.save(update_fields=['base_conhecimento'])
 
         messages.success(request, f'Agente "{agente.nome}" criado com sucesso!')
         return redirect('agente_configure', pk=agente.pk)
@@ -6911,6 +6914,11 @@ def agente_configure_view(request, pk):
         agente.ativo              = 'ativo' in request.POST
         if 'avatar' in request.FILES:
             agente.avatar = request.FILES['avatar']
+        if 'base_conhecimento' in request.FILES:
+            agente.base_conhecimento = request.FILES['base_conhecimento']
+        elif request.POST.get('limpar_base_conhecimento') == '1' and agente.base_conhecimento:
+            agente.base_conhecimento.delete(save=False)
+            agente.base_conhecimento = None
         agente.save()
         messages.success(request, 'Agente atualizado com sucesso!')
         return redirect('agente_configure', pk=agente.pk)
@@ -6955,6 +6963,13 @@ def _chamar_ia(agente, historico_msgs):
     Raises: Exception com mensagem amigável em caso de erro.
     """
     sistema_completo = agente.prompt_sistema
+    if agente.base_conhecimento:
+        try:
+            with agente.base_conhecimento.open('r') as f:
+                conteudo_base = f.read(60000)  # lê até ~60 KB
+            sistema_completo += f'\n\nBASE DE CONHECIMENTO (use estas informações para responder):\n{conteudo_base}'
+        except Exception:
+            pass  # se o arquivo falhar, continua sem ele
     if agente.restricoes:
         sistema_completo += f'\n\nRESTRIÇÕES IMPORTANTES:\n{agente.restricoes}'
     if agente.nome_empresa:

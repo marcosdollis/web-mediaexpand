@@ -2141,6 +2141,12 @@ class AgenteIA(models.Model):
                                                   'o tom de voz, informações sobre a loja…')
     restricoes       = models.TextField(blank=True, verbose_name='Restrições',
                                         help_text='O que o agente NÃO deve responder (ex: política, concorrentes)')
+    base_conhecimento = models.FileField(
+        upload_to='agentes/conhecimento/',
+        null=True, blank=True,
+        verbose_name='Base de Conhecimento (arquivo)',
+        help_text='Arquivo .txt ou .csv com catálogo de produtos, imóveis, FAQ etc. Máx. 200 KB por envio.',
+    )
 
     # ── Interface do chat
     mensagem_boas_vindas = models.TextField(default='Olá! Como posso te ajudar hoje? 😊',
