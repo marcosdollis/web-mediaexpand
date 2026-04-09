@@ -157,7 +157,10 @@
                 <label class="form-label fw-semibold">Máx. tokens por resposta</label>
                 <input type="number" name="max_tokens" class="form-control"
                        value="{{ agente.max_tokens|default:500 }}" min="50" max="4000">
-                <div class="form-text">~500 = respostas médias | ~2000 = respostas longas</div>
+                <div class="form-text">
+                  ~150 = 1-2 frases &nbsp;|&nbsp; ~300 = 3-4 frases &nbsp;|&nbsp; ~600 = parágrafo &nbsp;|&nbsp; ~1500 = resposta longa.<br>
+                  <span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Valores abaixo de 150 podem cortar frases no meio.</span>
+                </div>
               </div>
             </div>
           </div>

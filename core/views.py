@@ -6975,6 +6975,18 @@ def _chamar_ia(agente, historico_msgs):
     if agente.nome_empresa:
         sistema_completo = f'Você é um assistente da empresa "{agente.nome_empresa}".\n\n' + sistema_completo
 
+    # Instrução de brevidade proporcional ao limite de tokens configurado
+    if agente.max_tokens <= 150:
+        brevidade = 'IMPORTANTE: Responda em no máximo 1-2 frases curtas e sempre completas. Nunca corte uma frase no meio.'
+    elif agente.max_tokens <= 300:
+        brevidade = 'IMPORTANTE: Seja conciso. Responda em no máximo 3-4 frases e sempre termine com uma frase completa. Nunca deixe a resposta cortada no meio.'
+    elif agente.max_tokens <= 600:
+        brevidade = 'Seja direto e objetivo. Sempre termine suas respostas com uma frase completa.'
+    else:
+        brevidade = None
+    if brevidade:
+        sistema_completo += f'\n\n{brevidade}'
+
     provedor = agente.provedor
 
     if provedor == 'openai':
