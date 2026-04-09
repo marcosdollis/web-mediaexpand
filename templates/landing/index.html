@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-{% load static %}
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -350,6 +349,23 @@ footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,.06)
     .stats-grid { grid-template-columns: 1fr 1fr; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Karaoke hero ─────────────────────────────────────────────── */
+.k-word {
+    opacity: .18;
+    transition: opacity .28s ease, filter .28s ease;
+    display: inline;
+    cursor: default;
+}
+.k-word.k-lit {
+    opacity: 1;
+    filter:
+        drop-shadow(0 0 8px  rgba(255,255,255,.55))
+        drop-shadow(0 0 24px rgba(99,102,241,.45));
+}
+/* gradient span não usa color — usa filter para brilhar */
+.hero h1 .gradient-text.k-word        { opacity: .28; filter: none; }
+.hero h1 .gradient-text.k-word.k-lit  { opacity: 1;   filter: drop-shadow(0 0 14px rgba(139,92,246,.75)); }
 </style>
 </head>
 <body>
@@ -1143,6 +1159,61 @@ function setupForm(formId, btnId, errorId, successId) {
 
 setupForm('heroLeadForm', 'heroBtnSubmit', 'heroFormError',  'heroFormSuccess');
 setupForm('mainLeadForm', 'mainBtnSubmit', 'mainFormError',  'mainFormSuccess');
+
+// ── Karaoke hero ──────────────────────────────────────────────────
+(function(){
+  function wrapWords(el) {
+    const nodes = Array.from(el.childNodes);
+    el.innerHTML = '';
+    nodes.forEach(function(node) {
+      if (node.nodeType === 3) {
+        node.textContent.split(/(\s+)/).forEach(function(p) {
+          if (/\S/.test(p)) {
+            const s = document.createElement('span');
+            s.className = 'k-word';
+            s.textContent = p;
+            el.appendChild(s);
+          } else if (p) {
+            el.appendChild(document.createTextNode(p));
+          }
+        });
+      } else if (node.nodeType === 1) {
+        if (node.tagName === 'BR') {
+          el.appendChild(node);
+        } else {
+          node.classList.add('k-word');
+          el.appendChild(node);
+        }
+      }
+    });
+  }
+
+  function runKaraoke(el, msPerWord, startDelay) {
+    var words = Array.from(el.querySelectorAll('.k-word'));
+    var i = 0;
+    function step() {
+      if (i > 0) words[i - 1].classList.remove('k-lit');
+      if (i < words.length) {
+        words[i].classList.add('k-lit');
+        i++;
+        setTimeout(step, msPerWord);
+      } else {
+        setTimeout(function() {
+          words[words.length - 1].classList.remove('k-lit');
+          i = 0;
+          setTimeout(step, 400);
+        }, 2200);
+      }
+    }
+    setTimeout(step, startDelay || 0);
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var h1  = document.querySelector('.hero h1');
+    var sub = document.querySelector('.hero .hero-sub');
+    if (h1)  { wrapWords(h1);  runKaraoke(h1,  260, 0); }
+  });
+})();
 
 // ── Spinner keyframe ──────────────────────────────────────────────
 const _s = document.createElement('style');
