@@ -7039,27 +7039,42 @@ def _chamar_ia(agente, historico_msgs):
 
 # ── Public chat views ─────────────────────────────────────────────────────────
 
-def agente_chat_view(request, slug):
+def _chat_rate_limit(ip, key_suffix, limit, window_seconds):
+    """Retorna True se o IP excedeu o limite. Usa Django cache."""
+    from django.core.cache import cache
+    key = f'rl:chat:{key_suffix}:{ip}'
+    count = cache.get(key, 0)
+    if count >= limit:
+        return True
+    cache.set(key, count + 1, window_seconds)
+    return False
+
+
+def agente_chat_view(request, public_id):
     """Página pública de chat."""
-    agente = get_object_or_404(AgenteIA, slug=slug, ativo=True)
+    agente = get_object_or_404(AgenteIA, public_id=public_id, ativo=True)
     return render(request, 'agentes/agente_chat.html', {'agente': agente})
 
 
 @csrf_exempt
-def agente_chat_iniciar_view(request, slug):
-    """POST — cria/recupera a sessão e devolve session_id + boas-vindas."""
+def agente_chat_iniciar_view(request, public_id):
+    """POST — cria a sessão e devolve session_id + boas-vindas."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed.'}, status=405)
 
-    agente = get_object_or_404(AgenteIA, slug=slug, ativo=True)
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip()
+
+    # Rate limit: máx 10 sessões por IP por hora
+    if _chat_rate_limit(ip, 'iniciar', 10, 3600):
+        return JsonResponse({'error': 'Muitas tentativas. Tente novamente em alguns minutos.'}, status=429)
+
+    agente = get_object_or_404(AgenteIA, public_id=public_id, ativo=True)
 
     import json as _json
     try:
         body = _json.loads(request.body)
     except Exception:
         body = {}
-
-    ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip()
 
     conversa = AgenteIAConversa.objects.create(
         agente=agente,
@@ -7077,12 +7092,18 @@ def agente_chat_iniciar_view(request, slug):
 
 
 @csrf_exempt
-def agente_chat_enviar_view(request, slug):
+def agente_chat_enviar_view(request, public_id):
     """POST — envia mensagem do usuário, retorna resposta da IA."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed.'}, status=405)
 
-    agente = get_object_or_404(AgenteIA, slug=slug, ativo=True)
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip()
+
+    # Rate limit: máx 40 mensagens por IP por minuto
+    if _chat_rate_limit(ip, 'enviar', 40, 60):
+        return JsonResponse({'error': 'Muitas mensagens. Aguarde um momento.'}, status=429)
+
+    agente = get_object_or_404(AgenteIA, public_id=public_id, ativo=True)
 
     import json as _json
     try:

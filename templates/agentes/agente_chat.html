@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
   <title>{{ agente.nome }}{% if agente.nome_empresa %} — {{ agente.nome_empresa }}{% endif %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -13,17 +13,31 @@
       --cor-light: color-mix(in srgb, var(--cor) 12%, #fff);
     }
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; }
+    html {
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      height: 100%;
+      height: -webkit-fill-available;
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+    }
 
     /* ── Layout ── */
     .chat-shell {
       display: flex;
       flex-direction: column;
       height: 100dvh;
+      height: -webkit-fill-available;
+      width: 100%;
       max-width: 520px;
       margin: 0 auto;
       background: #fff;
       box-shadow: 0 0 40px rgba(0,0,0,.12);
+      overflow: hidden;
     }
 
     /* ── Header ── */
@@ -235,9 +249,8 @@
 </div>
 
 <script>
-const SLUG             = "{{ agente.slug }}";
-const INICIAR_URL      = "{% url 'agente_chat_iniciar' agente.slug %}";
-const ENVIAR_URL       = "{% url 'agente_chat_enviar' agente.slug %}";
+const INICIAR_URL      = "{% url 'agente_chat_iniciar' agente.public_id %}";
+const ENVIAR_URL       = "{% url 'agente_chat_enviar' agente.public_id %}";
 const TEM_COLETA       = {% if agente.coleta_contato %}true{% else %}false{% endif %};
 const TEM_WHATSAPP     = "{{ agente.whatsapp_escalada|default:'' }}" !== "";
 const WA_NUMBER        = "{{ agente.whatsapp_escalada|default:'' }}";

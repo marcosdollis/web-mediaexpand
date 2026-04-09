@@ -159,9 +159,9 @@ urlpatterns = [
     path('c/<uuid:token>/carta-lead/<int:jogada_pk>/', campanha_carta_lead_view, name='campanha_carta_lead'),
 
     # Chat público de agentes de IA
-    path('chat/<slug:slug>/', agente_chat_view, name='agente_chat'),
-    path('chat/<slug:slug>/iniciar/', agente_chat_iniciar_view, name='agente_chat_iniciar'),
-    path('chat/<slug:slug>/enviar/', agente_chat_enviar_view, name='agente_chat_enviar'),
+    path('chat/<uuid:public_id>/', agente_chat_view, name='agente_chat'),
+    path('chat/<uuid:public_id>/iniciar/', agente_chat_iniciar_view, name='agente_chat_iniciar'),
+    path('chat/<uuid:public_id>/enviar/', agente_chat_enviar_view, name='agente_chat_enviar'),
 ]
 
 # Swagger/OpenAPI Documentation — only in development

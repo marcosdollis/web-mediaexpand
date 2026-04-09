@@ -2117,8 +2117,10 @@ class AgenteIA(models.Model):
     )
     nome             = models.CharField(max_length=100, verbose_name='Nome do Agente',
                                         help_text='Ex: Assistente do Café Silva')
+    public_id        = models.UUIDField(default=uuid.uuid4, unique=True, editable=False,
+                                        help_text='Identificador público permanente da URL do chat — não muda se o nome mudar')
     slug             = models.SlugField(max_length=120, unique=True, blank=True,
-                                        help_text='Gerado automaticamente — define a URL pública')
+                                        help_text='Gerado automaticamente — uso interno')
     descricao_curta  = models.CharField(max_length=200, blank=True,
                                         verbose_name='Tagline', help_text='Aparece abaixo do nome no chat')
     avatar           = models.ImageField(upload_to=agente_avatar_upload, null=True, blank=True,
@@ -2211,7 +2213,7 @@ class AgenteIA(models.Model):
 
     def get_chat_url(self):
         from django.urls import reverse
-        return reverse('agente_chat', kwargs={'slug': self.slug})
+        return reverse('agente_chat', kwargs={'public_id': self.public_id})
 
 
 class AgenteIAConversa(models.Model):

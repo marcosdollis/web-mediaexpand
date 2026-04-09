@@ -68,7 +68,7 @@
           <div class="input-group input-group-sm mb-3">
             <input type="text" class="form-control font-monospace" style="font-size:.7rem"
                    id="link-{{ agente.pk }}"
-                   value="{{ request.scheme }}://{{ request.get_host }}{% url 'agente_chat' agente.slug %}"
+                   value="{{ request.scheme }}://{{ request.get_host }}{% url 'agente_chat' agente.public_id %}"
                    readonly>
             <button class="btn btn-outline-secondary" onclick="copyLink({{ agente.pk }})" title="Copiar link">
               <i class="fas fa-copy" id="copy-icon-{{ agente.pk }}"></i>
@@ -82,7 +82,7 @@
             <a href="{% url 'agente_historico' agente.pk %}" class="btn btn-sm btn-outline-secondary flex-fill">
               <i class="fas fa-history me-1"></i>Histórico
             </a>
-            <a href="{% url 'agente_chat' agente.slug %}" class="btn btn-sm btn-outline-success" target="_blank" title="Abrir chat">
+            <a href="{% url 'agente_chat' agente.public_id %}" class="btn btn-sm btn-outline-success" target="_blank" title="Abrir chat">
               <i class="fas fa-external-link-alt"></i>
             </a>
             <a href="{% url 'agente_delete' agente.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
