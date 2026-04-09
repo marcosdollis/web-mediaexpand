@@ -187,6 +187,22 @@
       background: var(--cor); color: #fff; font-weight: 600; cursor: pointer;
       font-size: .95rem; margin-top: .25rem;
     }
+    #nova-conversa-btn {
+      background: rgba(255,255,255,.18);
+      border: none; border-radius: 50%;
+      width: 30px; height: 30px;
+      color: #fff; cursor: pointer;
+      font-size: .75rem;
+      display: none;
+      align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background .15s;
+    }
+    #nova-conversa-btn:hover { background: rgba(255,255,255,.3); }
+    .cache-badge {
+      font-size: .65rem; color: rgba(255,255,255,.6);
+      margin-top: .1rem;
+    }
   </style>
 </head>
 <body>
@@ -209,7 +225,12 @@
       <div style="font-size:.75rem;opacity:.85">{{ agente.nome_empresa }}</div>
       {% endif %}
     </div>
-    <div class="status-dot ms-auto" title="Online"></div>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <button id="nova-conversa-btn" onclick="novaConversa()" title="Nova conversa">
+        <i class="fas fa-plus"></i>
+      </button>
+      <div class="status-dot" title="Online"></div>
+    </div>
   </div>
 
   <!-- Coleta de contato (screen shown before chat) -->
@@ -266,6 +287,47 @@ const AGENTE_AVATAR    = null;
 let sessionId = null;
 let msgCount  = 0;
 
+// ── Cache (localStorage) ──────────────────────────────────────────────────────
+
+const LS_KEY    = 'chat_{{ agente.public_id }}';
+const CACHE_TTL = 4 * 60 * 60 * 1000; // 4 horas
+
+function cacheLoad() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (Date.now() > d.expires) { localStorage.removeItem(LS_KEY); return null; }
+    return d;
+  } catch(e) { return null; }
+}
+
+function cacheSave() {
+  if (!sessionId) return;
+  const messages = [];
+  document.querySelectorAll('#msgs .bubble-wrap').forEach(wrap => {
+    if (wrap.id === 'typing-indicator') return;
+    const bub = wrap.querySelector('.bubble');
+    if (!bub || bub.classList.contains('typing-bubble')) return;
+    const role = wrap.classList.contains('me') ? 'user' : 'assistant';
+    const time = wrap.querySelector('.ts')?.textContent || '';
+    messages.push({ role, text: bub.textContent, time });
+  });
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      session_id: sessionId,
+      expires: Date.now() + CACHE_TTL,
+      messages,
+      hasWA: TEM_WHATSAPP,
+      msgCount,
+    }));
+  } catch(e) {}
+}
+
+function cacheClear() { localStorage.removeItem(LS_KEY); }
+
+function novaConversa() { cacheClear(); location.reload(); }
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function getBoasVindas() {
@@ -276,7 +338,7 @@ function ts() {
   return new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
 }
 
-function addBubble(texto, role) {
+function addBubble(texto, role, persist = true) {
   const wrap = document.createElement('div');
   wrap.className = 'bubble-wrap' + (role === 'user' ? ' me' : '');
 
@@ -305,6 +367,7 @@ function addBubble(texto, role) {
 
   document.getElementById('msgs').appendChild(wrap);
   scrollDown();
+  if (persist) cacheSave();
   return bub;
 }
 
@@ -347,6 +410,37 @@ function enableInput() {
   inp.disabled = false;
   inp.focus();
   inp.addEventListener('input', () => { btn.disabled = inp.value.trim() === ''; });
+  const nb = document.getElementById('nova-conversa-btn');
+  if (nb) nb.style.display = 'flex';
+}
+
+function showChatArea() {
+  document.getElementById('msgs').style.display = 'flex';
+  document.getElementById('input-bar').style.display = 'flex';
+}
+
+function addWaButton() {
+  if (!document.querySelector('.whatsapp-btn')) {
+    const waWrap = document.createElement('div');
+    waWrap.style.cssText = 'padding:0 1rem .5rem';
+    waWrap.innerHTML = `<a class="whatsapp-btn" href="https://wa.me/${WA_NUMBER}?text=${WA_MSG}" target="_blank">
+      <i class="fab fa-whatsapp"></i> {{ agente.mensagem_escalada|default:"Falar com atendente" }}
+    </a>`;
+    document.getElementById('msgs').appendChild(waWrap);
+  }
+}
+
+function restoreFromCache(cached) {
+  sessionId = cached.session_id;
+  msgCount  = cached.msgCount || 0;
+  showChatArea();
+  cached.messages.forEach(m => addBubble(m.text, m.role, false));
+  if (cached.hasWA && TEM_WHATSAPP) addWaButton();
+  const badge = document.createElement('div');
+  badge.style.cssText = 'font-size:.65rem;color:rgba(255,255,255,.6);text-align:center;padding:.3rem 0';
+  badge.textContent = 'Conversa restaurada — toque em + para nova conversa';
+  document.getElementById('msgs').insertBefore(badge, document.getElementById('msgs').firstChild);
+  enableInput();
 }
 
 // ── Iniciar sessão ────────────────────────────────────────────────────────────
@@ -360,23 +454,9 @@ async function iniciarSessao(dados = {}) {
   const d = await r.json();
   sessionId = d.session_id;
 
-  // Show chat area
-  document.getElementById('msgs').style.display = 'flex';
-  document.getElementById('input-bar').style.display = 'flex';
-
-  // Boas-vindas
+  showChatArea();
   addBubble(d.mensagem_boas_vindas || getBoasVindas(), 'assistant');
-
-  // Botão WhatsApp
-  if (TEM_WHATSAPP) {
-    const waWrap = document.createElement('div');
-    waWrap.style.cssText = 'padding:0 1rem .5rem';
-    waWrap.innerHTML = `<a class="whatsapp-btn" href="https://wa.me/${WA_NUMBER}?text=${WA_MSG}" target="_blank">
-      <i class="fab fa-whatsapp"></i> {{ agente.mensagem_escalada|default:"Falar com atendente" }}
-    </a>`;
-    document.getElementById('msgs').appendChild(waWrap);
-  }
-
+  if (TEM_WHATSAPP) addWaButton();
   enableInput();
 }
 
@@ -436,6 +516,7 @@ async function enviar() {
     addBubble(data.resposta, 'assistant');
   } else if (data.limite) {
     addBubble('Limite de mensagens desta sessão atingido. Obrigado pelo contato!', 'assistant');
+    cacheClear();
     inp.disabled = true;
     btn.disabled = true;
     return;
@@ -460,7 +541,14 @@ function autoResize(el) {
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 {% if not agente.coleta_contato %}
-iniciarSessao();
+(function boot() {
+  const cached = cacheLoad();
+  if (cached) {
+    restoreFromCache(cached);
+  } else {
+    iniciarSessao();
+  }
+})();
 {% endif %}
 </script>
 </body>
