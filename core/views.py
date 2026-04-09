@@ -6926,6 +6926,9 @@ def agente_configure_view(request, pk):
     return render(request, 'agentes/agente_configure.html', {
         'agente': agente,
         'modelo_choices': AgenteIA.MODELO_CHOICES,
+        'embed_url': request.build_absolute_uri(
+            reverse('agente_chat', kwargs={'public_id': agente.public_id}) + '?embed=1'
+        ),
     })
 
 
@@ -7050,10 +7053,20 @@ def _chat_rate_limit(ip, key_suffix, limit, window_seconds):
     return False
 
 
+@xframe_options_exempt
 def agente_chat_view(request, public_id):
     """Página pública de chat."""
     agente = get_object_or_404(AgenteIA, public_id=public_id, ativo=True)
-    return render(request, 'agentes/agente_chat.html', {'agente': agente})
+    embed = request.GET.get('embed') == '1'
+    chat_url = request.build_absolute_uri()
+    embed_url = request.build_absolute_uri(
+        reverse('agente_chat', kwargs={'public_id': agente.public_id}) + '?embed=1'
+    )
+    return render(request, 'agentes/agente_chat.html', {
+        'agente': agente,
+        'embed': embed,
+        'embed_url': embed_url,
+    })
 
 
 @csrf_exempt

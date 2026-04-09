@@ -283,6 +283,43 @@
         </div>
       </div>
 
+      {# ── iFrame embed (só quando agente já existe) ─────────────────── #}
+      {% if agente %}
+      <div class="col-12">
+        <div class="card shadow-sm border-0">
+          <div class="card-header fw-semibold"><i class="fas fa-code me-2 text-primary"></i>Integração via iFrame</div>
+          <div class="card-body">
+            <p class="text-muted small mb-2">Cole este código no HTML do seu site para incorporar o chat diretamente na página.</p>
+            <div class="input-group">
+              <textarea id="iframeCode" class="form-control font-monospace" rows="3" readonly
+                style="font-size:.78rem;resize:none;background:#f8f9fa"
+              ><iframe
+  src="{{ embed_url }}"
+  width="420"
+  height="620"
+  frameborder="0"
+  allow="clipboard-write"
+  style="border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.15)"
+></iframe></textarea>
+            </div>
+            <div class="d-flex align-items-center gap-3 mt-2">
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="copyIframe()">
+                <i class="fas fa-copy me-1"></i>Copiar código
+              </button>
+              <a href="{{ embed_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-external-link-alt me-1"></i>Pré-visualizar
+              </a>
+              <span id="iframeCopied" class="text-success small d-none"><i class="fas fa-check me-1"></i>Copiado!</span>
+            </div>
+            <div class="form-text mt-2">
+              Personalize <code>width</code> e <code>height</code> conforme o espaço disponível no seu site.
+              Recomendado: mínimo 380×560px.
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
       {# ── 6. Mensagem de boas-vindas ──────────────────────────────────── #}
       <div class="col-12">
         <div class="card shadow-sm border-0">
@@ -343,5 +380,15 @@ function toggleColeta(cb) {
 
 // Init badge
 updateProviderBadge(document.querySelector('[name="modelo_ia"]'));
+
+function copyIframe() {
+  const ta = document.getElementById('iframeCode');
+  if (!ta) return;
+  navigator.clipboard.writeText(ta.value).then(() => {
+    const msg = document.getElementById('iframeCopied');
+    msg.classList.remove('d-none');
+    setTimeout(() => msg.classList.add('d-none'), 2500);
+  });
+}
 </script>
 {% endblock %}
