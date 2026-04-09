@@ -17,7 +17,7 @@
     </div>
     {% if agente %}
     <div class="ms-auto d-flex gap-2">
-      <a href="{% url 'agente_chat' agente.slug %}" class="btn btn-sm btn-outline-success" target="_blank">
+      <a href="{% url 'agente_chat' agente.public_id %}" class="btn btn-sm btn-outline-success" target="_blank">
         <i class="fas fa-external-link-alt me-1"></i>Abrir Chat
       </a>
       <a href="{% url 'agente_historico' agente.pk %}" class="btn btn-sm btn-outline-secondary">
