@@ -2,6 +2,23 @@
 {% block title %}Histórico — {{ agente.nome }}{% endblock %}
 
 {% block content %}
+<style>
+.score-badge { display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .55rem;border-radius:50px;font-size:.72rem;font-weight:700;letter-spacing:.03em; }
+.score-hot  { background:#fee2e2;color:#b91c1c; }
+.score-warm { background:#fef3c7;color:#92400e; }
+.score-cold { background:#dbeafe;color:#1e40af; }
+.score-none { background:#f3f4f6;color:#6b7280; }
+.modo-badge-humano { background:#d1fae5;color:#065f46;display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .55rem;border-radius:50px;font-size:.72rem;font-weight:700; }
+.msg-bubble { display:inline-block;padding:.3rem .6rem;border-radius:10px;font-size:.78rem;font-weight:400;white-space:pre-wrap;max-width:80%;text-align:left; }
+.msg-user   { background:#e0e7ff;color:#1e1b4b; }
+.msg-ia     { background:#f3f4f6;color:#111827;border:1px solid #e5e7eb; }
+.msg-human  { background:#d1fae5;color:#064e3b;border:1px solid #6ee7b7; }
+.msg-system { background:transparent;color:#9ca3af;font-style:italic;font-size:.72rem;text-align:center;display:block; }
+.conversa-card { transition:box-shadow .15s; }
+.conversa-card:hover { box-shadow:0 4px 20px rgba(0,0,0,.1)!important; }
+.motivo-tooltip { cursor:help;border-bottom:1px dashed currentColor; }
+</style>
+
 <div class="container-fluid py-3 px-3 px-md-4">
 
   <div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
@@ -12,40 +29,132 @@
       <h4 class="fw-bold mb-0"><i class="fas fa-history me-2 text-primary"></i>Histórico — {{ agente.nome }}</h4>
       <small class="text-muted">{{ conversas.count }} conversa(s) registrada(s)</small>
     </div>
+    <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
+      <span class="badge bg-danger-subtle text-danger border border-danger-subtle"><i class="fas fa-fire me-1"></i>Quente = intenção de compra</span>
+      <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="fas fa-thermometer-half me-1"></i>Morno = interesse</span>
+      <span class="badge bg-info-subtle text-info border border-info-subtle"><i class="fas fa-snowflake me-1"></i>Frio = curiosidade</span>
+    </div>
   </div>
 
   {% if conversas %}
   <div class="row g-3">
     {% for conversa in conversas %}
-    <div class="col-12 col-lg-6">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header d-flex align-items-center justify-content-between py-2">
+    <div class="col-12 col-xl-6">
+      <div class="card border-0 shadow-sm conversa-card h-100">
+
+        {# ── Cabeçalho do card ── #}
+        <div class="card-header d-flex align-items-start justify-content-between gap-2 py-2 flex-wrap">
           <div>
-            <span class="fw-semibold">
-              {% if conversa.nome_visitante %}{{ conversa.nome_visitante }}{% else %}<span class="text-muted fst-italic">Anônimo</span>{% endif %}
-            </span>
-            {% if conversa.telefone_visitante %}
-            <span class="ms-2 text-muted small"><i class="fas fa-phone me-1"></i>{{ conversa.telefone_visitante }}</span>
+            <div class="fw-semibold">
+              {% if conversa.nome_visitante %}{{ conversa.nome_visitante }}
+              {% else %}<span class="text-muted fst-italic">Anônimo</span>{% endif %}
+              {% if conversa.modo == 'humano' %}
+              <span class="modo-badge-humano ms-1"><i class="fas fa-user-headset"></i> Humano{% if conversa.assumido_por %} · {{ conversa.assumido_por.get_full_name|default:conversa.assumido_por.username }}{% endif %}</span>
+              {% endif %}
+            </div>
+            <div class="d-flex gap-2 flex-wrap mt-1" style="font-size:.75rem;color:#6b7280">
+              {% if conversa.telefone_visitante %}<span><i class="fas fa-phone me-1"></i>{{ conversa.telefone_visitante }}</span>{% endif %}
+              {% if conversa.email_visitante %}<span><i class="fas fa-envelope me-1"></i>{{ conversa.email_visitante }}</span>{% endif %}
+              {% if conversa.ip %}<span class="font-monospace">{{ conversa.ip }}</span>{% endif %}
+            </div>
+          </div>
+          <div class="d-flex flex-column align-items-end gap-1">
+            <small class="text-muted">{{ conversa.criado_em|date:"d/m/Y H:i" }}</small>
+            {# Score badge #}
+            {% if conversa.qualificacao == 'hot' %}
+              <span class="score-badge score-hot {% if conversa.qualificacao_motivo %}motivo-tooltip{% endif %}" title="{{ conversa.qualificacao_motivo }}">
+                <i class="fas fa-fire"></i> Quente
+              </span>
+            {% elif conversa.qualificacao == 'warm' %}
+              <span class="score-badge score-warm {% if conversa.qualificacao_motivo %}motivo-tooltip{% endif %}" title="{{ conversa.qualificacao_motivo }}">
+                <i class="fas fa-thermometer-half"></i> Morno
+              </span>
+            {% elif conversa.qualificacao == 'cold' %}
+              <span class="score-badge score-cold {% if conversa.qualificacao_motivo %}motivo-tooltip{% endif %}" title="{{ conversa.qualificacao_motivo }}">
+                <i class="fas fa-snowflake"></i> Frio
+              </span>
+            {% else %}
+              <span class="score-badge score-none">
+                <i class="fas fa-circle-question"></i> Indefinido
+              </span>
             {% endif %}
           </div>
-          <small class="text-muted">{{ conversa.criado_em|date:"d/m/Y H:i" }}</small>
         </div>
-        <div class="card-body p-0" style="max-height:300px;overflow-y:auto">
-          <ul class="list-unstyled mb-0 px-3 py-2">
+
+        {# ── Mensagens ── #}
+        <div class="card-body p-0" style="max-height:280px;overflow-y:auto" id="msgs-{{ conversa.pk }}">
+          <div class="px-3 py-2 d-flex flex-column gap-2">
             {% for msg in conversa.mensagens.all %}
-            <li class="mb-2 {% if msg.role == 'user' %}text-end{% endif %}">
-              <span class="badge {% if msg.role == 'user' %}bg-primary{% else %}bg-light text-dark border{% endif %} px-2 py-1 text-wrap text-start" style="max-width:80%;font-size:.8rem;font-weight:400;white-space:pre-wrap">{{ msg.conteudo }}</span>
-              <div class="text-muted" style="font-size:.65rem">{{ msg.criado_em|time:"H:i" }}</div>
-            </li>
+              {% if msg.role == 'user' %}
+              <div class="d-flex justify-content-end">
+                <span class="msg-bubble msg-user">{{ msg.conteudo }}</span>
+              </div>
+              {% elif msg.role == 'assistant' %}
+              <div class="d-flex justify-content-start">
+                <span class="msg-bubble msg-ia">{{ msg.conteudo }}</span>
+              </div>
+              {% elif msg.role == 'human' %}
+                {% if msg.conteudo|slice:":2" == "💬" or msg.conteudo|slice:":2" == "🤖" %}
+                <span class="msg-system">{{ msg.conteudo }}</span>
+                {% else %}
+                <div class="d-flex justify-content-start">
+                  <span class="msg-bubble msg-human"><i class="fas fa-user-tie me-1 opacity-50"></i>{{ msg.conteudo }}</span>
+                </div>
+                {% endif %}
+              {% endif %}
             {% empty %}
-            <li class="text-muted small py-2 text-center">Sem mensagens</li>
+            <p class="text-muted small text-center py-2 mb-0">Sem mensagens</p>
             {% endfor %}
-          </ul>
+          </div>
         </div>
-        <div class="card-footer d-flex gap-3 py-1" style="font-size:.75rem">
-          <span class="text-muted"><i class="fas fa-comments me-1"></i>{{ conversa.total_mensagens }} msg(s)</span>
-          {% if conversa.ip %}<span class="text-muted font-monospace">{{ conversa.ip }}</span>{% endif %}
+
+        {# ── Footer: ações ── #}
+        <div class="card-footer bg-transparent border-top-light py-2">
+          <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+            <span class="text-muted" style="font-size:.75rem"><i class="fas fa-comments me-1"></i>{{ conversa.total_mensagens }} msg(s)</span>
+            <div class="d-flex gap-2 flex-wrap">
+              {% if conversa.modo == 'ia' %}
+              <form method="post" action="{% url 'agente_conversa_assumir' conversa.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-success" title="Assumir o atendimento no lugar da IA">
+                  <i class="fas fa-user-headset me-1"></i>Assumir
+                </button>
+              </form>
+              {% else %}
+              <form method="post" action="{% url 'agente_conversa_liberar' conversa.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Devolver para a IA">
+                  <i class="fas fa-robot me-1"></i>Liberar para IA
+                </button>
+              </form>
+              {% endif %}
+              <button class="btn btn-sm btn-outline-primary" type="button"
+                data-bs-toggle="collapse" data-bs-target="#reply-{{ conversa.pk }}">
+                <i class="fas fa-reply me-1"></i>Responder
+              </button>
+            </div>
+          </div>
+
+          {# ── Form de resposta ── #}
+          <div class="collapse mt-2" id="reply-{{ conversa.pk }}">
+            <form method="post" action="{% url 'agente_conversa_responder' conversa.pk %}" class="d-flex gap-2">
+              {% csrf_token %}
+              <input type="text" name="mensagem" class="form-control form-control-sm"
+                placeholder="Mensagem para o visitante…" required autocomplete="off">
+              <button type="submit" class="btn btn-sm btn-success flex-shrink-0">
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </form>
+            <div class="form-text mt-1">
+              {% if conversa.modo == 'ia' %}
+              <i class="fas fa-info-circle me-1 text-warning"></i>Clique em <strong>Assumir</strong> para que a IA pare de responder antes de enviar.
+              {% else %}
+              <i class="fas fa-check-circle me-1 text-success"></i>Você está no controle. A mensagem aparece para o visitante em tempo real.
+              {% endif %}
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
     {% endfor %}
@@ -63,4 +172,22 @@
   {% endif %}
 
 </div>
+
+<script>
+// Scroll each conversation to bottom on load
+document.querySelectorAll('[id^="msgs-"]').forEach(el => {
+  el.scrollTop = el.scrollHeight;
+});
+// Auto-open reply form when human mode is active
+document.querySelectorAll('.modo-badge-humano').forEach(badge => {
+  const card = badge.closest('.conversa-card');
+  if (card) {
+    const collapseId = card.querySelector('[data-bs-target]')?.dataset.bsTarget;
+    if (collapseId) {
+      const el = document.querySelector(collapseId);
+      if (el) { el.classList.add('show'); }
+    }
+  }
+});
+</script>
 {% endblock %}

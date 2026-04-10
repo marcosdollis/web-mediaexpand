@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-  <title>{{ agente.nome }}{% if agente.nome_empresa %} — {{ agente.nome_empresa }}{% endif %}</title>
+  <title>{{ agente.nome }}{% if agente.nome_empresa %} â€” {{ agente.nome_empresa }}{% endif %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <style>
@@ -26,7 +26,7 @@
       background: #f0f2f5;
     }
 
-    /* ── Layout ── */
+    /* â”€â”€ Layout â”€â”€ */
     .chat-shell {
       display: flex;
       flex-direction: column;
@@ -48,7 +48,7 @@
       border-radius: 0;
     }
 
-    /* ── Header ── */
+    /* â”€â”€ Header â”€â”€ */
     .chat-header {
       display: flex;
       align-items: center;
@@ -75,7 +75,7 @@
       margin-left: auto;
     }
 
-    /* ── Messages area ── */
+    /* â”€â”€ Messages area â”€â”€ */
     #msgs {
       flex: 1;
       overflow-y: auto;
@@ -135,7 +135,7 @@
     .typing-bubble span:nth-child(3) { animation-delay: .3s; }
     @keyframes typing { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
 
-    /* ── Input bar ── */
+    /* â”€â”€ Input bar â”€â”€ */
     .chat-input {
       display: flex;
       align-items: center;
@@ -166,7 +166,7 @@
     }
     .send-btn:disabled { opacity: .5; cursor: default; }
 
-    /* ── Escalada button ── */
+    /* â”€â”€ Escalada button â”€â”€ */
     .whatsapp-btn {
       display: flex; align-items: center; gap: .4rem;
       background: #25d366; color: #fff; border: none; border-radius: 1.5rem;
@@ -175,7 +175,7 @@
     }
     .whatsapp-btn:hover { background: #1ebe5d; color: #fff; }
 
-    /* ── Coleta form ── */
+    /* â”€â”€ Coleta form â”€â”€ */
     #coleta-screen {
       flex: 1;
       display: flex;
@@ -257,7 +257,7 @@
     {% if agente.coleta_email %}
     <input type="email" id="inp-email" placeholder="Seu e-mail" autocomplete="email">
     {% endif %}
-    <button onclick="iniciarChat()">Iniciar conversa →</button>
+    <button onclick="iniciarChat()">Iniciar conversa â†’</button>
   </div>
   {% endif %}
 
@@ -267,7 +267,7 @@
   <!-- Input bar (hidden while coleta is shown) -->
   <div class="chat-input" id="input-bar" {% if agente.coleta_contato %}style="display:none"{% endif %}>
     <textarea id="msgInput" rows="1"
-              placeholder="{{ agente.placeholder_input|default:'Digite sua mensagem…' }}"
+              placeholder="{{ agente.placeholder_input|default:'Digite sua mensagemâ€¦' }}"
               onkeydown="handleKey(event)"
               oninput="autoResize(this)"></textarea>
     <button class="send-btn" id="sendBtn" onclick="enviar()" disabled>
@@ -280,6 +280,7 @@
 <script>
 const INICIAR_URL      = "{% url 'agente_chat_iniciar' agente.public_id %}";
 const ENVIAR_URL       = "{% url 'agente_chat_enviar' agente.public_id %}";
+const POLL_URL         = "{% url 'agente_chat_poll' agente.public_id %}";
 const TEM_COLETA       = {% if agente.coleta_contato %}true{% else %}false{% endif %};
 const TEM_WHATSAPP     = "{{ agente.whatsapp_escalada|default:'' }}" !== "";
 const WA_NUMBER        = "{{ agente.whatsapp_escalada|default:'' }}";
@@ -292,13 +293,16 @@ const AGENTE_AVATAR    = "{{ agente.avatar.url }}";
 const AGENTE_AVATAR    = null;
 {% endif %}
 
-let sessionId = null;
-let msgCount  = 0;
+let sessionId  = null;
+let msgCount   = 0;
+let pollTimer  = null;
+let lastMsgId  = 0;
+let modoAtual  = 'ia'; // 'ia' | 'humano'
 
-// ── Cache (localStorage) ──────────────────────────────────────────────────────
+// â”€â”€ Cache (localStorage) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const LS_KEY    = 'chat_{{ agente.public_id }}';
-const CACHE_TTL = 4 * 60 * 60 * 1000; // 4 horas
+const CACHE_TTL = 4 * 60 * 60 * 1000;
 
 function cacheLoad() {
   try {
@@ -333,10 +337,53 @@ function cacheSave() {
 }
 
 function cacheClear() { localStorage.removeItem(LS_KEY); }
-
 function novaConversa() { cacheClear(); location.reload(); }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€ Polling (human takeover) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(doPoll, 3000);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+async function doPoll() {
+  if (!sessionId) return;
+  try {
+    const r = await fetch(`${POLL_URL}?session_id=${sessionId}&after=${lastMsgId}`);
+    const d = await r.json();
+    d.messages.forEach(m => {
+      lastMsgId = Math.max(lastMsgId, m.id);
+      if (m.role === 'human') {
+        // Mensagens de sistema (assumir/liberar) exibidas discretamente
+        if (m.conteudo.startsWith('ðŸ’¬') || m.conteudo.startsWith('ðŸ¤–')) {
+          const sysDiv = document.createElement('div');
+          sysDiv.style.cssText = 'text-align:center;font-size:.7rem;color:#9ca3af;padding:.2rem 0';
+          sysDiv.textContent = m.conteudo;
+          document.getElementById('msgs').appendChild(sysDiv);
+        } else {
+          addBubble(m.conteudo, 'assistant', false);
+        }
+        scrollDown();
+      }
+    });
+    if (d.modo === 'ia' && modoAtual === 'humano') {
+      // Atendente devolveu para a IA
+      modoAtual = 'ia';
+      stopPolling();
+      const inp = document.getElementById('msgInput');
+      const btn = document.getElementById('sendBtn');
+      inp.disabled = false;
+      btn.disabled = inp.value.trim() === '';
+    }
+    if (d.modo === 'humano') modoAtual = 'humano';
+  } catch(e) {}
+}
+
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getBoasVindas() {
   return "{{ agente.mensagem_boas_vindas|escapejs }}";
@@ -446,12 +493,12 @@ function restoreFromCache(cached) {
   if (cached.hasWA && TEM_WHATSAPP) addWaButton();
   const badge = document.createElement('div');
   badge.style.cssText = 'font-size:.65rem;color:rgba(255,255,255,.6);text-align:center;padding:.3rem 0';
-  badge.textContent = 'Conversa restaurada — toque em + para nova conversa';
+  badge.textContent = 'Conversa restaurada â€” toque em + para nova conversa';
   document.getElementById('msgs').insertBefore(badge, document.getElementById('msgs').firstChild);
   enableInput();
 }
 
-// ── Iniciar sessão ────────────────────────────────────────────────────────────
+// â”€â”€ Iniciar sessÃ£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function iniciarSessao(dados = {}) {
   const r = await fetch(INICIAR_URL, {
@@ -468,7 +515,7 @@ async function iniciarSessao(dados = {}) {
   enableInput();
 }
 
-// ── Coleta de contato (se habilitado) ───────────────────────────────────────
+// â”€â”€ Coleta de contato (se habilitado) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 {% if agente.coleta_contato %}
 async function iniciarChat() {
@@ -487,7 +534,7 @@ async function iniciarChat() {
 }
 {% endif %}
 
-// ── Enviar mensagem ───────────────────────────────────────────────────────────
+// â”€â”€ Enviar mensagem â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function enviar() {
   const inp  = document.getElementById('msgInput');
@@ -513,17 +560,36 @@ async function enviar() {
     data = await r.json();
   } catch(e) {
     removeTyping();
-    addBubble('Erro de conexão. Tente novamente.', 'assistant');
+    addBubble('Erro de conexÃ£o. Tente novamente.', 'assistant');
     btn.disabled = false;
     return;
   }
 
   removeTyping();
 
-  if (data.ok) {
+  if (data.aguardando) {
+    // Humano assumiu a conversa
+    modoAtual = 'humano';
+    if (!document.getElementById('aguardando-badge')) {
+      const badge = document.createElement('div');
+      badge.id = 'aguardando-badge';
+      badge.style.cssText = 'text-align:center;font-size:.75rem;color:#059669;padding:.4rem 1rem;background:#d1fae5;border-radius:8px;margin:.5rem 1rem';
+      badge.innerHTML = '<i class="fas fa-user-headset me-1"></i>Um atendente irÃ¡ responder em breveâ€¦';
+      document.getElementById('msgs').appendChild(badge);
+      scrollDown();
+    }
+    inp.disabled = false;
+    btn.disabled = true;
+    startPolling();
+    return;
+  } else if (data.ok) {
+    modoAtual = 'ia';
+    stopPolling();
+    const b = document.getElementById('aguardando-badge');
+    if (b) b.remove();
     addBubble(data.resposta, 'assistant');
   } else if (data.limite) {
-    addBubble('Limite de mensagens desta sessão atingido. Obrigado pelo contato!', 'assistant');
+    addBubble('Limite de mensagens desta sessÃ£o atingido. Obrigado pelo contato!', 'assistant');
     cacheClear();
     inp.disabled = true;
     btn.disabled = true;
@@ -547,7 +613,7 @@ function autoResize(el) {
   el.style.height = Math.min(el.scrollHeight, 96) + 'px';
 }
 
-// ── Boot ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Boot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 {% if not agente.coleta_contato %}
 (function boot() {
   const cached = cacheLoad();

@@ -2219,6 +2219,17 @@ class AgenteIA(models.Model):
 class AgenteIAConversa(models.Model):
     """Sessão de conversa de um visitante com o agente."""
 
+    SCORE_CHOICES = [
+        ('hot',  'Quente'),
+        ('warm', 'Morno'),
+        ('cold', 'Frio'),
+        ('none', 'Indefinido'),
+    ]
+    MODO_CHOICES = [
+        ('ia',     'IA'),
+        ('humano', 'Humano'),
+    ]
+
     agente             = models.ForeignKey(AgenteIA, on_delete=models.CASCADE, related_name='conversas')
     session_id         = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     nome_visitante     = models.CharField(max_length=100, blank=True)
@@ -2227,6 +2238,19 @@ class AgenteIAConversa(models.Model):
     ip                 = models.GenericIPAddressField(null=True, blank=True)
     total_mensagens    = models.PositiveIntegerField(default=0)
     criado_em          = models.DateTimeField(auto_now_add=True)
+
+    # Qualificação de lead (detectada silenciosamente pela IA)
+    qualificacao        = models.CharField(max_length=10, choices=SCORE_CHOICES, default='none')
+    qualificacao_motivo = models.TextField(blank=True)
+    qualificacao_em     = models.DateTimeField(null=True, blank=True)
+
+    # Modo de atendimento
+    modo          = models.CharField(max_length=10, choices=MODO_CHOICES, default='ia')
+    assumido_por  = models.ForeignKey(
+        'core.User', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='conversas_assumidas'
+    )
+    assumido_em   = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Conversa'
@@ -2240,7 +2264,7 @@ class AgenteIAConversa(models.Model):
 class AgenteIAMensagem(models.Model):
     """Mensagem individual dentro de uma conversa."""
 
-    ROLE_CHOICES = [('user', 'Usuário'), ('assistant', 'Agente')]
+    ROLE_CHOICES = [('user', 'Usuário'), ('assistant', 'Agente'), ('human', 'Humano')]
 
     conversa  = models.ForeignKey(AgenteIAConversa, on_delete=models.CASCADE, related_name='mensagens')
     role      = models.CharField(max_length=10, choices=ROLE_CHOICES)

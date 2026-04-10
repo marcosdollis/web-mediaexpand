@@ -138,4 +138,8 @@ urlpatterns = [
     path('agentes/<int:pk>/configurar/', views.agente_configure_view, name='agente_configure'),
     path('agentes/<int:pk>/delete/', views.agente_delete_view, name='agente_delete'),
     path('agentes/<int:pk>/historico/', views.agente_historico_view, name='agente_historico'),
+    # Gestão de conversas (human takeover)
+    path('agentes/conversa/<int:pk>/assumir/', views.agente_conversa_assumir_view, name='agente_conversa_assumir'),
+    path('agentes/conversa/<int:pk>/responder/', views.agente_conversa_responder_view, name='agente_conversa_responder'),
+    path('agentes/conversa/<int:pk>/liberar/', views.agente_conversa_liberar_view, name='agente_conversa_liberar'),
 ]

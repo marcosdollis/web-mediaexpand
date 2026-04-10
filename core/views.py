@@ -7139,6 +7139,10 @@ def agente_chat_enviar_view(request, public_id):
     # Salva mensagem do usuário
     AgenteIAMensagem.objects.create(conversa=conversa, role='user', conteudo=mensagem)
 
+    # Se um humano assumiu o atendimento, não chama a IA
+    if conversa.modo == 'humano':
+        return JsonResponse({'ok': True, 'aguardando': True})
+
     # Monta histórico para a IA (últimas 20 mensagens para não explodir tokens)
     msgs_db = conversa.mensagens.order_by('criado_em')
     historico = [{'role': m.role if m.role != 'assistant' else 'assistant', 'content': m.conteudo}
@@ -7157,4 +7161,133 @@ def agente_chat_enviar_view(request, public_id):
     conversa.total_mensagens = conversa.mensagens.filter(role='user').count()
     conversa.save(update_fields=['total_mensagens'])
 
+    # Classificação silenciosa de lead a cada 3 mensagens do usuário
+    if conversa.total_mensagens % 3 == 0:
+        try:
+            score, motivo = _classificar_lead(agente, historico[-40:] + [{'role': 'assistant', 'content': resposta_texto}])
+            conversa.qualificacao = score
+            conversa.qualificacao_motivo = motivo
+            conversa.qualificacao_em = timezone.now()
+            conversa.save(update_fields=['qualificacao', 'qualificacao_motivo', 'qualificacao_em'])
+        except Exception:
+            pass  # nunca deixa classificação quebrar o chat
+
     return JsonResponse({'ok': True, 'resposta': resposta_texto})
+
+
+def _classificar_lead(agente, historico_msgs):
+    """
+    Chama a IA em modo silencioso para classificar o lead.
+    Retorna tupla (score, motivo) onde score in ['hot','warm','cold'].
+    """
+    import json as _json
+
+    prompt_classificador = (
+        "Você é um classificador de leads. Analise a conversa abaixo e responda SOMENTE com JSON válido, "
+        "sem nenhum texto extra. Formato: {\"score\": \"hot\"|\"warm\"|\"cold\", \"motivo\": \"uma frase curta\"}. "
+        "Critérios: hot = demonstrou intenção clara de compra/contratação, warm = interesse mas sem decisão, "
+        "cold = apenas curiosidade ou sem engajamento real."
+    )
+
+    # Cria agente temporário apenas para a chamada — reutiliza _chamar_ia
+    class _FakeAgente:
+        prompt_sistema = prompt_classificador
+        restricoes = ''
+        modelo_ia = agente.modelo_ia
+        api_key = agente.api_key
+        max_tokens = 120
+        temperatura = 0.1
+        base_conhecimento = None
+        mensagem_boas_vindas = ''
+
+    # Filtra apenas user/assistant para o classificador
+    hist_limpo = [m for m in historico_msgs if m['role'] in ('user', 'assistant')]
+    raw = _chamar_ia(_FakeAgente(), hist_limpo[-20:])
+
+    # Extrai JSON da resposta (pode vir com markdown etc)
+    import re as _re
+    match = _re.search(r'\{.*?\}', raw, _re.DOTALL)
+    if match:
+        data = _json.loads(match.group())
+        score = data.get('score', 'cold')
+        if score not in ('hot', 'warm', 'cold'):
+            score = 'cold'
+        return score, data.get('motivo', '')[:300]
+    return 'cold', ''
+
+
+@csrf_exempt
+def agente_chat_poll_view(request, public_id):
+    """GET — retorna mensagens após `after_id` para suporte a human takeover."""
+    agente = get_object_or_404(AgenteIA, public_id=public_id, ativo=True)
+    session_id = request.GET.get('session_id', '')
+    after_id   = request.GET.get('after', '0')
+    try:
+        after_id = int(after_id)
+    except ValueError:
+        after_id = 0
+
+    conversa = get_object_or_404(AgenteIAConversa, session_id=session_id, agente=agente)
+    msgs = conversa.mensagens.filter(id__gt=after_id).order_by('criado_em')
+
+    return JsonResponse({
+        'modo': conversa.modo,
+        'messages': [
+            {'id': m.id, 'role': m.role, 'conteudo': m.conteudo,
+             'hora': m.criado_em.strftime('%H:%M')}
+            for m in msgs
+        ]
+    })
+
+
+@login_required
+def agente_conversa_assumir_view(request, pk):
+    """POST — atendente assume a conversa, IA para de responder."""
+    from django.shortcuts import get_object_or_404
+    conversa = get_object_or_404(AgenteIAConversa, pk=pk)
+    # Verifica acesso: dono do agente ou owner
+    if not (request.user.is_owner() or conversa.agente.franqueado == request.user):
+        return JsonResponse({'error': 'Sem permissão.'}, status=403)
+    conversa.modo = 'humano'
+    conversa.assumido_por = request.user
+    conversa.assumido_em = timezone.now()
+    conversa.save(update_fields=['modo', 'assumido_por', 'assumido_em'])
+    # Mensagem de sistema avisando o visitante
+    AgenteIAMensagem.objects.create(
+        conversa=conversa,
+        role='human',
+        conteudo=f'💬 {request.user.get_full_name() or request.user.username} assumiu o atendimento.',
+    )
+    messages.success(request, 'Você assumiu o atendimento desta conversa.')
+    return redirect(request.META.get('HTTP_REFERER', 'agente_historico') )
+
+
+@login_required
+def agente_conversa_responder_view(request, pk):
+    """POST — atendente envia mensagem manual para o visitante."""
+    conversa = get_object_or_404(AgenteIAConversa, pk=pk)
+    if not (request.user.is_owner() or conversa.agente.franqueado == request.user):
+        return JsonResponse({'error': 'Sem permissão.'}, status=403)
+    texto = request.POST.get('mensagem', '').strip()
+    if texto:
+        AgenteIAMensagem.objects.create(conversa=conversa, role='human', conteudo=texto)
+    return redirect(request.META.get('HTTP_REFERER', 'agente_historico'))
+
+
+@login_required
+def agente_conversa_liberar_view(request, pk):
+    """POST — devolve a conversa para a IA."""
+    conversa = get_object_or_404(AgenteIAConversa, pk=pk)
+    if not (request.user.is_owner() or conversa.agente.franqueado == request.user):
+        return JsonResponse({'error': 'Sem permissão.'}, status=403)
+    conversa.modo = 'ia'
+    conversa.assumido_por = None
+    conversa.assumido_em = None
+    conversa.save(update_fields=['modo', 'assumido_por', 'assumido_em'])
+    AgenteIAMensagem.objects.create(
+        conversa=conversa,
+        role='human',
+        conteudo='🤖 Atendimento devolvido ao agente de IA.',
+    )
+    messages.success(request, 'Conversa devolvida para a IA.')
+    return redirect(request.META.get('HTTP_REFERER', 'agente_historico'))
