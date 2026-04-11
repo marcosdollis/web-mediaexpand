@@ -59,13 +59,7 @@
             {% for key, val in cap.dados.items %}
             <tr>
               <td>{{ key }}</td>
-              <td>
-                {% if val|stringformat:"s"|slice:":1" == "[" or val|stringformat:"s"|slice:":1" == "{" %}
-                <pre class="mb-0" style="font-size:.7rem;white-space:pre-wrap;word-break:break-all">{{ val }}</pre>
-                {% else %}
-                {{ val }}
-                {% endif %}
-              </td>
+              <td style="word-break:break-word;white-space:pre-wrap;font-size:.8rem">{{ val }}</td>
             </tr>
             {% endfor %}
           </table>
