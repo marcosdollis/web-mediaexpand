@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-  <title>{{ agente.nome }}{% if agente.nome_empresa %} â€” {{ agente.nome_empresa }}{% endif %}</title>
+  <title>{{ agente.nome }}{% if agente.nome_empresa %} — {{ agente.nome_empresa }}{% endif %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <style>
@@ -267,7 +267,7 @@
   <!-- Input bar (hidden while coleta is shown) -->
   <div class="chat-input" id="input-bar" {% if agente.coleta_contato %}style="display:none"{% endif %}>
     <textarea id="msgInput" rows="1"
-              placeholder="{{ agente.placeholder_input|default:'Digite sua mensagemâ€¦' }}"
+              placeholder="{{ agente.placeholder_input|default:'Digite sua mensagem…' }}"
               onkeydown="handleKey(event)"
               oninput="autoResize(this)"></textarea>
     <button class="send-btn" id="sendBtn" onclick="enviar()" disabled>
@@ -359,7 +359,9 @@ async function doPoll() {
       lastMsgId = Math.max(lastMsgId, m.id);
       if (m.role === 'human') {
         // Mensagens de sistema (assumir/liberar) exibidas discretamente
-        if (m.conteudo.startsWith('ðŸ’¬') || m.conteudo.startsWith('ðŸ¤–')) {
+        const primeiroChar = m.conteudo.codePointAt(0);
+        const ehSistema = (primeiroChar === 0x1F4AC || primeiroChar === 0x1F916); // 💬 ou 🤖
+        if (ehSistema) {
           const sysDiv = document.createElement('div');
           sysDiv.style.cssText = 'text-align:center;font-size:.7rem;color:#9ca3af;padding:.2rem 0';
           sysDiv.textContent = m.conteudo;
@@ -371,9 +373,7 @@ async function doPoll() {
       }
     });
     if (d.modo === 'ia' && modoAtual === 'humano') {
-      // Atendente devolveu para a IA
       modoAtual = 'ia';
-      stopPolling();
       const inp = document.getElementById('msgInput');
       const btn = document.getElementById('sendBtn');
       inp.disabled = false;
@@ -493,9 +493,10 @@ function restoreFromCache(cached) {
   if (cached.hasWA && TEM_WHATSAPP) addWaButton();
   const badge = document.createElement('div');
   badge.style.cssText = 'font-size:.65rem;color:rgba(255,255,255,.6);text-align:center;padding:.3rem 0';
-  badge.textContent = 'Conversa restaurada â€” toque em + para nova conversa';
+  badge.textContent = 'Conversa restaurada \u2014 toque em + para nova conversa';
   document.getElementById('msgs').insertBefore(badge, document.getElementById('msgs').firstChild);
   enableInput();
+  startPolling();
 }
 
 // â”€â”€ Iniciar sessÃ£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -513,6 +514,7 @@ async function iniciarSessao(dados = {}) {
   addBubble(d.mensagem_boas_vindas || getBoasVindas(), 'assistant');
   if (TEM_WHATSAPP) addWaButton();
   enableInput();
+  startPolling();
 }
 
 // â”€â”€ Coleta de contato (se habilitado) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -560,7 +562,7 @@ async function enviar() {
     data = await r.json();
   } catch(e) {
     removeTyping();
-    addBubble('Erro de conexÃ£o. Tente novamente.', 'assistant');
+    addBubble('Erro de conexão. Tente novamente.', 'assistant');
     btn.disabled = false;
     return;
   }
@@ -574,7 +576,7 @@ async function enviar() {
       const badge = document.createElement('div');
       badge.id = 'aguardando-badge';
       badge.style.cssText = 'text-align:center;font-size:.75rem;color:#059669;padding:.4rem 1rem;background:#d1fae5;border-radius:8px;margin:.5rem 1rem';
-      badge.innerHTML = '<i class="fas fa-user-headset me-1"></i>Um atendente irÃ¡ responder em breveâ€¦';
+      badge.innerHTML = '<i class="fas fa-user-headset me-1"></i>Um atendente irá responder em breve…';
       document.getElementById('msgs').appendChild(badge);
       scrollDown();
     }
@@ -584,12 +586,11 @@ async function enviar() {
     return;
   } else if (data.ok) {
     modoAtual = 'ia';
-    stopPolling();
     const b = document.getElementById('aguardando-badge');
     if (b) b.remove();
     addBubble(data.resposta, 'assistant');
   } else if (data.limite) {
-    addBubble('Limite de mensagens desta sessÃ£o atingido. Obrigado pelo contato!', 'assistant');
+    addBubble('Limite de mensagens desta sessão atingido. Obrigado pelo contato!', 'assistant');
     cacheClear();
     inp.disabled = true;
     btn.disabled = true;
