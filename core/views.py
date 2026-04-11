@@ -7295,6 +7295,21 @@ def _chamar_ia(agente, historico_msgs, conversa=None):
     )
     sistema_completo = _ctx_data + '\n\n' + sistema_completo
 
+    # Injeta dados do visitante coletados no início da conversa
+    if conversa:
+        dados_visitante = []
+        if getattr(conversa, 'nome_visitante', None):
+            dados_visitante.append(f'Nome: {conversa.nome_visitante}')
+        if getattr(conversa, 'telefone_visitante', None):
+            dados_visitante.append(f'Telefone: {conversa.telefone_visitante}')
+        if getattr(conversa, 'email_visitante', None):
+            dados_visitante.append(f'E-mail: {conversa.email_visitante}')
+        if dados_visitante:
+            sistema_completo += (
+                '\n\nDADOS DO CLIENTE NESTA CONVERSA (use para personalizar o atendimento):\n'
+                + '\n'.join(dados_visitante)
+            )
+
     # Injeta capturas já realizadas nesta conversa para evitar re-perguntar
     if conversa:
         try:
