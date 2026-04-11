@@ -7295,6 +7295,25 @@ def _chamar_ia(agente, historico_msgs, conversa=None):
     )
     sistema_completo = _ctx_data + '\n\n' + sistema_completo
 
+    # Injeta capturas já realizadas nesta conversa para evitar re-perguntar
+    if conversa:
+        try:
+            from .models import AgenteIACaptura
+            caps = AgenteIACaptura.objects.filter(conversa=conversa).order_by('criado_em')
+            if caps.exists():
+                import json as _json_caps
+                linhas = []
+                for cap in caps:
+                    acao_nome = cap.acao.nome if cap.acao else 'captura'
+                    dados_str = ', '.join(f'{k}: {v}' for k, v in cap.dados.items()) if cap.dados else '(sem dados)'
+                    linhas.append(f'- #{cap.pk} [{acao_nome}] status={cap.get_status_display()} | {dados_str}')
+                sistema_completo += (
+                    '\n\nCAPTURAS JÁ REALIZADAS NESTA CONVERSA (NÃO PEÇA ESSES DADOS NOVAMENTE):\n'
+                    + '\n'.join(linhas)
+                )
+        except Exception:
+            pass
+
     # Carrega ações ativas (se o agente for real, não _FakeAgente)
     acoes_ativas = []
     if hasattr(agente, 'acoes'):
