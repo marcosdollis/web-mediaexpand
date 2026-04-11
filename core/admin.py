@@ -326,7 +326,7 @@ class AgenteIAAcaoAdmin(admin.ModelAdmin):
     list_display  = ('pk', 'agente', 'nome', 'tipo', 'metodo', 'ativo', 'ordem')
     list_filter   = ('agente', 'tipo', 'ativo')
     search_fields = ('nome', 'descricao', 'url')
-    readonly_fields = ('criado_em', 'atualizado_em')
+    readonly_fields = ('criado_em',)
 
 
 @admin.register(AgenteIACaptura)
