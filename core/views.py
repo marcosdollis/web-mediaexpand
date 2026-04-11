@@ -7281,6 +7281,20 @@ def _chamar_ia(agente, historico_msgs, conversa=None):
     if brevidade:
         sistema_completo += f'\n\n{brevidade}'
 
+    # Injeta contexto de data/hora atual para que a IA saiba o dia exato
+    import datetime as _dt
+    _agora = _dt.datetime.now()
+    _dias_pt = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira',
+                'Sexta-feira', 'Sábado', 'Domingo']
+    _meses_pt = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+                 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+    _ctx_data = (
+        f'CONTEXTO ATUAL: {_dias_pt[_agora.weekday()]}, '
+        f'{_agora.day} de {_meses_pt[_agora.month - 1]} de {_agora.year}, '
+        f'{_agora.strftime("%H:%M")}h.'
+    )
+    sistema_completo = _ctx_data + '\n\n' + sistema_completo
+
     # Carrega ações ativas (se o agente for real, não _FakeAgente)
     acoes_ativas = []
     if hasattr(agente, 'acoes'):

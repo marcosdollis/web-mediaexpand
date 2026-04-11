@@ -9,6 +9,7 @@ from .models import (
     CampanhaSorteioConfig, CampanhaParticipanteSorteio,
     LandingLead,
     AgenteIA, AgenteIAConversa, AgenteIAMensagem,
+    AgenteIAAcao, AgenteIACaptura,
 )
 
 
@@ -318,3 +319,26 @@ class AgenteIAConversaAdmin(admin.ModelAdmin):
     search_fields = ('nome_visitante', 'telefone_visitante', 'email_visitante')
     readonly_fields = ('session_id', 'ip', 'criado_em')
     inlines = [AgenteIAMensagemInline]
+
+
+@admin.register(AgenteIAAcao)
+class AgenteIAAcaoAdmin(admin.ModelAdmin):
+    list_display  = ('pk', 'agente', 'nome', 'tipo', 'metodo', 'ativo', 'ordem')
+    list_filter   = ('agente', 'tipo', 'ativo')
+    search_fields = ('nome', 'descricao', 'url')
+    readonly_fields = ('criado_em', 'atualizado_em')
+
+
+@admin.register(AgenteIACaptura)
+class AgenteIACapturaAdmin(admin.ModelAdmin):
+    list_display  = ('pk', 'agente', 'nome_visitante_display', 'acao', 'status', 'webhook_enviado', 'criado_em')
+    list_filter   = ('agente', 'status', 'webhook_enviado')
+    search_fields = ('conversa__nome_visitante', 'acao__nome')
+    readonly_fields = ('conversa', 'agente', 'acao', 'dados', 'webhook_enviado', 'webhook_resposta', 'criado_em', 'atualizado_em')
+    ordering = ('-criado_em',)
+
+    def nome_visitante_display(self, obj):
+        if obj.conversa and obj.conversa.nome_visitante:
+            return obj.conversa.nome_visitante
+        return '–'
+    nome_visitante_display.short_description = 'Visitante'

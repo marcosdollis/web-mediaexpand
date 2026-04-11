@@ -54,14 +54,24 @@
 
         <div class="card-body py-2 px-3">
           {# Dados estruturados #}
+          {% if cap.dados %}
           <table class="table table-sm mb-0 dados-table">
             {% for key, val in cap.dados.items %}
             <tr>
               <td>{{ key }}</td>
-              <td>{{ val }}</td>
+              <td>
+                {% if val|stringformat:"s"|slice:":1" == "[" or val|stringformat:"s"|slice:":1" == "{" %}
+                <pre class="mb-0" style="font-size:.7rem;white-space:pre-wrap;word-break:break-all">{{ val }}</pre>
+                {% else %}
+                {{ val }}
+                {% endif %}
+              </td>
             </tr>
             {% endfor %}
           </table>
+          {% else %}
+          <p class="text-muted small mb-0"><i class="fas fa-info-circle me-1"></i>Nenhum dado capturado (payload vazio).</p>
+          {% endif %}
 
           {# Webhook #}
           {% if cap.webhook_enviado %}
