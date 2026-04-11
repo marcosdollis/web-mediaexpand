@@ -363,7 +363,9 @@
                     <button type="button" class="btn btn-xs btn-outline-secondary me-1"
                       data-bs-toggle="modal" data-bs-target="#modalEditAcao{{ acao.pk }}"><i class="fas fa-pen"></i></button>
                     <button type="button" class="btn btn-xs btn-outline-danger"
-                      onclick="confirmarDeleteAcao('{% url 'agente_acao_delete' acao.pk %}', '{{ acao.nome|escapejs }}')">
+                      data-delete-url="{% url 'agente_acao_delete' acao.pk %}"
+                      data-delete-name="{{ acao.nome|escapejs }}"
+                      onclick="confirmarDeleteAcao(this.dataset.deleteUrl, this.dataset.deleteName)">
                       <i class="fas fa-trash"></i>
                     </button>
                   </td>
