@@ -6952,7 +6952,7 @@ def agente_historico_view(request, pk):
     agente, redir = _get_agente_or_403(request, pk)
     if redir:
         return redir
-    conversas = agente.conversas.prefetch_related('mensagens').order_by('-criado_em')
+    conversas = agente.conversas.prefetch_related('mensagens', 'capturas__acao').order_by('-criado_em')
     return render(request, 'agentes/agente_historico.html', {
         'agente': agente,
         'conversas': conversas,
@@ -6971,6 +6971,7 @@ def agente_acao_create_view(request, agente_pk):
     if request.method == 'POST':
         from .models import AgenteIAAcao
         acao = AgenteIAAcao(agente=agente)
+        acao.tipo            = request.POST.get('tipo', 'http')
         acao.nome            = request.POST.get('nome', '').strip()
         acao.descricao       = request.POST.get('descricao', '').strip()
         acao.url             = request.POST.get('url', '').strip()
@@ -7008,6 +7009,7 @@ def agente_acao_edit_view(request, pk):
         return redir
     if request.method == 'POST':
         acao.nome            = request.POST.get('nome', acao.nome).strip()
+        acao.tipo            = request.POST.get('tipo', acao.tipo)
         acao.descricao       = request.POST.get('descricao', '').strip()
         acao.url             = request.POST.get('url', '').strip()
         acao.metodo          = request.POST.get('metodo', acao.metodo)
@@ -7048,10 +7050,88 @@ def agente_acao_delete_view(request, pk):
     return redirect('agente_configure', pk=agente_pk)
 
 
+# ── Capturas (pedidos) ─────────────────────────────────────────────────────────
+
+@login_required
+def agente_capturas_view(request, pk):
+    """Lista todos os pedidos/capturas de um agente."""
+    from .models import AgenteIACaptura
+    agente, redir = _get_agente_or_403(request, pk)
+    if redir:
+        return redir
+
+    status_filtro = request.GET.get('status', '')
+    capturas = agente.capturas.select_related('conversa', 'acao').order_by('-criado_em')
+    if status_filtro:
+        capturas = capturas.filter(status=status_filtro)
+
+    return render(request, 'agentes/agente_capturas.html', {
+        'agente': agente,
+        'capturas': capturas,
+        'status_filtro': status_filtro,
+    })
+
+
+@login_required
+def agente_captura_status_view(request, pk):
+    """POST — atualiza o status de uma captura."""
+    from .models import AgenteIACaptura
+    captura = get_object_or_404(AgenteIACaptura, pk=pk)
+    agente, redir = _get_agente_or_403(request, captura.agente_id)
+    if redir:
+        return redir
+    if request.method == 'POST':
+        novo = request.POST.get('status', '')
+        if novo in ('pendente', 'confirmado', 'cancelado'):
+            captura.status = novo
+            captura.save(update_fields=['status', 'atualizado_em'])
+            messages.success(request, f'Status atualizado para "{captura.get_status_display()}".')
+    # Redireciona de volta para onde veio (historico ou capturas)
+    next_url = request.POST.get('next', '')
+    if next_url:
+        return redirect(next_url)
+    return redirect('agente_capturas', pk=captura.agente_id)
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-def _executar_acao(acao, argumentos: dict) -> str:
-    """Executa a chamada HTTP de uma AgenteIAAcao e retorna o corpo da resposta (até 3000 chars)."""
+def _executar_captura(acao, argumentos: dict, conversa) -> str:
+    """Salva dados capturados pela IA no banco e (opcionalmente) dispara webhook."""
+    from .models import AgenteIACaptura
+    import requests as _req
+
+    captura = AgenteIACaptura.objects.create(
+        conversa=conversa,
+        agente=acao.agente,
+        acao=acao,
+        dados=argumentos,
+        status='pendente',
+    )
+
+    # Webhook opcional
+    if acao.url:
+        try:
+            headers = acao.headers()
+            if 'Content-Type' not in headers:
+                headers['Content-Type'] = 'application/json'
+            resp = _req.post(acao.url, json=argumentos, headers=headers, timeout=10)
+            captura.webhook_enviado = True
+            captura.webhook_resposta = resp.text[:1000]
+            captura.save(update_fields=['webhook_enviado', 'webhook_resposta'])
+            return f'Pedido registrado com sucesso (#{captura.pk}). Webhook enviado ({resp.status_code}).'
+        except Exception as e:
+            captura.webhook_resposta = str(e)[:500]
+            captura.save(update_fields=['webhook_resposta'])
+            return f'Pedido registrado (#{captura.pk}), mas falha ao enviar webhook: {str(e)[:200]}'
+    return f'Pedido registrado com sucesso (#{captura.pk}).'
+
+
+def _executar_acao(acao, argumentos: dict, conversa=None) -> str:
+    """Executa uma AgenteIAAcao e retorna texto com o resultado."""
+    if acao.tipo == 'capturar':
+        return _executar_captura(acao, argumentos, conversa)
+
+    # tipo == 'http' — chamada HTTP externa
     import json as _json
     import requests as _req
 
@@ -7168,7 +7248,7 @@ def _construir_tools_gemini(acoes):
     return [Tool(function_declarations=declarations)] if declarations else None
 
 
-def _chamar_ia(agente, historico_msgs):
+def _chamar_ia(agente, historico_msgs, conversa=None):
     """
     Chama o provedor de IA e retorna o texto da resposta.
     `historico_msgs` é lista de dicts [{role, content}, …].
@@ -7245,7 +7325,7 @@ def _chamar_ia(agente, historico_msgs):
                         except Exception:
                             args = {}
                         acao = acoes_map.get(tc.function.name)
-                        resultado = _executar_acao(acao, args) if acao else 'Ação não encontrada.'
+                        resultado = _executar_acao(acao, args, conversa) if acao else 'Ação não encontrada.'
                         messages.append({
                             'role': 'tool',
                             'tool_call_id': tc.id,
@@ -7293,7 +7373,7 @@ def _chamar_ia(agente, historico_msgs):
                     for blk in resp.content:
                         if blk.type == 'tool_use':
                             acao = acoes_map.get(blk.name)
-                            resultado = _executar_acao(acao, blk.input) if acao else 'Ação não encontrada.'
+                            resultado = _executar_acao(acao, blk.input, conversa) if acao else 'Ação não encontrada.'
                             tool_results.append({
                                 'type': 'tool_result',
                                 'tool_use_id': blk.id,
@@ -7347,7 +7427,7 @@ def _chamar_ia(agente, historico_msgs):
                     fc = part.function_call
                     acao = acoes_map.get(fc.name)
                     args = dict(fc.args) if fc.args else {}
-                    resultado = _executar_acao(acao, args) if acao else 'Ação não encontrada.'
+                    resultado = _executar_acao(acao, args, conversa) if acao else 'Ação não encontrada.'
                     import google.generativeai.protos as _gp
                     resp = chat.send_message(_gp.Content(parts=[
                         _gp.Part(function_response=_gp.FunctionResponse(
@@ -7477,7 +7557,7 @@ def agente_chat_enviar_view(request, public_id):
     # Para OpenAI/Anthropic "assistant" é válido; já para Gemini é tratado em _chamar_ia
 
     try:
-        resposta_texto = _chamar_ia(agente, historico[-40:])  # janela de 40 msgs
+        resposta_texto = _chamar_ia(agente, historico[-40:], conversa=conversa)  # janela de 40 msgs
     except Exception as e:
         return JsonResponse({'error': f'Erro ao consultar IA: {str(e)}'}, status=500)
 

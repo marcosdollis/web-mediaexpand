@@ -2228,6 +2228,10 @@ class AgenteIAAcao(models.Model):
     Ação que um agente pode executar via chamada HTTP externa.
     Usa o padrão de function-calling nativo de cada provedor.
     """
+    TIPO_CHOICES = [
+        ('http',     'Chamada HTTP (API externa)'),
+        ('capturar', 'Capturar pedido/dados'),
+    ]
     METODO_CHOICES = [
         ('GET',    'GET'),
         ('POST',   'POST'),
@@ -2236,6 +2240,11 @@ class AgenteIAAcao(models.Model):
     ]
 
     agente          = models.ForeignKey(AgenteIA, on_delete=models.CASCADE, related_name='acoes')
+    tipo            = models.CharField(
+        max_length=20, choices=TIPO_CHOICES, default='http',
+        help_text='"Chamada HTTP" faz uma requisição a uma API externa. '
+                  '"Capturar pedido/dados" salva os dados no banco e opcionalmente dispara um webhook.'
+    )
     nome            = models.SlugField(
         max_length=60,
         help_text='Identificador curto sem espaços (usado internamente pela IA). Ex: verificar_disponibilidade'
@@ -2245,8 +2254,9 @@ class AgenteIAAcao(models.Model):
                   'Ex: "Verifica salas disponíveis em uma data e com certa capacidade."'
     )
     url             = models.CharField(
-        max_length=500,
-        help_text='URL do endpoint. Suporta {placeholders} preenchidos com parâmetros. Ex: https://api.exemplo.com/salas/{data}'
+        max_length=500, blank=True,
+        help_text='URL do endpoint. Suporta {placeholders} preenchidos com parâmetros. '
+                  'Para tipo "Capturar", é o webhook opcional que receberá os dados via POST.'
     )
     metodo          = models.CharField(max_length=10, choices=METODO_CHOICES, default='GET')
     headers_json    = models.TextField(
@@ -2363,3 +2373,48 @@ class AgenteIAMensagem(models.Model):
 
     def __str__(self):
         return f'[{self.role}] {self.conteudo[:60]}'
+
+
+class AgenteIACaptura(models.Model):
+    """
+    Dados estruturados capturados pelo agente durante uma conversa.
+    Gerado quando uma ação do tipo 'capturar' é invocada pela IA.
+    Pode ser um pedido (restaurante, e-commerce) ou qualquer conjunto de dados coletados.
+    """
+    STATUS_CHOICES = [
+        ('pendente',   'Pendente'),
+        ('confirmado', 'Confirmado'),
+        ('cancelado',  'Cancelado'),
+    ]
+
+    conversa          = models.ForeignKey(
+        AgenteIAConversa, on_delete=models.CASCADE, related_name='capturas',
+        null=True, blank=True
+    )
+    agente            = models.ForeignKey(
+        AgenteIA, on_delete=models.CASCADE, related_name='capturas'
+    )
+    acao              = models.ForeignKey(
+        AgenteIAAcao, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='capturas',
+        help_text='Ação que originou esta captura'
+    )
+    dados             = models.JSONField(
+        help_text='Payload JSON coletado pela IA (itens, quantidades, preços, obs, etc.)'
+    )
+    status            = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='pendente'
+    )
+    webhook_enviado   = models.BooleanField(default=False)
+    webhook_resposta  = models.TextField(blank=True)
+    criado_em         = models.DateTimeField(auto_now_add=True)
+    atualizado_em     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Captura'
+        verbose_name_plural = 'Capturas'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        nome = self.conversa.nome_visitante if self.conversa and self.conversa.nome_visitante else 'Visitante'
+        return f'Captura #{self.pk} — {nome} ({self.get_status_display()})'

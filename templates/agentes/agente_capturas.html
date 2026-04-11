@@ -1,0 +1,140 @@
+{% extends "base/base.html" %}
+{% block title %}Pedidos/Capturas — {{ agente.nome }}{% endblock %}
+
+{% block content %}
+<style>
+.cap-card { border-left: 4px solid transparent; transition: box-shadow .15s; }
+.cap-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.09)!important; }
+.cap-pendente   { border-left-color: #f59e0b; }
+.cap-confirmado { border-left-color: #10b981; }
+.cap-cancelado  { border-left-color: #6b7280; opacity:.7; }
+.dados-table td:first-child { color:#6b7280; width:40%; font-size:.78rem; padding:.15rem .4rem; }
+.dados-table td:last-child  { font-weight:600; font-size:.8rem; padding:.15rem .4rem; }
+.st-badge-pendente   { background:#fef3c7;color:#92400e;border:1px solid #fde68a; }
+.st-badge-confirmado { background:#d1fae5;color:#065f46;border:1px solid #6ee7b7; }
+.st-badge-cancelado  { background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb; }
+</style>
+
+<div class="container-fluid py-3 px-3 px-md-4">
+
+  {# ── Cabeçalho ── #}
+  <div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+    <a href="{% url 'agente_configure' agente.pk %}" class="btn btn-sm btn-outline-secondary">
+      <i class="fas fa-arrow-left"></i>
+    </a>
+    <div>
+      <h4 class="fw-bold mb-0"><i class="fas fa-shopping-cart me-2 text-success"></i>Pedidos/Capturas — {{ agente.nome }}</h4>
+      <small class="text-muted">{{ capturas.count }} registro(s)</small>
+    </div>
+    <div class="ms-auto d-flex gap-2 align-items-center">
+      <a href="?status=" class="btn btn-sm {% if not status_filtro %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Todos</a>
+      <a href="?status=pendente"    class="btn btn-sm {% if status_filtro == 'pendente' %}btn-warning{% else %}btn-outline-warning{% endif %}">Pendentes</a>
+      <a href="?status=confirmado"  class="btn btn-sm {% if status_filtro == 'confirmado' %}btn-success{% else %}btn-outline-success{% endif %}">Confirmados</a>
+      <a href="?status=cancelado"   class="btn btn-sm {% if status_filtro == 'cancelado' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Cancelados</a>
+    </div>
+  </div>
+
+  {% if capturas %}
+  <div class="row g-3">
+    {% for cap in capturas %}
+    <div class="col-12 col-md-6 col-xl-4">
+      <div class="card border-0 shadow-sm cap-card cap-{{ cap.status }}">
+        <div class="card-header d-flex justify-content-between align-items-center py-2">
+          <div>
+            <span class="fw-semibold">#{{ cap.pk }}</span>
+            {% if cap.conversa and cap.conversa.nome_visitante %}
+              &ndash; <span class="text-muted">{{ cap.conversa.nome_visitante }}</span>
+            {% endif %}
+            {% if cap.acao %}
+              <span class="badge bg-light text-muted border ms-1" style="font-size:.68rem">{{ cap.acao.nome }}</span>
+            {% endif %}
+          </div>
+          <small class="text-muted">{{ cap.criado_em|date:"d/m/Y H:i" }}</small>
+        </div>
+
+        <div class="card-body py-2 px-3">
+          {# Dados estruturados #}
+          <table class="table table-sm mb-0 dados-table">
+            {% for key, val in cap.dados.items %}
+            <tr>
+              <td>{{ key }}</td>
+              <td>{{ val }}</td>
+            </tr>
+            {% endfor %}
+          </table>
+
+          {# Webhook #}
+          {% if cap.webhook_enviado %}
+          <div class="mt-1 small">
+            <span class="badge bg-success-subtle text-success border border-success-subtle">
+              <i class="fas fa-paper-plane me-1"></i>Webhook enviado
+            </span>
+          </div>
+          {% elif cap.acao and cap.acao.url %}
+          <div class="mt-1 small text-danger">
+            <i class="fas fa-exclamation-triangle me-1"></i>Webhook falhou
+            {% if cap.webhook_resposta %}
+            <span class="d-block font-monospace text-muted" style="font-size:.7rem">{{ cap.webhook_resposta|truncatechars:120 }}</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="card-footer bg-transparent d-flex align-items-center justify-content-between gap-2 py-2">
+          {# Badge #}
+          <span class="badge rounded-pill st-badge-{{ cap.status }}">
+            {% if cap.status == 'pendente' %}<i class="fas fa-clock me-1"></i>{% endif %}
+            {% if cap.status == 'confirmado' %}<i class="fas fa-check me-1"></i>{% endif %}
+            {% if cap.status == 'cancelado' %}<i class="fas fa-times me-1"></i>{% endif %}
+            {{ cap.get_status_display }}
+          </span>
+          {# Ações de status #}
+          <div class="d-flex gap-1">
+            {% if cap.status != 'confirmado' %}
+            <form method="post" action="{% url 'agente_captura_status' cap.pk %}">
+              {% csrf_token %}<input type="hidden" name="status" value="confirmado">
+              <button class="btn btn-xs btn-outline-success" title="Confirmar">
+                <i class="fas fa-check"></i>
+              </button>
+            </form>
+            {% endif %}
+            {% if cap.status != 'cancelado' %}
+            <form method="post" action="{% url 'agente_captura_status' cap.pk %}">
+              {% csrf_token %}<input type="hidden" name="status" value="cancelado">
+              <button class="btn btn-xs btn-outline-danger" title="Cancelar" onclick="return confirm('Cancelar este pedido?')">
+                <i class="fas fa-times"></i>
+              </button>
+            </form>
+            {% endif %}
+            {% if cap.status != 'pendente' %}
+            <form method="post" action="{% url 'agente_captura_status' cap.pk %}">
+              {% csrf_token %}<input type="hidden" name="status" value="pendente">
+              <button class="btn btn-xs btn-outline-warning" title="Reabrir como pendente">
+                <i class="fas fa-undo"></i>
+              </button>
+            </form>
+            {% endif %}
+            {% if cap.conversa %}
+            <a href="{% url 'agente_historico' agente.pk %}" class="btn btn-xs btn-outline-secondary" title="Ver conversa">
+              <i class="fas fa-comments"></i>
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="card border-0 shadow-sm text-center py-5">
+    <div class="card-body">
+      <i class="fas fa-shopping-cart fs-1 text-muted opacity-25 mb-3 d-block"></i>
+      <p class="text-muted mb-1">Nenhum pedido/captura registrado ainda.</p>
+      <p class="text-muted small">Configure uma ação do tipo <strong>Capturar pedido/dados</strong> no agente e instrua a IA a usá-la quando o cliente finalizar o pedido.</p>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

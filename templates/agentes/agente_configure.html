@@ -23,6 +23,9 @@
       <a href="{% url 'agente_historico' agente.pk %}" class="btn btn-sm btn-outline-secondary">
         <i class="fas fa-history me-1"></i>Histórico
       </a>
+      <a href="{% url 'agente_capturas' agente.pk %}" class="btn btn-sm btn-outline-success">
+        <i class="fas fa-shopping-cart me-1"></i>Pedidos
+      </a>
     </div>
     {% endif %}
   </div>

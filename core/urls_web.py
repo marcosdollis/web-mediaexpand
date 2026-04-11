@@ -138,6 +138,8 @@ urlpatterns = [
     path('agentes/<int:pk>/configurar/', views.agente_configure_view, name='agente_configure'),
     path('agentes/<int:pk>/delete/', views.agente_delete_view, name='agente_delete'),
     path('agentes/<int:pk>/historico/', views.agente_historico_view, name='agente_historico'),
+    path('agentes/<int:pk>/capturas/', views.agente_capturas_view, name='agente_capturas'),
+    path('agentes/capturas/<int:pk>/status/', views.agente_captura_status_view, name='agente_captura_status'),
     # Ações do agente (function calling)
     path('agentes/<int:agente_pk>/acoes/criar/', views.agente_acao_create_view, name='agente_acao_create'),
     path('agentes/acoes/<int:pk>/editar/', views.agente_acao_edit_view, name='agente_acao_edit'),

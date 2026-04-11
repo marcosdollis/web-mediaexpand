@@ -2,6 +2,21 @@
 <div class="row g-3">
 
   <div class="col-md-6">
+    <label class="form-label fw-semibold">Tipo de Ação <span class="text-danger">*</span></label>
+    <select name="tipo" class="form-select" onchange="toggleAcaoTipo(this, '{{ acao.pk|default:'new' }}')">
+      <option value="http"     {% if not acao or acao.tipo == 'http'     %}selected{% endif %}>Chamada HTTP (API externa)</option>
+      <option value="capturar" {% if acao and acao.tipo == 'capturar' %}selected{% endif %}>Capturar pedido/dados</option>
+    </select>
+    <div class="form-text" id="tipo-help-{{ acao.pk|default:'new' }}">
+      {% if acao and acao.tipo == 'capturar' %}
+      Dados salvos no banco + webhook opcional. Use para pedidos, formulários, cotações.
+      {% else %}
+      A IA consulta uma API externa e usa a resposta para responder ao usuário.
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-md-6">
     <label class="form-label fw-semibold">Nome (identificador) <span class="text-danger">*</span></label>
     <input type="text" name="nome" class="form-control font-monospace"
            value="{{ acao.nome|default:'' }}" maxlength="60" required
@@ -11,7 +26,7 @@
 
   <div class="col-md-3">
     <label class="form-label fw-semibold">Método</label>
-    <select name="metodo" class="form-select">
+    <select name="metodo" class="form-select" id="metodo-select-{{ acao.pk|default:'new' }}">
       <option value="GET"    {% if acao and acao.metodo == 'GET'    %}selected{% endif %}>GET</option>
       <option value="POST"   {% if acao and acao.metodo == 'POST'   %}selected{% endif %}>POST</option>
       <option value="PUT"    {% if acao and acao.metodo == 'PUT'    %}selected{% endif %}>PUT</option>
@@ -31,12 +46,12 @@
     <div class="form-text">A IA usa este texto para decidir quando chamar esta ação. Seja específico.</div>
   </div>
 
-  <div class="col-12">
-    <label class="form-label fw-semibold">URL <span class="text-danger">*</span></label>
-    <input type="url" name="url" class="form-control font-monospace" required
+  <div class="col-12" id="url-row-{{ acao.pk|default:'new' }}">
+    <label class="form-label fw-semibold" id="url-label-{{ acao.pk|default:'new' }}">URL <span id="url-req-{{ acao.pk|default:'new' }}" class="text-danger">*</span></label>
+    <input type="url" name="url" class="form-control font-monospace"
            value="{{ acao.url|default:'' }}"
-           placeholder="https://api.exemplo.com/salas/{data}">
-    <div class="form-text">Use <code>{nome_parametro}</code> como placeholder. Ex: <code>https://api.exemplo.com/agenda/{data}</code></div>
+           placeholder="https://api.exemplo.com/salas/{data}" id="url-inp-{{ acao.pk|default:'new' }}">
+    <div class="form-text" id="url-help-{{ acao.pk|default:'new' }}">Use <code>{nome_parametro}</code> como placeholder. Para tipo <em>Capturar</em>, este campo é o webhook opcional.</div>
   </div>
 
   <div class="col-12">
@@ -89,3 +104,32 @@
   </div>
 
 </div>
+
+<script>
+(function(){
+  const id = '{{ acao.pk|default:"new" }}';
+  function toggleAcaoTipo(sel, _id) {
+    const cap = sel.value === 'capturar';
+    const urlRow  = document.getElementById('url-row-' + _id);
+    const urlLbl  = document.getElementById('url-label-' + _id);
+    const urlHelp = document.getElementById('url-help-' + _id);
+    const tipHelp = document.getElementById('tipo-help-' + _id);
+    const metSel  = document.getElementById('metodo-select-' + _id);
+    if (cap) {
+      if (urlLbl)  urlLbl.innerHTML = 'URL Webhook <small class="text-muted fw-normal">(opcional)</small>';
+      if (urlHelp) urlHelp.textContent = 'Se preenchido, os dados capturados serão enviados via POST para esta URL.';
+      if (tipHelp) tipHelp.textContent = 'Dados salvos no banco + webhook opcional. Use para pedidos, formulários, cotações.';
+      if (metSel)  { metSel.value = 'POST'; metSel.closest('.col-md-3').style.display = 'none'; }
+    } else {
+      if (urlLbl)  urlLbl.innerHTML = 'URL <span class="text-danger">*</span>';
+      if (urlHelp) urlHelp.textContent = 'Use {nome_parametro} como placeholder.';
+      if (tipHelp) tipHelp.textContent = 'A IA consulta uma API externa e usa a resposta para responder ao usuário.';
+      if (metSel)  metSel.closest('.col-md-3').style.display = '';
+    }
+  }
+  // Run on load
+  const sel = document.querySelector('[name="tipo"]');
+  if (sel) toggleAcaoTipo(sel, id);
+  window.toggleAcaoTipo = toggleAcaoTipo;
+})();
+</script></div>

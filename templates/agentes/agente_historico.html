@@ -30,6 +30,9 @@
       <small class="text-muted">{{ conversas.count }} conversa(s) registrada(s)</small>
     </div>
     <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
+      <a href="{% url 'agente_capturas' agente.pk %}" class="btn btn-sm btn-outline-success">
+        <i class="fas fa-shopping-cart me-1"></i>Pedidos/Capturas
+      </a>
       <span class="badge bg-danger-subtle text-danger border border-danger-subtle"><i class="fas fa-fire me-1"></i>Quente = intenção de compra</span>
       <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="fas fa-thermometer-half me-1"></i>Morno = interesse</span>
       <span class="badge bg-info-subtle text-info border border-info-subtle"><i class="fas fa-snowflake me-1"></i>Frio = curiosidade</span>
@@ -107,6 +110,34 @@
             {% endfor %}
           </div>
         </div>
+
+        {# ── Capturas inline ── #}
+        {% with caps=conversa.capturas.all %}
+        {% if caps %}
+        <div class="px-3 py-2 border-top" style="background:#f0fdf4;font-size:.78rem">
+          <div class="fw-semibold text-success small mb-1"><i class="fas fa-shopping-cart me-1"></i>Pedidos capturados</div>
+          {% for cap in caps %}
+          <div class="d-flex align-items-start gap-2 mb-1 flex-wrap">
+            <span class="badge rounded-pill {% if cap.status == 'confirmado' %}bg-success{% elif cap.status == 'cancelado' %}bg-secondary{% else %}bg-warning text-dark{% endif %}">
+              #{{ cap.pk }} {{ cap.get_status_display }}
+            </span>
+            <span class="me-auto text-muted">
+              {% for key, val in cap.dados.items %}<span class="text-dark fw-semibold">{{ val }}</span> <span class="text-muted">({{ key }})</span>{% if not forloop.last %}&ensp;&middot;&ensp;{% endif %}{% endfor %}
+            </span>
+            <form method="post" action="{% url 'agente_captura_status' cap.pk %}" class="d-flex gap-1">
+              {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+              <select name="status" class="form-select form-select-sm" style="font-size:.7rem;padding:.1rem .35rem;height:auto">
+                <option value="pendente"   {% if cap.status == 'pendente'   %}selected{% endif %}>Pendente</option>
+                <option value="confirmado" {% if cap.status == 'confirmado' %}selected{% endif %}>Confirmado</option>
+                <option value="cancelado"  {% if cap.status == 'cancelado'  %}selected{% endif %}>Cancelado</option>
+              </select>
+              <button type="submit" class="btn btn-xs btn-outline-secondary">OK</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
 
         {# ── Footer: ações ── #}
         <div class="card-footer bg-transparent border-top-light py-2">
