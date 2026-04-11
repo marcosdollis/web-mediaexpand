@@ -362,11 +362,10 @@
                   <td class="text-end pe-3">
                     <button type="button" class="btn btn-xs btn-outline-secondary me-1"
                       data-bs-toggle="modal" data-bs-target="#modalEditAcao{{ acao.pk }}"><i class="fas fa-pen"></i></button>
-                    <form method="post" action="{% url 'agente_acao_delete' acao.pk %}" class="d-inline"
-                          onsubmit="return confirm('Remover ação {{ acao.nome }}?')">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-xs btn-outline-danger"><i class="fas fa-trash"></i></button>
-                    </form>
+                    <button type="button" class="btn btn-xs btn-outline-danger"
+                      onclick="confirmarDeleteAcao('{% url 'agente_acao_delete' acao.pk %}', '{{ acao.nome|escapejs }}')">
+                      <i class="fas fa-trash"></i>
+                    </button>
                   </td>
                 </tr>
                 {% endfor %}
@@ -377,48 +376,6 @@
             <p class="text-muted small px-3 py-2">Nenhuma ação configurada ainda.</p>
             {% endif %}
           </div>
-        </div>
-      </div>
-
-      {# Modais de edição de ações #}
-      {% for acao in acoes %}
-      <div class="modal fade" id="modalEditAcao{{ acao.pk }}" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-          <form method="post" action="{% url 'agente_acao_edit' acao.pk %}">
-            {% csrf_token %}
-            <div class="modal-content">
-              <div class="modal-header"><h5 class="modal-title">Editar Ação &ldquo;{{ acao.nome }}&rdquo;</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-              <div class="modal-body">
-                {% include 'agentes/_acao_form_fields.html' with acao=acao %}
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Salvar</button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-      {% endfor %}
-
-      {# Modal Nova Ação #}
-      <div class="modal fade" id="modalNovaAcao" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-          <form method="post" action="{% url 'agente_acao_create' agente.pk %}">
-            {% csrf_token %}
-            <div class="modal-content">
-              <div class="modal-header"><h5 class="modal-title">Nova Ação</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-              <div class="modal-body">
-                {% include 'agentes/_acao_form_fields.html' with acao=None %}
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Criar</button>
-              </div>
-            </div>
-          </form>
         </div>
       </div>
       {% endif %}
@@ -447,7 +404,78 @@
   </form>
 </div>
 
+{# ── Modais de ações (FORA do form principal para evitar forms aninhados) ──────── #}
+{% if agente %}
+{% for acao in acoes %}
+<div class="modal fade" id="modalEditAcao{{ acao.pk }}" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <form method="post" action="{% url 'agente_acao_edit' acao.pk %}">
+      {% csrf_token %}
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Editar Ação &ldquo;{{ acao.nome }}&rdquo;</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          {% include 'agentes/_acao_form_fields.html' with acao=acao %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+<div class="modal fade" id="modalNovaAcao" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <form method="post" action="{% url 'agente_acao_create' agente.pk %}">
+      {% csrf_token %}
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Nova Ação</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          {% include 'agentes/_acao_form_fields.html' with acao=None %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Criar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{# Modal compartilhado de exclusão de ação #}
+{% if agente %}
+<div class="modal fade" id="modalDeleteAcao" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <form method="post" id="formDeleteAcao">
+      {% csrf_token %}
+      <div class="modal-content">
+        <div class="modal-header"><h6 class="modal-title">Confirmar exclusão</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <p class="mb-0">Remover a ação <strong id="deleteAcaoNome"></strong>?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger btn-sm">Remover</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 <script>
+function confirmarDeleteAcao(url, nome) {
+  document.getElementById('formDeleteAcao').action = url;
+  document.getElementById('deleteAcaoNome').textContent = nome;
+  new bootstrap.Modal(document.getElementById('modalDeleteAcao')).show();
+}
+
 const PROVIDERS = {
   'gpt': {label:'OpenAI', cls:'bg-success'},
   'claude': {label:'Anthropic', cls:'bg-warning text-dark'},
