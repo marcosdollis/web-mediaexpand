@@ -1,0 +1,91 @@
+{# Campos compartilhados entre "Nova Ação" e "Editar Ação" #}
+<div class="row g-3">
+
+  <div class="col-md-6">
+    <label class="form-label fw-semibold">Nome (identificador) <span class="text-danger">*</span></label>
+    <input type="text" name="nome" class="form-control font-monospace"
+           value="{{ acao.nome|default:'' }}" maxlength="60" required
+           placeholder="consultar_disponibilidade">
+    <div class="form-text">Use apenas letras, números e underscores. Sem espaços.</div>
+  </div>
+
+  <div class="col-md-3">
+    <label class="form-label fw-semibold">Método</label>
+    <select name="metodo" class="form-select">
+      <option value="GET"    {% if acao and acao.metodo == 'GET'    %}selected{% endif %}>GET</option>
+      <option value="POST"   {% if acao and acao.metodo == 'POST'   %}selected{% endif %}>POST</option>
+      <option value="PUT"    {% if acao and acao.metodo == 'PUT'    %}selected{% endif %}>PUT</option>
+      <option value="DELETE" {% if acao and acao.metodo == 'DELETE' %}selected{% endif %}>DELETE</option>
+    </select>
+  </div>
+
+  <div class="col-md-3">
+    <label class="form-label fw-semibold">Ordem</label>
+    <input type="number" name="ordem" class="form-control" value="{{ acao.ordem|default:0 }}" min="0">
+  </div>
+
+  <div class="col-12">
+    <label class="form-label fw-semibold">Descrição <span class="text-danger">*</span></label>
+    <textarea name="descricao" class="form-control" rows="2" required
+              placeholder="Consulta a disponibilidade de salas para uma data específica. Use quando o usuário perguntar sobre disponibilidade ou quiser agendar.">{{ acao.descricao|default:'' }}</textarea>
+    <div class="form-text">A IA usa este texto para decidir quando chamar esta ação. Seja específico.</div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label fw-semibold">URL <span class="text-danger">*</span></label>
+    <input type="url" name="url" class="form-control font-monospace" required
+           value="{{ acao.url|default:'' }}"
+           placeholder="https://api.exemplo.com/salas/{data}">
+    <div class="form-text">Use <code>{nome_parametro}</code> como placeholder. Ex: <code>https://api.exemplo.com/agenda/{data}</code></div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label fw-semibold">Headers JSON</label>
+    <textarea name="headers_json" class="form-control font-monospace" rows="3"
+              placeholder='{"Authorization": "Bearer TOKEN", "Content-Type": "application/json"}'>{{ acao.headers_json|default:'{}' }}</textarea>
+    <div class="form-text">Cabeçalhos HTTP como JSON. Inclua tokens de autenticação aqui.</div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label fw-semibold">Corpo (template JSON) <small class="text-muted">– opcional para POST/PUT</small></label>
+    <textarea name="corpo_template" class="form-control font-monospace" rows="3"
+              placeholder='{"data": "{data}", "sala": "{sala}"}'>{{ acao.corpo_template|default:'' }}</textarea>
+    <div class="form-text">Template do body. Use <code>{param}</code> para substituir com argumentos da IA.</div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label fw-semibold">Parâmetros JSON</label>
+    <textarea name="parametros_json" class="form-control font-monospace" rows="4"
+              placeholder='[{"nome": "data", "tipo": "string", "descricao": "Data no formato YYYY-MM-DD", "obrigatorio": true}]'>{{ acao.parametros_json|default:'[]' }}</textarea>
+    <div class="form-text">
+      Lista de parâmetros que a IA pode passar. Cada item: <code>{"nome", "tipo", "descricao", "obrigatorio"}</code>.
+      Tipos aceitos: <code>string</code>, <code>number</code>, <code>boolean</code>.
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="form-check form-switch mt-2">
+      <input class="form-check-input" type="checkbox" name="exibir_botao" id="exibir_botao_{{ acao.pk|default:'new' }}"
+             {% if acao and acao.exibir_botao %}checked{% endif %}
+             onchange="document.getElementById('texto_botao_row_{{ acao.pk|default:'new' }}').style.display=this.checked?'':'none'">
+      <label class="form-check-label" for="exibir_botao_{{ acao.pk|default:'new' }}">Exibir botão no chat</label>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="form-check form-switch mt-2">
+      <input class="form-check-input" type="checkbox" name="ativo" id="ativo_acao_{{ acao.pk|default:'new' }}"
+             {% if acao == None or acao.ativo %}checked{% endif %}>
+      <label class="form-check-label" for="ativo_acao_{{ acao.pk|default:'new' }}">Ação ativa</label>
+    </div>
+  </div>
+
+  <div class="col-12" id="texto_botao_row_{{ acao.pk|default:'new' }}"
+       style="display:{% if acao and acao.exibir_botao %}''{% else %}none{% endif %}">
+    <label class="form-label fw-semibold">Texto do botão</label>
+    <input type="text" name="texto_botao" class="form-control"
+           value="{{ acao.texto_botao|default:'' }}" maxlength="80"
+           placeholder="Ver disponibilidade">
+  </div>
+
+</div>

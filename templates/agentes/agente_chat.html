@@ -166,7 +166,29 @@
     }
     .send-btn:disabled { opacity: .5; cursor: default; }
 
-    /* â”€â”€ Escalada button â”€â”€ */
+    /* ── Action chips ── */
+    .action-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+      padding: .5rem 1rem .25rem;
+      background: #fff;
+      border-top: 1px solid #e9ecef;
+      flex-shrink: 0;
+    }
+    .chip-btn {
+      background: #f0f2ff;
+      border: 1px solid var(--cor);
+      color: var(--cor);
+      border-radius: 2rem;
+      padding: .25rem .85rem;
+      font-size: .8rem;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .chip-btn:hover { background: var(--cor); color: #fff; }
+
+    /* ── Escalada button ── */
     .whatsapp-btn {
       display: flex; align-items: center; gap: .4rem;
       background: #25d366; color: #fff; border: none; border-radius: 1.5rem;
@@ -263,6 +285,17 @@
 
   <!-- Messages area (hidden while coleta is shown) -->
   <div id="msgs" {% if agente.coleta_contato %}style="display:none"{% endif %}></div>
+
+  <!-- Action buttons (quick-fire suggestions) -->
+  {% if acoes_botoes %}
+  <div class="action-chips" id="action-chips" {% if agente.coleta_contato %}style="display:none"{% endif %}>
+    {% for acao in acoes_botoes %}
+    <button type="button" class="chip-btn" onclick="sugerirAcao('{{ acao.texto_botao|escapejs }}')">
+      {{ acao.texto_botao }}
+    </button>
+    {% endfor %}
+  </div>
+  {% endif %}
 
   <!-- Input bar (hidden while coleta is shown) -->
   <div class="chat-input" id="input-bar" {% if agente.coleta_contato %}style="display:none"{% endif %}>
@@ -537,6 +570,19 @@ async function iniciarChat() {
 {% endif %}
 
 // â”€â”€ Enviar mensagem â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+// ── Action chips ─────────────────────────────────────────────────────────────
+function sugerirAcao(texto) {
+  const inp = document.getElementById('msgInput');
+  if (!inp) return;
+  inp.value = texto;
+  inp.dispatchEvent(new Event('input'));  // trigger autoResize + enable send btn
+  inp.focus();
+  // Hide chips after first use to save space
+  const chips = document.getElementById('action-chips');
+  if (chips) chips.style.display = 'none';
+  enviar();
+}
 
 async function enviar() {
   const inp  = document.getElementById('msgInput');

@@ -93,6 +93,13 @@
                   <label class="form-check-label" for="ativo">Agente <strong>ativo</strong></label>
                 </div>
               </div>
+              <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="habilitar_qualificacao" id="habilitar_qualificacao"
+                         {% if agente and agente.habilitar_qualificacao %}checked{% endif %}>
+                  <label class="form-check-label" for="habilitar_qualificacao">Classificar leads <small class="text-muted">(quente/morno/frio)</small></label>
+                </div>
+              </div>
               {% if franchisees %}
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Franqueado</label>
@@ -316,6 +323,99 @@
               Recomendado: mínimo 380×560px.
             </div>
           </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {# ── Ações do Agente (function calling) — só quando agente já existe ────────── #}
+      {% if agente %}
+      <div class="col-12">
+        <div class="card shadow-sm border-0">
+          <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-bolt me-2 text-warning"></i>Ações do Agente <small class="text-muted fw-normal">function calling</small></span>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalNovaAcao">
+              <i class="fas fa-plus me-1"></i>Nova Ação
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <p class="text-muted small px-3 pt-3 mb-0">
+              Ações permitem que a IA faça chamadas a APIs externas durante a conversa.
+              Configure a URL, método HTTP, headers e parâmetros &mdash; a IA decide quando e como usar cada ação com base na descrição.
+            </p>
+            {% if acoes %}
+            <div class="table-responsive mt-3">
+              <table class="table table-sm align-middle mb-0">
+                <thead class="table-light"><tr>
+                  <th>Nome</th><th>Método</th><th>URL</th><th>Botão</th><th>Ativo</th><th></th>
+                </tr></thead>
+                <tbody>
+                {% for acao in acoes %}
+                <tr>
+                  <td><code>{{ acao.nome }}</code><br><small class="text-muted">{{ acao.descricao|truncatechars:60 }}</small></td>
+                  <td><span class="badge bg-secondary">{{ acao.metodo }}</span></td>
+                  <td class="font-monospace small text-truncate" style="max-width:180px">{{ acao.url }}</td>
+                  <td>{% if acao.exibir_botao %}<span class="badge bg-primary">{{ acao.texto_botao|truncatechars:20 }}</span>{% else %}<span class="text-muted">–</span>{% endif %}</td>
+                  <td>{% if acao.ativo %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-secondary">Não</span>{% endif %}</td>
+                  <td class="text-end pe-3">
+                    <button type="button" class="btn btn-xs btn-outline-secondary me-1"
+                      data-bs-toggle="modal" data-bs-target="#modalEditAcao{{ acao.pk }}"><i class="fas fa-pen"></i></button>
+                    <form method="post" action="{% url 'agente_acao_delete' acao.pk %}" class="d-inline"
+                          onsubmit="return confirm('Remover ação {{ acao.nome }}?')">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-xs btn-outline-danger"><i class="fas fa-trash"></i></button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <p class="text-muted small px-3 py-2">Nenhuma ação configurada ainda.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {# Modais de edição de ações #}
+      {% for acao in acoes %}
+      <div class="modal fade" id="modalEditAcao{{ acao.pk }}" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <form method="post" action="{% url 'agente_acao_edit' acao.pk %}">
+            {% csrf_token %}
+            <div class="modal-content">
+              <div class="modal-header"><h5 class="modal-title">Editar Ação &ldquo;{{ acao.nome }}&rdquo;</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+              <div class="modal-body">
+                {% include 'agentes/_acao_form_fields.html' with acao=acao %}
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+
+      {# Modal Nova Ação #}
+      <div class="modal fade" id="modalNovaAcao" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <form method="post" action="{% url 'agente_acao_create' agente.pk %}">
+            {% csrf_token %}
+            <div class="modal-content">
+              <div class="modal-header"><h5 class="modal-title">Nova Ação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+              <div class="modal-body">
+                {% include 'agentes/_acao_form_fields.html' with acao=None %}
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Criar</button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
       {% endif %}

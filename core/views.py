@@ -6911,6 +6911,7 @@ def agente_configure_view(request, pk):
         agente.limite_mensagens   = int(request.POST.get('limite_mensagens', 0))
         agente.whatsapp_escalada  = request.POST.get('whatsapp_escalada', '').strip()
         agente.mensagem_escalada  = request.POST.get('mensagem_escalada', '').strip()
+        agente.habilitar_qualificacao = 'habilitar_qualificacao' in request.POST
         agente.ativo              = 'ativo' in request.POST
         if 'avatar' in request.FILES:
             agente.avatar = request.FILES['avatar']
@@ -6929,6 +6930,7 @@ def agente_configure_view(request, pk):
         'embed_url': request.build_absolute_uri(
             reverse('agente_chat', kwargs={'public_id': agente.public_id}) + '?embed=1'
         ),
+        'acoes': agente.acoes.order_by('ordem', 'nome'),
     })
 
 
@@ -6957,28 +6959,237 @@ def agente_historico_view(request, pk):
     })
 
 
+# ── AgenteIAAcao CRUD ─────────────────────────────────────────────────────────
+
+@login_required
+def agente_acao_create_view(request, agente_pk):
+    """Cria uma nova ação para o agente."""
+    import json as _json
+    agente, redir = _get_agente_or_403(request, agente_pk)
+    if redir:
+        return redir
+    if request.method == 'POST':
+        from .models import AgenteIAAcao
+        acao = AgenteIAAcao(agente=agente)
+        acao.nome            = request.POST.get('nome', '').strip()
+        acao.descricao       = request.POST.get('descricao', '').strip()
+        acao.url             = request.POST.get('url', '').strip()
+        acao.metodo          = request.POST.get('metodo', 'GET')
+        acao.headers_json    = request.POST.get('headers_json', '{}').strip() or '{}'
+        acao.corpo_template  = request.POST.get('corpo_template', '').strip()
+        acao.parametros_json = request.POST.get('parametros_json', '[]').strip() or '[]'
+        acao.exibir_botao    = 'exibir_botao' in request.POST
+        acao.texto_botao     = request.POST.get('texto_botao', '').strip()
+        acao.ativo           = 'ativo' in request.POST
+        try:
+            acao.ordem = int(request.POST.get('ordem', 0))
+        except ValueError:
+            acao.ordem = 0
+        # Valida JSON simples
+        try:
+            _json.loads(acao.headers_json)
+            _json.loads(acao.parametros_json)
+        except Exception as e:
+            messages.error(request, f'JSON inválido: {e}')
+            return redirect('agente_configure', pk=agente.pk)
+        acao.save()
+        messages.success(request, f'Ação "{acao.nome}" criada.')
+    return redirect('agente_configure', pk=agente.pk)
+
+
+@login_required
+def agente_acao_edit_view(request, pk):
+    """Edita uma ação existente."""
+    import json as _json
+    from .models import AgenteIAAcao
+    acao = get_object_or_404(AgenteIAAcao, pk=pk)
+    agente, redir = _get_agente_or_403(request, acao.agente_id)
+    if redir:
+        return redir
+    if request.method == 'POST':
+        acao.nome            = request.POST.get('nome', acao.nome).strip()
+        acao.descricao       = request.POST.get('descricao', '').strip()
+        acao.url             = request.POST.get('url', '').strip()
+        acao.metodo          = request.POST.get('metodo', acao.metodo)
+        acao.headers_json    = request.POST.get('headers_json', '{}').strip() or '{}'
+        acao.corpo_template  = request.POST.get('corpo_template', '').strip()
+        acao.parametros_json = request.POST.get('parametros_json', '[]').strip() or '[]'
+        acao.exibir_botao    = 'exibir_botao' in request.POST
+        acao.texto_botao     = request.POST.get('texto_botao', '').strip()
+        acao.ativo           = 'ativo' in request.POST
+        try:
+            acao.ordem = int(request.POST.get('ordem', 0))
+        except ValueError:
+            acao.ordem = 0
+        try:
+            _json.loads(acao.headers_json)
+            _json.loads(acao.parametros_json)
+        except Exception as e:
+            messages.error(request, f'JSON inválido: {e}')
+            return redirect('agente_configure', pk=acao.agente_id)
+        acao.save()
+        messages.success(request, f'Ação "{acao.nome}" atualizada.')
+    return redirect('agente_configure', pk=acao.agente_id)
+
+
+@login_required
+def agente_acao_delete_view(request, pk):
+    """Remove uma ação."""
+    from .models import AgenteIAAcao
+    acao = get_object_or_404(AgenteIAAcao, pk=pk)
+    agente_pk = acao.agente_id
+    agente, redir = _get_agente_or_403(request, agente_pk)
+    if redir:
+        return redir
+    if request.method == 'POST':
+        nome = acao.nome
+        acao.delete()
+        messages.success(request, f'Ação "{nome}" removida.')
+    return redirect('agente_configure', pk=agente_pk)
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _executar_acao(acao, argumentos: dict) -> str:
+    """Executa a chamada HTTP de uma AgenteIAAcao e retorna o corpo da resposta (até 3000 chars)."""
+    import json as _json
+    import requests as _req
+
+    # Substitui placeholders na URL
+    url = acao.url
+    for k, v in argumentos.items():
+        url = url.replace(f'{{{k}}}', str(v))
+
+    headers = acao.headers()
+
+    # Monta corpo se houver template
+    corpo = None
+    if acao.corpo_template:
+        corpo_str = acao.corpo_template
+        for k, v in argumentos.items():
+            corpo_str = corpo_str.replace(f'{{{k}}}', str(v))
+        try:
+            corpo = _json.loads(corpo_str)
+        except Exception:
+            corpo = corpo_str  # envia como string se não for JSON válido
+
+    try:
+        resp = _req.request(
+            acao.metodo, url, headers=headers,
+            json=corpo if isinstance(corpo, dict) else None,
+            data=corpo if isinstance(corpo, str) else None,
+            timeout=10,
+        )
+        return resp.text[:3000]
+    except Exception as e:
+        return f'Erro ao executar ação: {str(e)}'
+
+
+def _construir_tools_openai(acoes):
+    """Constrói lista de tools no formato OpenAI a partir de AgenteIAAcao."""
+    tools = []
+    for acao in acoes:
+        params = acao.parametros()
+        properties = {}
+        required = []
+        for p in params:
+            prop = {'type': p.get('tipo', 'string')}
+            if p.get('descricao'):
+                prop['description'] = p['descricao']
+            properties[p['nome']] = prop
+            if p.get('obrigatorio'):
+                required.append(p['nome'])
+        tools.append({
+            'type': 'function',
+            'function': {
+                'name': acao.nome,
+                'description': acao.descricao,
+                'parameters': {
+                    'type': 'object',
+                    'properties': properties,
+                    'required': required,
+                },
+            },
+        })
+    return tools
+
+
+def _construir_tools_anthropic(acoes):
+    """Constrói lista de tools no formato Anthropic a partir de AgenteIAAcao."""
+    tools = []
+    for acao in acoes:
+        params = acao.parametros()
+        properties = {}
+        required = []
+        for p in params:
+            prop = {'type': p.get('tipo', 'string')}
+            if p.get('descricao'):
+                prop['description'] = p['descricao']
+            properties[p['nome']] = prop
+            if p.get('obrigatorio'):
+                required.append(p['nome'])
+        tools.append({
+            'name': acao.nome,
+            'description': acao.descricao,
+            'input_schema': {
+                'type': 'object',
+                'properties': properties,
+                'required': required,
+            },
+        })
+    return tools
+
+
+def _construir_tools_gemini(acoes):
+    """Constrói FunctionDeclarations para Gemini a partir de AgenteIAAcao."""
+    try:
+        import google.generativeai as genai
+        from google.generativeai.types import FunctionDeclaration, Tool
+    except ImportError:
+        return None
+
+    declarations = []
+    for acao in acoes:
+        params = acao.parametros()
+        properties = {}
+        required = []
+        for p in params:
+            prop_schema = {'type': p.get('tipo', 'string').upper()}
+            if p.get('descricao'):
+                prop_schema['description'] = p['descricao']
+            properties[p['nome']] = prop_schema
+            if p.get('obrigatorio'):
+                required.append(p['nome'])
+        declarations.append(FunctionDeclaration(
+            name=acao.nome,
+            description=acao.descricao,
+            parameters={'type': 'OBJECT', 'properties': properties, 'required': required},
+        ))
+    return [Tool(function_declarations=declarations)] if declarations else None
+
 
 def _chamar_ia(agente, historico_msgs):
     """
     Chama o provedor de IA e retorna o texto da resposta.
     `historico_msgs` é lista de dicts [{role, content}, …].
+    Suporta function calling via AgenteIAAcao quando o agente tem ações ativas.
     Raises: Exception com mensagem amigável em caso de erro.
     """
+    import json as _json
+
     sistema_completo = agente.prompt_sistema
     if agente.base_conhecimento:
         try:
             with agente.base_conhecimento.open('r') as f:
-                conteudo_base = f.read(60000)  # lê até ~60 KB
+                conteudo_base = f.read(60000)
             sistema_completo += f'\n\nBASE DE CONHECIMENTO (use estas informações para responder):\n{conteudo_base}'
         except Exception:
-            pass  # se o arquivo falhar, continua sem ele
+            pass
     if agente.restricoes:
         sistema_completo += f'\n\nRESTRIÇÕES IMPORTANTES:\n{agente.restricoes}'
     if agente.nome_empresa:
         sistema_completo = f'Você é um assistente da empresa "{agente.nome_empresa}".\n\n' + sistema_completo
 
-    # Instrução de brevidade proporcional ao limite de tokens configurado
     if agente.max_tokens <= 150:
         brevidade = 'IMPORTANTE: Responda em no máximo 1-2 frases curtas e sempre completas. Nunca corte uma frase no meio.'
     elif agente.max_tokens <= 300:
@@ -6990,52 +7201,166 @@ def _chamar_ia(agente, historico_msgs):
     if brevidade:
         sistema_completo += f'\n\n{brevidade}'
 
+    # Carrega ações ativas (se o agente for real, não _FakeAgente)
+    acoes_ativas = []
+    if hasattr(agente, 'acoes'):
+        try:
+            acoes_ativas = list(agente.acoes.filter(ativo=True).order_by('ordem', 'nome'))
+        except Exception:
+            acoes_ativas = []
+
     provedor = agente.provedor
 
+    # ── OpenAI ────────────────────────────────────────────────────────────────
     if provedor == 'openai':
         try:
             import openai as _oai
         except ImportError:
             raise Exception('Pacote openai não instalado no servidor.')
         client = _oai.OpenAI(api_key=agente.api_key)
-        resp = client.chat.completions.create(
-            model=agente.modelo_ia,
-            temperature=agente.temperatura,
-            max_tokens=agente.max_tokens,
-            messages=[{'role': 'system', 'content': sistema_completo}] + historico_msgs,
-        )
-        return resp.choices[0].message.content.strip()
 
+        messages = [{'role': 'system', 'content': sistema_completo}] + historico_msgs
+
+        if acoes_ativas:
+            tools = _construir_tools_openai(acoes_ativas)
+            acoes_map = {a.nome: a for a in acoes_ativas}
+
+            # Loop agentico: executa até 5 rodadas de tool_calls
+            for _ in range(5):
+                resp = client.chat.completions.create(
+                    model=agente.modelo_ia,
+                    temperature=agente.temperatura,
+                    max_tokens=agente.max_tokens,
+                    messages=messages,
+                    tools=tools,
+                    tool_choice='auto',
+                )
+                choice = resp.choices[0]
+                if choice.finish_reason == 'tool_calls' and choice.message.tool_calls:
+                    # Adiciona mensagem do assistente com tool_calls
+                    messages.append(choice.message)
+                    for tc in choice.message.tool_calls:
+                        try:
+                            args = _json.loads(tc.function.arguments)
+                        except Exception:
+                            args = {}
+                        acao = acoes_map.get(tc.function.name)
+                        resultado = _executar_acao(acao, args) if acao else 'Ação não encontrada.'
+                        messages.append({
+                            'role': 'tool',
+                            'tool_call_id': tc.id,
+                            'content': resultado,
+                        })
+                else:
+                    # Resposta final
+                    return (choice.message.content or '').strip()
+            # Fallback após 5 rodadas
+            return (resp.choices[0].message.content or '').strip()
+        else:
+            resp = client.chat.completions.create(
+                model=agente.modelo_ia,
+                temperature=agente.temperatura,
+                max_tokens=agente.max_tokens,
+                messages=messages,
+            )
+            return resp.choices[0].message.content.strip()
+
+    # ── Anthropic ─────────────────────────────────────────────────────────────
     elif provedor == 'anthropic':
         try:
             import anthropic as _ant
         except ImportError:
             raise Exception('Pacote anthropic não instalado no servidor.')
         client = _ant.Anthropic(api_key=agente.api_key)
-        resp = client.messages.create(
-            model=agente.modelo_ia,
-            max_tokens=agente.max_tokens,
-            system=sistema_completo,
-            messages=historico_msgs,
-        )
-        return resp.content[0].text.strip()
 
+        if acoes_ativas:
+            tools = _construir_tools_anthropic(acoes_ativas)
+            acoes_map = {a.nome: a for a in acoes_ativas}
+            messages = list(historico_msgs)
+
+            for _ in range(5):
+                resp = client.messages.create(
+                    model=agente.modelo_ia,
+                    max_tokens=agente.max_tokens,
+                    system=sistema_completo,
+                    tools=tools,
+                    messages=messages,
+                )
+                if resp.stop_reason == 'tool_use':
+                    # Mensagem do assistente
+                    messages.append({'role': 'assistant', 'content': resp.content})
+                    tool_results = []
+                    for blk in resp.content:
+                        if blk.type == 'tool_use':
+                            acao = acoes_map.get(blk.name)
+                            resultado = _executar_acao(acao, blk.input) if acao else 'Ação não encontrada.'
+                            tool_results.append({
+                                'type': 'tool_result',
+                                'tool_use_id': blk.id,
+                                'content': resultado,
+                            })
+                    messages.append({'role': 'user', 'content': tool_results})
+                else:
+                    # Resposta final — extrai texto
+                    for blk in resp.content:
+                        if hasattr(blk, 'text'):
+                            return blk.text.strip()
+                    return ''
+            return ''
+        else:
+            resp = client.messages.create(
+                model=agente.modelo_ia,
+                max_tokens=agente.max_tokens,
+                system=sistema_completo,
+                messages=historico_msgs,
+            )
+            return resp.content[0].text.strip()
+
+    # ── Google Gemini ─────────────────────────────────────────────────────────
     elif provedor == 'google':
         try:
             import google.generativeai as genai
         except ImportError:
             raise Exception('Pacote google-generativeai não instalado no servidor.')
         genai.configure(api_key=agente.api_key)
+
+        gemini_tools = _construir_tools_gemini(acoes_ativas) if acoes_ativas else None
+        acoes_map = {a.nome: a for a in acoes_ativas}
+
         model = genai.GenerativeModel(
             model_name=agente.modelo_ia,
             system_instruction=sistema_completo,
+            tools=gemini_tools,
         )
-        chat = model.start_chat(history=[
+        history_gemini = [
             {'role': m['role'] if m['role'] != 'assistant' else 'model', 'parts': [m['content']]}
             for m in historico_msgs[:-1]
-        ])
-        resp = chat.send_message(historico_msgs[-1]['content'])
-        return resp.text.strip()
+        ]
+        chat = model.start_chat(history=history_gemini)
+
+        if acoes_ativas and gemini_tools:
+            resp = chat.send_message(historico_msgs[-1]['content'])
+            for _ in range(5):
+                # Verifica se há function_call
+                part = resp.candidates[0].content.parts[0] if resp.candidates else None
+                if part and hasattr(part, 'function_call') and part.function_call.name:
+                    fc = part.function_call
+                    acao = acoes_map.get(fc.name)
+                    args = dict(fc.args) if fc.args else {}
+                    resultado = _executar_acao(acao, args) if acao else 'Ação não encontrada.'
+                    import google.generativeai.protos as _gp
+                    resp = chat.send_message(_gp.Content(parts=[
+                        _gp.Part(function_response=_gp.FunctionResponse(
+                            name=fc.name,
+                            response={'result': resultado},
+                        ))
+                    ]))
+                else:
+                    break
+            return resp.text.strip()
+        else:
+            resp = chat.send_message(historico_msgs[-1]['content'])
+            return resp.text.strip()
 
     raise Exception(f'Provedor desconhecido: {provedor}')
 
@@ -7062,10 +7387,12 @@ def agente_chat_view(request, public_id):
     embed_url = request.build_absolute_uri(
         reverse('agente_chat', kwargs={'public_id': agente.public_id}) + '?embed=1'
     )
+    acoes_botoes = agente.acoes.filter(ativo=True, exibir_botao=True).order_by('ordem', 'nome')
     return render(request, 'agentes/agente_chat.html', {
         'agente': agente,
         'embed': embed,
         'embed_url': embed_url,
+        'acoes_botoes': acoes_botoes,
     })
 
 
@@ -7162,7 +7489,7 @@ def agente_chat_enviar_view(request, public_id):
     conversa.save(update_fields=['total_mensagens'])
 
     # Classificação silenciosa de lead a cada 3 mensagens do usuário
-    if conversa.total_mensagens % 3 == 0:
+    if agente.habilitar_qualificacao and conversa.total_mensagens % 3 == 0:
         try:
             score, motivo = _classificar_lead(agente, historico[-40:] + [{'role': 'assistant', 'content': resposta_texto}])
             conversa.qualificacao = score
@@ -7193,6 +7520,8 @@ def _classificar_lead(agente, historico_msgs):
     class _FakeAgente:
         prompt_sistema = prompt_classificador
         restricoes = ''
+        nome_empresa = ''
+        provedor = agente.provedor
         modelo_ia = agente.modelo_ia
         api_key = agente.api_key
         max_tokens = 120

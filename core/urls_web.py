@@ -138,6 +138,10 @@ urlpatterns = [
     path('agentes/<int:pk>/configurar/', views.agente_configure_view, name='agente_configure'),
     path('agentes/<int:pk>/delete/', views.agente_delete_view, name='agente_delete'),
     path('agentes/<int:pk>/historico/', views.agente_historico_view, name='agente_historico'),
+    # Ações do agente (function calling)
+    path('agentes/<int:agente_pk>/acoes/criar/', views.agente_acao_create_view, name='agente_acao_create'),
+    path('agentes/acoes/<int:pk>/editar/', views.agente_acao_edit_view, name='agente_acao_edit'),
+    path('agentes/acoes/<int:pk>/delete/', views.agente_acao_delete_view, name='agente_acao_delete'),
     # Gestão de conversas (human takeover)
     path('agentes/conversa/<int:pk>/assumir/', views.agente_conversa_assumir_view, name='agente_conversa_assumir'),
     path('agentes/conversa/<int:pk>/responder/', views.agente_conversa_responder_view, name='agente_conversa_responder'),

@@ -2177,6 +2177,13 @@ class AgenteIA(models.Model):
                                           default='Preciso falar com um atendente',
                                           verbose_name='Texto do botão de escalada')
 
+    # Classificação de lead (pode ser desabilitada por agente)
+    habilitar_qualificacao = models.BooleanField(
+        default=False,
+        verbose_name='Classificar leads automaticamente',
+        help_text='A IA analisa silenciosamente a conversa e classifica o lead como Quente/Morno/Frio.'
+    )
+
     ativo            = models.BooleanField(default=True)
     criado_em        = models.DateTimeField(auto_now_add=True)
     atualizado_em    = models.DateTimeField(auto_now=True)
@@ -2214,6 +2221,84 @@ class AgenteIA(models.Model):
     def get_chat_url(self):
         from django.urls import reverse
         return reverse('agente_chat', kwargs={'public_id': self.public_id})
+
+
+class AgenteIAAcao(models.Model):
+    """
+    Ação que um agente pode executar via chamada HTTP externa.
+    Usa o padrão de function-calling nativo de cada provedor.
+    """
+    METODO_CHOICES = [
+        ('GET',    'GET'),
+        ('POST',   'POST'),
+        ('PUT',    'PUT'),
+        ('DELETE', 'DELETE'),
+    ]
+
+    agente          = models.ForeignKey(AgenteIA, on_delete=models.CASCADE, related_name='acoes')
+    nome            = models.SlugField(
+        max_length=60,
+        help_text='Identificador curto sem espaços (usado internamente pela IA). Ex: verificar_disponibilidade'
+    )
+    descricao       = models.TextField(
+        help_text='Explique o que esta ação faz e quando a IA deve usá-la. '
+                  'Ex: "Verifica salas disponíveis em uma data e com certa capacidade."'
+    )
+    url             = models.CharField(
+        max_length=500,
+        help_text='URL do endpoint. Suporta {placeholders} preenchidos com parâmetros. Ex: https://api.exemplo.com/salas/{data}'
+    )
+    metodo          = models.CharField(max_length=10, choices=METODO_CHOICES, default='GET')
+    headers_json    = models.TextField(
+        blank=True, default='{}',
+        verbose_name='Headers (JSON)',
+        help_text='JSON com os headers da requisição. Ex: {"Authorization": "Bearer TOKEN", "Content-Type": "application/json"}'
+    )
+    corpo_template  = models.TextField(
+        blank=True,
+        verbose_name='Corpo da requisição (template JSON)',
+        help_text='Template JSON para o corpo do POST/PUT. Use {nome_param} para valores dinâmicos. '
+                  'Ex: {"data": "{data}", "capacidade": "{capacidade}"}'
+    )
+    parametros_json = models.TextField(
+        blank=True, default='[]',
+        verbose_name='Parâmetros (JSON)',
+        help_text='Lista JSON dos parâmetros que a IA deve coletar. '
+                  'Ex: [{"nome": "data", "tipo": "string", "descricao": "Data no formato YYYY-MM-DD", "obrigatorio": true}]'
+    )
+    exibir_botao    = models.BooleanField(
+        default=False,
+        help_text='Exibe um botão de atalho no chat para iniciar esta ação diretamente'
+    )
+    texto_botao     = models.CharField(
+        max_length=80, blank=True,
+        help_text='Texto do botão exibido no chat. Ex: "Ver salas disponíveis"'
+    )
+    ativo           = models.BooleanField(default=True)
+    ordem           = models.PositiveIntegerField(default=0)
+    criado_em       = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Ação do Agente'
+        verbose_name_plural = 'Ações do Agente'
+        ordering = ['ordem', 'nome']
+
+    def __str__(self):
+        return f'{self.nome} — {self.agente.nome}'
+
+    def headers(self):
+        import json
+        try:
+            return json.loads(self.headers_json or '{}')
+        except Exception:
+            return {}
+
+    def parametros(self):
+        import json
+        try:
+            return json.loads(self.parametros_json or '[]')
+        except Exception:
+            return []
 
 
 class AgenteIAConversa(models.Model):
