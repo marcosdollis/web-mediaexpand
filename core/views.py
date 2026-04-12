@@ -6867,7 +6867,13 @@ def agente_create_view(request):
             agente.avatar = request.FILES['avatar']
             agente.save()
         if 'base_conhecimento' in request.FILES:
-            agente.base_conhecimento = request.FILES['base_conhecimento']
+            f_base = request.FILES['base_conhecimento']
+            _ext_ok = f_base.name.lower().endswith(('.txt', '.csv', '.tsv'))
+            _size_ok = f_base.size <= 500 * 1024  # 500 KB
+            if not _ext_ok or not _size_ok:
+                messages.error(request, 'Base de conhecimento: use .txt/.csv/.tsv com até 500 KB.')
+                return redirect('agente_configure', pk=agente.pk)
+            agente.base_conhecimento = f_base
             agente.save(update_fields=['base_conhecimento'])
 
         messages.success(request, f'Agente "{agente.nome}" criado com sucesso!')
@@ -6916,7 +6922,13 @@ def agente_configure_view(request, pk):
         if 'avatar' in request.FILES:
             agente.avatar = request.FILES['avatar']
         if 'base_conhecimento' in request.FILES:
-            agente.base_conhecimento = request.FILES['base_conhecimento']
+            f_base = request.FILES['base_conhecimento']
+            _ext_ok = f_base.name.lower().endswith(('.txt', '.csv', '.tsv'))
+            _size_ok = f_base.size <= 500 * 1024  # 500 KB
+            if not _ext_ok or not _size_ok:
+                messages.error(request, 'Base de conhecimento: use .txt/.csv/.tsv com até 500 KB.')
+                return redirect('agente_configure', pk=agente.pk)
+            agente.base_conhecimento = f_base
         elif request.POST.get('limpar_base_conhecimento') == '1' and agente.base_conhecimento:
             agente.base_conhecimento.delete(save=False)
             agente.base_conhecimento = None
@@ -6971,11 +6983,13 @@ def agente_acao_create_view(request, agente_pk):
     if request.method == 'POST':
         from .models import AgenteIAAcao
         acao = AgenteIAAcao(agente=agente)
-        acao.tipo            = request.POST.get('tipo', 'http')
+        _tipos_validos  = ('http', 'capturar')
+        _metodos_validos = ('GET', 'POST', 'PUT', 'DELETE')
+        acao.tipo            = request.POST.get('tipo', 'http') if request.POST.get('tipo') in _tipos_validos else 'http'
         acao.nome            = request.POST.get('nome', '').strip()
         acao.descricao       = request.POST.get('descricao', '').strip()
         acao.url             = request.POST.get('url', '').strip()
-        acao.metodo          = request.POST.get('metodo', 'GET')
+        acao.metodo          = request.POST.get('metodo', 'GET') if request.POST.get('metodo') in _metodos_validos else 'GET'
         acao.headers_json    = request.POST.get('headers_json', '{}').strip() or '{}'
         acao.corpo_template  = request.POST.get('corpo_template', '').strip()
         acao.parametros_json = request.POST.get('parametros_json', '[]').strip() or '[]'
@@ -7008,11 +7022,13 @@ def agente_acao_edit_view(request, pk):
     if redir:
         return redir
     if request.method == 'POST':
+        _tipos_validos  = ('http', 'capturar')
+        _metodos_validos = ('GET', 'POST', 'PUT', 'DELETE')
         acao.nome            = request.POST.get('nome', acao.nome).strip()
-        acao.tipo            = request.POST.get('tipo', acao.tipo)
+        acao.tipo            = request.POST.get('tipo', acao.tipo) if request.POST.get('tipo') in _tipos_validos else acao.tipo
         acao.descricao       = request.POST.get('descricao', '').strip()
         acao.url             = request.POST.get('url', '').strip()
-        acao.metodo          = request.POST.get('metodo', acao.metodo)
+        acao.metodo          = request.POST.get('metodo', acao.metodo) if request.POST.get('metodo') in _metodos_validos else acao.metodo
         acao.headers_json    = request.POST.get('headers_json', '{}').strip() or '{}'
         acao.corpo_template  = request.POST.get('corpo_template', '').strip()
         acao.parametros_json = request.POST.get('parametros_json', '[]').strip() or '[]'
@@ -7087,8 +7103,9 @@ def agente_captura_status_view(request, pk):
             captura.save(update_fields=['status', 'atualizado_em'])
             messages.success(request, f'Status atualizado para "{captura.get_status_display()}".')
     # Redireciona de volta para onde veio (historico ou capturas)
+    # Valida next_url contra open redirect — só permite URLs relativas do próprio site
     next_url = request.POST.get('next', '')
-    if next_url:
+    if next_url and next_url.startswith('/'):
         return redirect(next_url)
     return redirect('agente_capturas', pk=captura.agente_id)
 
@@ -7585,6 +7602,10 @@ def agente_chat_enviar_view(request, public_id):
     if not session_id or not mensagem:
         return JsonResponse({'error': 'session_id e mensagem são obrigatórios.'}, status=400)
 
+    # Limita tamanho da mensagem para evitar abuso de tokens da API
+    if len(mensagem) > 4000:
+        return JsonResponse({'error': 'Mensagem muito longa (máx. 4000 caracteres).'}, status=400)
+
     conversa = get_object_or_404(AgenteIAConversa, session_id=session_id, agente=agente)
 
     # Limite de mensagens por sessão
@@ -7607,7 +7628,9 @@ def agente_chat_enviar_view(request, public_id):
     try:
         resposta_texto = _chamar_ia(agente, historico[-40:], conversa=conversa)  # janela de 40 msgs
     except Exception as e:
-        return JsonResponse({'error': f'Erro ao consultar IA: {str(e)}'}, status=500)
+        import logging as _log
+        _log.getLogger(__name__).error('Erro _chamar_ia agente=%s: %s', agente.pk, e)
+        return JsonResponse({'error': 'Erro ao consultar a IA. Tente novamente em instantes.'}, status=500)
 
     # Salva resposta
     AgenteIAMensagem.objects.create(conversa=conversa, role='assistant', conteudo=resposta_texto)
